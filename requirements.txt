@@ -1,5 +1,5 @@
 yfinance
 pandas
 pandas-ta
-numpy
 plotly
+numpy
