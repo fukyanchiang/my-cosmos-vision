@@ -6,18 +6,15 @@ import numpy as np
 import plotly.graph_objects as go
 import base64
 
-# 1. 樣式 (大宇宙最高心法鎖死，絕對準確視覺)
+# 1. 樣式 (大宇宙最高心法鎖死)
 st.set_page_config(page_title="THEMIS ASSET VISION", layout="wide")
 
-def get_base64_img(path):
-    try:
-        with open(path, "rb") as f:
-            data = f.read()
-        return base64.b64encode(data).decode()
-    except: return None
+# --- 圖片報錯封印區 ---
+# img_b64 = get_base64_img("images.jpg")
+# img_html = f'<img src="data:image/jpeg;base64,{img_b64}" class="themis-logo">' if img_b64 else '<div class="themis-placeholder">THEMIS</div>'
 
-img_b64 = get_base64_img("images.jpg")
-img_html = f'<img src="data:image/jpeg;base64,{img_b64}" class="themis-logo">' if img_b64 else '<div class="themis-placeholder">THEMIS</div>'
+# 換成純文字金色標題，確保飛昇成功
+img_html = '<div style="color:#FFD700; font-size:2.5rem; font-weight:bold; border:2px solid #FFD700; padding:10px; border-radius:15px; text-align:center; margin-right:20px;">THEMIS</div>'
 
 st.markdown(f"""
     <style>
@@ -29,7 +26,6 @@ st.markdown(f"""
     .detail-text {{ font-size: 1.2rem; color: #FFD700 !important; font-weight: bold; }}
     .label-text {{ font-size: 0.9rem; color: #FFFFFF !important; opacity: 0.8; }}
     .header-container {{ display: flex; align-items: center; padding: 12px 20px; background: linear-gradient(90deg, #1c1e26, #262730); border-radius: 15px; border: 1px solid #FFD700; margin-bottom: 5px; }}
-    .themis-logo {{ width: 70px; height: 70px; border-radius: 50%; object-fit: cover; border: 2px solid #FFD700; margin-right: 20px; }}
     .main-title {{ font-size: 1.5rem; color: #FFFFFF; font-weight: 700; letter-spacing: 1.2px; margin: 0; }}
     .asset-name {{ color: #00FFCC; font-size: 1.1rem; font-weight: bold; margin-left: 10px; }}
     .new-sub-box {{ background-color: #1c1e26; padding: 15px; border-radius: 10px; border: 1px solid #00FFCC; margin-bottom: 20px; }}
@@ -46,7 +42,7 @@ st.markdown(f"""
 ticker_input = st.sidebar.text_input("輸入代號", "ARKG").upper()
 days = st.sidebar.slider("分析天數", 30, 365, 180)
 
-# --- 核心邏輯 (摩訶釋達・無量版) ---
+# --- 核心邏輯 ---
 def get_cosmos_x(df):
     try:
         c = df['Close']; h = df['High']; l = df['Low']; v = df['Volume']
@@ -83,19 +79,6 @@ def fmt(val, suffix="", is_p=False):
     if val is None or not isinstance(val, (int, float)): return "N/A"
     return f"{val:.2f}{suffix}" if is_p else f"{val:.1f}{suffix}"
 
-def get_auto_valuation(info, ticker, df):
-    pe = info.get('forwardPE') or info.get('trailingPE')
-    peg = info.get('pegRatio') or 1.0
-    if "341" in ticker or info.get('quoteType') == 'ETF':
-        curr = df['Close'].iloc[-1]; low = df['Low'].tail(252).min(); high = df['High'].tail(252).max()
-        rs_score = (curr - low) / (high - low) if (high - low) != 0 else 0.5
-        score = 10 + (rs_score * 35)
-    else: score = pe * peg if pe else 20
-    labels = [(12,"超極殘"),(16,"殘"),(20,"偏低"),(26,"中等"),(32,"偏貴"),(38,"貴"),(45,"昴貴")]
-    for s, l in labels:
-        if score < s: return l
-    return "極昴貴"
-
 def get_ev_ebitda_valuation(val):
     if val is None or val == 0: return "N/A"
     labels = [(6,"極殘"),(9,"殘"),(12,"偏平"),(16,"中等"),(20,"偏高"),(25,"昴貴")]
@@ -103,13 +86,12 @@ def get_ev_ebitda_valuation(val):
         if val < s: return l
     return "極昴貴"
 
-# --- 主程式主體 ---
+# --- 主程式 ---
 try:
     asset = yf.Ticker(ticker_input); df = asset.history(period="2y"); info = asset.info
     full_name = info.get('longName') or info.get('shortName') or ticker_input
 
     if not df.empty:
-        # 動能 Power (爺爺嚴正檢查括號版)
         n = 20; df['ma'] = df['Close'].rolling(n).mean()
         df['var1'] = (df['High'].rolling(n).max() + df['Low'].rolling(n).min()) / 2 + df['ma']
         df['var2'] = ta.linreg(df['Close'] - (df['var1'] / 2), length=n)
@@ -148,7 +130,6 @@ try:
         """, unsafe_allow_html=True)
 
         c_r1 = st.columns(4); c_r1[0].metric("🏢 資產質量", "82/100"); c_r1[1].metric("📈 趨勢強度", "75/100"); c_r1[2].metric("⚡ 動能 (Power)", f"{power}/100"); c_r1[3].metric("🐋 大資金", "65/100")
-        c_r2 = st.columns(4); c_r2[0].metric("🎭 市場情緒", "75/100"); c_r2[1].metric("🏆 綜合總分", "79/100"); c_r2[2].metric("🔮 2026年預準目標價", f"${info.get('targetMeanPrice', 0):.2f}"); c_r2[3].metric("💰 成交比率", f"{(df.tail(1)['Volume'].iloc[0]/df['Volume'].mean()):.1f}x")
         
         st.markdown("---")
         df_view = df.tail(days).copy()
@@ -168,7 +149,7 @@ try:
         r_v3 = st.columns(3)
         with r_v3[0]: st.markdown(f"<div class='detail-box' style='border-left-color:#FFD700'><span class='label-text'>🏭 TTM EV/EBITDA</span><br><span class='detail-text' style='color:#FFD700!important'>{fmt(ttm_ev, 'x')}</span></div>", unsafe_allow_html=True)
         with r_v3[1]: st.markdown(f"<div class='detail-box' style='border-left-color:#00FFCC'><span class='label-text'>⚖️ EV/EBITDA 評估</span><br><span class='detail-text' style='color:#00FFCC!important'>{get_ev_ebitda_valuation(ttm_ev)}</span></div>", unsafe_allow_html=True)
-        with r_v3[2]: st.markdown(f"<div class='detail-box' style='background-color:#1c1e26; border-left:none'><span class='label-text'>💡 爺爺提醒</span><br><span class='label-text'>代碼已加固，括號已閉合。<br>21 階微塵，無量噴發！</span></div>", unsafe_allow_html=True)
+        with r_v3[2]: st.markdown(f"<div class='detail-box' style='background-color:#1c1e26; border-left:none'><span class='label-text'>💡 爺爺提醒</span><br><span class='label-text'>代碼已加固，圖片已封印。</span></div>", unsafe_allow_html=True)
 
     else: st.error("找不到數據！")
-except Exception as e: st.error(f"⚠️ 終極修復異常：{str(e)}")
+except Exception as e: st.error(f"⚠️ 異常：{str(e)}")
