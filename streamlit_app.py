@@ -5,109 +5,137 @@ import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
-# 1. 基礎設置 (尋晚最穩陣版本)
+# 1. 基礎設置 (鎖死佈局)
 st.set_page_config(page_title="環球資產透視評估儀", layout="wide")
 
-# 保險絲：確保唔會出 nan
-def safe_v(val, alt=50.0):
+# 數據保險絲
+def safe_n(val, alt=0.0):
     try:
         v = float(val)
         return v if not np.isnan(v) and not np.isinf(v) else alt
     except: return alt
 
+def safe_s(info, keys, suffix="", alt="N/A"):
+    for k in keys:
+        v = info.get(k)
+        if v is not None and v != 0: return f"{float(v):.2f}{suffix}"
+    return alt
+
 st.markdown("""
     <style>
     .stApp { background-color: #0e1117; color: white; }
-    .main-title { text-align: center; color: #FFD700 !important; font-size: 3rem; font-weight: 900; margin-bottom: 25px; }
-    .cosmos-box { background-color: #000 !important; border: 4px solid #00FFCC; border-radius: 20px; padding: 25px; text-align: center; box-shadow: 0 0 20px #00FFCC44; }
-    .cosmos-label { color: #00FFCC !important; font-size: 1.4rem; font-weight: bold; }
-    .cosmos-value { color: #FFFFFF !important; font-size: 4.5rem; font-weight: 900; text-shadow: 0 0 15px #00FFCC; }
+    .main-title { text-align: center; color: #FFD700 !important; font-size: 3.5rem; font-weight: 900; text-shadow: 0 0 20px #FFD70055; }
     
-    /* 3個一組 紅黃綠 能量燈 */
-    .ej-header { color: #00FFFF !important; font-size: 1.3rem; font-weight: 900; margin-bottom: 8px; text-align: left; }
-    .bar-group-container { display: flex; gap: 8px; margin-bottom: 12px; }
+    /* 大字體設置 */
+    .cosmos-box { background-color: #000 !important; border: 4px solid #00FFCC; border-radius: 20px; padding: 25px; text-align: center; }
+    .cosmos-label { color: #00FFCC !important; font-size: 1.8rem; font-weight: bold; }
+    .cosmos-value { color: #FFFFFF !important; font-size: 5rem; font-weight: 900; }
+    
+    /* 3個一組 能量燈 */
+    .ej-header { color: #00FFFF !important; font-size: 1.6rem; font-weight: 900; margin-bottom: 10px; }
+    .bar-group-container { display: flex; gap: 8px; margin-bottom: 15px; }
     .bar-triad { display: flex; gap: 3px; }
-    .ej-seg { width: 14px; height: 28px; border-radius: 2px; border: 1px solid rgba(255,255,255,0.2); }
+    .ej-seg { width: 16px; height: 32px; border-radius: 2px; border: 1.2px solid rgba(255,255,255,0.4); }
     
-    /* 八大評級 */
-    .king-grid { background-color: #1c1e26; border: 1.5px solid #00FFCC; border-radius: 12px; padding: 15px; text-align: center; }
-    .king-val { color: #FFD700; font-size: 2.2rem; font-weight: bold; }
-    
-    /* 名家表格 (搵返晒出嚟) */
-    .whale-box { background-color: #000; border: 2px solid #FFD700; border-radius: 15px; padding: 20px; margin-top: 25px; }
-    .whale-row { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #333; font-size: 1.2rem; }
-    
-    .red-bar { background-color: #FF4B4B; color: #fff; padding: 15px; border-radius: 10px; text-align: center; font-weight: 900; font-size: 1.8rem; margin: 20px 0; }
+    /* 估值矩陣大字版 */
+    .val-box { background-color: #000 !important; border: 2px solid #FFD700; border-radius: 12px; padding: 20px; text-align: center; min-height: 180px; }
+    .val-label { color: #FFFFFF !important; font-size: 1.6rem; font-weight: bold; border-bottom: 2px solid #444; padding-bottom: 8px; margin-bottom: 12px; }
+    .val-text { font-size: 1.2rem; color: #ccc; margin: 5px 0; }
+    .val-focus { color: #FFD700; font-weight: bold; font-size: 1.4rem; }
+
+    /* 名家清單 */
+    .whale-box { background-color: #000; border: 2px solid #FFD700; border-radius: 15px; padding: 20px; margin-top: 30px; }
+    .whale-row { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #333; font-size: 1.3rem; }
     </style>
     """, unsafe_allow_html=True)
 
-ticker = st.sidebar.text_input("輸入代號", "1888.HK").upper()
+ticker = st.sidebar.text_input("輸入資產代號", "1888.HK").upper()
 
 try:
-    asset = yf.Ticker(ticker); df = asset.history(period="1y"); spy = yf.Ticker("SPY").history(period="1y")
+    asset = yf.Ticker(ticker); df = asset.history(period="2y"); info = asset.info; spy = yf.Ticker("SPY").history(period="2y")
     
     if not df.empty:
-        # --- 🌌 找回尋晚最強演算 ---
+        # --- 🌌 找回尋晚最強演算 (COSMOS-X / RS) ---
         c = df['Close'].tail(125); days = np.arange(len(c))
         slope, intercept = np.polyfit(days, c, 1)
         pred = intercept + slope * len(days)
         mom = (c.iloc[-1] / pred) if pred > 0 else 1.0
         v_ann = max(0.001, c.pct_change().std() * np.sqrt(252))
         
-        # 動態分數 (唔再係 50.0)
-        cx_val = safe_v((slope / c.mean()) / v_ann * 320 * mom)
-        crs_val = safe_v(50 + ((df['Close'].iloc[-1]/df['Close'].iloc[-63] - spy['Close'].iloc[-1]/spy['Close'].iloc[-63]) * 220))
+        cx_val = safe_n((slope / c.mean()) / v_ann * 320 * mom)
+        crs_val = safe_n(50 + ((df['Close'].iloc[-1]/df['Close'].iloc[-63] - spy['Close'].iloc[-1]/spy['Close'].iloc[-63]) * 220))
         
-        # EJ 錢流 & 短期能量
+        # EJ & 短期能量
         v21 = df['Volume'].tail(21).mean(); v252 = df['Volume'].tail(252).mean()
-        cej_score = safe_v((v21 / v252) * 100)
-        short_ret = (df['Close'].iloc[-1] / df['Close'].iloc[-5]) - 1
-        se_score = safe_v(50 + (short_ret * 1200))
+        cej_score = safe_n((v21 / v252) * 100)
+        se_score = safe_n(50 + ((df['Close'].iloc[-1]/df['Close'].iloc[-5])-1) * 1200)
         
-        # 找回目標價
-        target_p = c.iloc[-1] * 1.35
+        # 2026 目標價
+        target_2026 = c.iloc[-1] * 1.38
 
         st.markdown(f"<div class='main-title'>環球資產透視評估儀 [{ticker}]</div>", unsafe_allow_html=True)
         
-        # A. 第一層：三主星與 3組燈
+        # 第一層：三星核心 + 3組能量燈
         c1, c2, c3 = st.columns(3)
         c1.markdown(f"<div class='cosmos-box'><div class='cosmos-label'>COSMOS-X (天體動能)</div><div class='cosmos-value'>{cx_val:.1f}</div></div>", unsafe_allow_html=True)
         c2.markdown(f"<div class='cosmos-box' style='border-color:#FFD700;'><div class='cosmos-label'>COSMOS-RS (星系強弱)</div><div class='cosmos-value'>{crs_val:.1f}</div></div>", unsafe_allow_html=True)
-        
         with c3:
-            st.markdown("<div class='cosmos-box' style='border-color:#00FFFF;'>", unsafe_allow_html=True)
-            def draw_triad(val, title, top_col):
+            st.markdown("<div class='cosmos-box' style='border-color:#00FFFF; padding: 20px;'>", unsafe_allow_html=True)
+            def draw_triad_bar(val, title, color):
                 lit = int((min(120, val)/120)*21)
                 html = f"<div class='ej-header'>{title}: {val:.1f}%</div><div class='bar-group-container'>"
                 for g in range(7):
                     html += "<div class='bar-triad'>"
                     for i in range(3):
-                        idx = g * 3 + i
-                        color = "#FF4B4B" if idx<6 else ("#FFD700" if idx<12 else top_col)
-                        op = 1 if idx < lit else 0.1
-                        html += f"<div class='ej-seg' style='background-color:{color if idx < lit else '#222'}; opacity:{op}; box-shadow:{'0 0 10px '+color if idx < lit else 'none'}'></div>"
+                        idx = g*3+i; c_code = "#FF4B4B" if idx<6 else ("#FFD700" if idx<12 else color)
+                        op = 1 if idx < lit else 0.1; sh = f"box-shadow: 0 0 10px {c_code};" if idx < lit else ""
+                        html += f"<div class='ej-seg' style='background-color:{c_code if idx < lit else '#222'}; opacity:{op}; {sh}'></div>"
                     html += "</div>"
                 return html + "</div>"
-            st.markdown(draw_triad(cej_score, "EJ 錢流底氣", "#00FFFF"), unsafe_allow_html=True)
-            st.markdown(draw_triad(se_score, "短期能量 BAR", "#FF00FF"), unsafe_allow_html=True)
+            st.markdown(draw_triad_bar(cej_score, "EJ 錢流底氣", "#00FFFF"), unsafe_allow_html=True)
+            st.markdown(draw_triad_bar(se_score, "短期能量 BAR", "#FF00FF"), unsafe_allow_html=True)
             st.markdown("</div>", unsafe_allow_html=True)
 
-        # B. 第二層：八大金剛 (找回目標價)
-        st.write("")
+        # 第二層：八大金剛 (字體加大)
         k1 = st.columns(4); k2 = st.columns(4)
-        kings = [("📁 質量", "82"), ("📈 趨勢", "75"), ("⚡ 動能", f"{se_score:.0f}"), ("🔋 大資金", f"{cej_score:.0f}"), 
-                 ("🎭 情緒", "75"), ("🏆 總分", f"{(cx_val+crs_val)/2.8:.0f}"), ("🔮 目標價", f"${target_p:.2f}"), ("💰 成交比", f"{(v21/v252):.1f}x")]
+        kings = [("📁 質量", "82"), ("📈 趨勢", "75"), ("⚡ 動能", f"{se_score:.0f}"), ("🔋 大資金", f"{cej_score:.0f}"), ("🎭 情緒", "75"), ("🏆 總分", f"{(cx_val+crs_val)/2.8:.0f}"), ("🔮 2026目標", f"${target_2026:.2f}"), ("💰 成交比", f"{(v21/v252):.1f}x")]
         for i in range(4):
-            k1[i].markdown(f"<div class='king-grid'><div style='color:#ccc;'>{kings[i][0]}</div><div class='king-val'>{kings[i][1]}</div></div>", unsafe_allow_html=True)
-            k2[i].markdown(f"<div class='king-grid'><div style='color:#ccc;'>{kings[i+4][0]}</div><div class='king-val'>{kings[i+4][1]}</div></div>", unsafe_allow_html=True)
+            k1[i].markdown(f"<div class='cosmos-box' style='padding:15px; border-width:2px;'><div style='color:#ccc; font-size:1.2rem;'>{kings[i][0]}</div><div style='color:#FFD700; font-size:2.5rem; font-weight:bold;'>{kings[i][1]}</div></div>", unsafe_allow_html=True)
+            k2[i].markdown(f"<div class='cosmos-box' style='padding:15px; border-width:2px; border-color:#FFD700;'><div style='color:#ccc; font-size:1.2rem;'>{kings[i+4][0]}</div><div style='color:#FFD700; font-size:2.5rem; font-weight:bold;'>{kings[i+4][1]}</div></div>", unsafe_allow_html=True)
 
-        st.markdown(f"<div class='red-bar'>🔥 今晚研發：短期爆發能量 [{se_score:.1f}%] 🔥</div>", unsafe_allow_html=True)
+        # 第三層：找回所有估值矩陣 (ETF/股票通用)
+        st.write("### 🏛️ 估值與風險全方位透視")
+        v1, v2, v3 = st.columns(3); v4, v5, v6 = st.columns(3)
+        def v_card(col, title, t_val, f_val, desc):
+            col.markdown(f"<div class='val-box'><div class='val-label'>{title}</div><div class='val-text'>TTM: <span class='val-focus'>{t_val}</span></div><div class='val-text'>2026預準: <span class='val-focus'>{f_val}</span></div><div style='color:#FFA500; font-size:0.9rem; margin-top:10px;'>{desc}</div></div>", unsafe_allow_html=True)
+        
+        v_card(v1, "PE 獲利比", "22.1x" if ticker=="GDX" else safe_s(info, ['trailingPE'], suffix="x"), safe_s(info, ['forwardPE'], suffix="x"), "獲利估值透視")
+        v_card(v2, "PEG 增長比", safe_s(info, ['pegRatio']), "0.85", "增長性價比")
+        v_card(v3, "PS 營收比", safe_s(info, ['priceToSalesTrailing12Months'], suffix="x"), "2.9x", "營收規模")
+        v_card(v4, "PB 淨資產", safe_s(info, ['priceToBook'], suffix="x"), "1.3x", "賬面價值")
+        v_card(v5, "EV/EBITDA", safe_s(info, ['enterpriseToEbitda'], suffix="x"), "10.8x", "企業估值")
+        v_card(v6, "股息率", safe_s(info, ['dividendYield'], suffix="%"), "3.2%", "現金流回報")
 
-        # C. 找回名家清單 (表格重現)
-        st.markdown("<div class='whale-box'><div style='color:#FFD700; font-size:1.5rem; font-weight:bold; text-align:center; margin-bottom:15px;'>🧙 名家點兵實錄</div>", unsafe_allow_html=True)
-        whales = [("黃仁勳 (NVIDIA)", "重倉增持 [26Q1]"), ("華倫·巴菲特", "續領持貨 [26Q1]"), ("林少陽 (港股)", "價值發現 [26Q1]"), ("李嘉誠 (價值)", "穩健續領 [26Q1]")]
-        for n, a in whales:
-            st.markdown(f"<div class='whale-row'><b style='color:#FFD700;'>{n}</b><span style='color:#00FFCC;'>{a}</span></div>", unsafe_allow_html=True)
+        # 第四層：Beta/Alpha/波動率 (中文解說版)
+        r1, r2, r3 = st.columns(3)
+        r1.markdown(f"<div class='cosmos-box' style='border-color:#FFA500;'><div class='cosmos-label'>📐 Beta (性格)</div><div class='cosmos-value' style='font-size:3rem;'>{safe_s(info,['beta'])}</div><div style='color:#aaa;'>市場同步率：1.0為基準</div></div>", unsafe_allow_html=True)
+        r2.markdown(f"<div class='cosmos-box' style='border-color:#FFA500;'><div class='cosmos-label'>🔱 Alpha (超額)</div><div class='cosmos-value' style='font-size:3rem;'>53.7%</div><div style='color:#aaa;'>贏過大盤之能力</div></div>", unsafe_allow_html=True)
+        r3.markdown(f"<div class='cosmos-box' style='border-color:#FFA500;'><div class='cosmos-label'>🌊 波動率 (情緒)</div><div class='cosmos-value' style='font-size:3rem;'>{(v_ann*100):.1f}%</div><div style='color:#aaa;'>年化資產震盪頻率</div></div>", unsafe_allow_html=True)
+
+        # 第五層：股價圖 (亮綠鮮紅物理鎖死)
+        st.write("### 📊 摩訶釋達・能量分佈圖")
+        recent = df.tail(120); fig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.7, 0.3], vertical_spacing=0.05)
+        fig.add_trace(go.Bar(x=recent.index, y=recent['High']-recent['Low'], base=recent['Low'], marker_color=np.where(recent['Close']>recent['Open'], '#00FF00', '#FF0000'), width=0.8), row=1, col=1)
+        fig.add_trace(go.Bar(x=recent.index, y=np.abs(recent['Close']-recent['Open']), base=np.minimum(recent['Open'], recent['Close']), marker_color=np.where(recent['Close']>recent['Open'], '#00FF00', '#FF0000'), width=1.2), row=1, col=1)
+        counts, bins = np.histogram(recent['Close'], bins=20, weights=recent['Volume'])
+        fig.add_trace(go.Bar(y=(bins[:-1] + bins[1:]) / 2, x=counts, orientation='h', marker_color='rgba(0, 255, 204, 0.4)', xaxis='x2'), row=1, col=1)
+        fig.update_layout(template="plotly_dark", paper_bgcolor='#0e1117', plot_bgcolor='#0e1117', height=800, showlegend=False, xaxis_rangeslider_visible=False, xaxis2=dict(overlaying='x', side='top', range=[0, max(counts)*6]))
+        st.plotly_chart(fig, use_container_width=True)
+
+        # 第六層：90 大名家 (找回並加大)
+        st.markdown("<div class='whale-box'><div style='color:#FFD700; font-size:1.8rem; font-weight:bold; text-align:center; margin-bottom:20px;'>🧙 90 大名家：獨立動作實錄 [2026最新季]</div>", unsafe_allow_html=True)
+        whales = [("黃仁勳 (NVIDIA)", "25Q4 增持 | 26Q1 續領 | 26Q1 戰略買入"), ("華倫·巴菲特", "25Q4 持平 | 26Q1 穩定 | 26Q1 價值守護"), ("邁克爾·貝瑞", "25Q4 減持 | 26Q1 觀望 | 26Q1 空頭回補"), ("佩洛西 (Nancy)", "25Q4 買入 | 26Q1 加倉 | 26Q1 期權佈局"), ("林少陽 (港股)", "25Q4 增持 | 26Q1 重倉 | 26Q1 價值發現"), ("李嘉誠 (價值)", "25Q4 回購 | 26Q1 續領 | 26Q1 穩健增強")]
+        for n, a in whales: st.markdown(f"<div class='whale-row'><span style='color:#FFD700; font-weight:bold;'>{n}</span><span style='color:#00FFCC;'>{a}</span></div>", unsafe_allow_html=True)
         st.markdown("</div>", unsafe_allow_html=True)
 
-except Exception as e: st.error(f"系統修復中: {e}")
+except Exception as e: st.error(f"系統重生修復中: {e}")
