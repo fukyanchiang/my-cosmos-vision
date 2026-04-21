@@ -66,17 +66,22 @@ try:
     if not df.empty:
         curr_price = df['Close'].iloc[-1]
         
-        # --- 🌌 核心演算 (尋晚最強防爆版) ---
+        # ---------------------------------------------------------
+        # 🌌 核心演算 (這裡換回了你指定的尋日原版 COSMOS-X 邏輯)
+        # ---------------------------------------------------------
         c = df['Close'].tail(125)
         if len(c) > 5:
-            days = np.arange(len(c))
-            slope, intercept = np.polyfit(days, c, 1)
-            pred = intercept + slope * len(days)
-            mom = (curr_price / pred) if pred > 0 else 1.0
-            v_ann = max(0.01, c.pct_change().std() * np.sqrt(252))
-            cx_val = safe_n((slope / c.mean()) / v_ann * 320 * mom, 50.0)
+            x_ax = np.arange(len(c))
+            slope, _ = np.polyfit(x_ax, c, 1)
+            # 波動率 (年化)
+            vol = max(0.001, c.pct_change().std() * np.sqrt(252))
+            
+            # 原版邏輯：(斜率 / 平均價) / 年化波動率 * 350
+            cx_val = safe_n((slope / c.mean()) / vol * 350, 50.0)
+            v_ann = vol
         else:
             cx_val = 50.0; v_ann = 0.2
+        # ---------------------------------------------------------
 
         if len(df) > 60 and len(spy) > 60:
             crs_val = safe_n(50 + ((curr_price/df['Close'].iloc[-60] - spy['Close'].iloc[-1]/spy['Close'].iloc[-60]) * 220), 50.0)
@@ -148,7 +153,7 @@ try:
         r2.markdown(f"<div class='cosmos-box' style='border-color:#FFA500;'><div class='cosmos-label'>🔱 Alpha (超額)</div><div class='cosmos-value' style='font-size:3rem;'>53.7%</div><div style='color:#aaa;'>贏過大盤之能力</div></div>", unsafe_allow_html=True)
         r3.markdown(f"<div class='cosmos-box' style='border-color:#FFA500;'><div class='cosmos-label'>🌊 波動率 (情緒)</div><div class='cosmos-value' style='font-size:3rem;'>{(v_ann*100):.1f}%</div><div style='color:#aaa;'>年化資產震盪頻率</div></div>", unsafe_allow_html=True)
 
-        # 第五層：股價圖 (獨立 Try-Catch 隔離！就算畫唔出都唔會搞死成個網頁！)
+        # 第五層：股價圖 (獨立 Try-Catch 隔離)
         st.write("### 📊 摩訶釋達・能量分佈圖")
         try:
             recent = df.tail(120)
@@ -167,7 +172,7 @@ try:
         except Exception as chart_e:
             st.warning("股價圖數據不足，已暫時隱藏。")
 
-        # 第六層：名家 (即使上面出錯，呢度都一定會出現！)
+        # 第六層：名家 
         st.markdown("<div class='whale-box'><div style='color:#FFD700; font-size:1.8rem; font-weight:bold; text-align:center; margin-bottom:20px;'>🧙 90 大名家：獨立動作實錄 [2026 最新連動]</div>", unsafe_allow_html=True)
         whales = [("黃仁勳 (NVIDIA)", "25Q4 增持 | 26Q1 續領 | 26Q1 戰略買入"), ("華倫·巴菲特", "25Q4 持平 | 26Q1 穩定 | 26Q1 價值守護"), ("邁克爾·貝瑞", "25Q4 減持 | 26Q1 觀望 | 26Q1 空頭回補"), ("佩洛西 (Nancy)", "25Q4 買入 | 26Q1 加倉 | 26Q1 期權佈局"), ("林少陽 (港股)", "25Q4 增持 | 26Q1 重倉 | 26Q1 價值發現"), ("李嘉誠 (價值)", "25Q4 回購 | 26Q1 續領 | 26Q1 穩健增強")]
         for n, a in whales:
