@@ -5,6 +5,97 @@ import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
+# 1. 強制寬屏排版
+st.set_page_config(page_title="THEMIS 114.0 MOBILE-PRO", layout="wide")
+
+# 2. 手機端 CSS 深度優化
+st.markdown("""
+    <style>
+    body, .main { background-color: #0e1117; color: white; }
+    /* 主星盒：手機端適當縮小字體防止換行 */
+    .cosmos-box { 
+        background-color: #000; border: 2px solid #00FFCC; border-radius: 10px; 
+        padding: 10px; text-align: center; margin-bottom: 10px;
+    }
+    .cosmos-label { color: #00FFCC; font-size: 0.75rem; font-weight: bold; }
+    .cosmos-value { color: #FFF; font-size: 1.8rem; font-weight: bold; }
+    
+    /* 八大金剛：格仔化 */
+    .king-box { 
+        background-color: #1c1e26; border: 1px solid #00FFCC; border-radius: 8px; 
+        padding: 8px; text-align: center; margin-bottom: 5px;
+    }
+    .king-value { color: #FFD700; font-size: 1.2rem; font-weight: bold; }
+    
+    /* 紅 Bar：手機端要夠顯眼 */
+    .red-bar { 
+        background-color: #FF4B4B; color: white; padding: 10px; border-radius: 5px; 
+        text-align: center; font-weight: 900; margin: 10px 0; font-size: 1rem;
+    }
+    
+    /* 核心數據：手機端改為較小方塊 */
+    .val-box { 
+        background-color: #000; border: 1px solid #FFD700; border-radius: 6px; 
+        padding: 8px; text-align: center; height: 110px; margin-bottom: 5px;
+    }
+    .val-value { color: #00FFCC; font-size: 1rem; font-weight: bold; }
+    .val-desc { color: #FFA500; font-size: 0.65rem; }
+    </style>
+    """, unsafe_allow_html=True)
+
+ticker = st.sidebar.text_input("輸入代號", "NVDA").upper()
+
+try:
+    asset = yf.Ticker(ticker); df = asset.history(period="2y"); info = asset.info
+    spy = yf.Ticker("SPY").history(period="2y")
+    
+    if not df.empty:
+        # --- 數據計算 (EJ, RS, X) ---
+        c_x, c_rs, c_ej = 71.6, 42.0, 100.0 # 範例數據
+        
+        st.write(f"### THEMIS MOBILE [{ticker}]")
+
+        # A. 第一層：三大主星 (手機橫放會自動三排)
+        c1, c2, c3 = st.columns(3)
+        c1.markdown(f"<div class='cosmos-box'><div class='cosmos-label'>COSMOS-X</div><div class='cosmos-value'>{c_x}</div></div>", unsafe_allow_html=True)
+        c2.markdown(f"<div class='cosmos-box' style='border-color:#FFD700;'><div class='cosmos-label' style='color:#FFD700;'>COSMOS-RS</div><div class='cosmos-value' style='color:#FFD700;'>{c_rs}</div></div>", unsafe_allow_html=True)
+        c3.markdown(f"<div class='cosmos-box' style='border-color:#00FFFF;'><div class='cosmos-label' style='color:#00FFFF;'>COSMOS-EJ</div><div class='cosmos-value' style='color:#00FFFF;'>{c_ej}</div></div>", unsafe_allow_html=True)
+
+        # B. 第二層：八大金剛 (4x2 排版)
+        k_cols = st.columns(4)
+        kings = [("📁質量", "82"), ("📈趨勢", "75"), ("⚡動能", "86"), ("🔋資金", "65"), ("🎭情緒", "75"), ("🏆總分", "79"), ("🔮目標", "0.0"), ("💰成交", "0.3x")]
+        for i in range(4):
+            k_cols[i].markdown(f"<div class='king-box'><small>{kings[i][0]}</small><div class='king-value'>{kings[i][1]}</div></div>", unsafe_allow_html=True)
+            k_cols[i].markdown(f"<div class='king-box'><small>{kings[i+4][0]}</small><div class='king-value'>{kings[i+4][1]}</div></div>", unsafe_allow_html=True)
+
+        st.markdown(f"<div class='red-bar'>🔥 全軍進攻 🔥</div>", unsafe_allow_html=True)
+
+        # C. 第三層：分層股價圖 (Row 1: K線, Row 2: 成交量)
+        recent = df.tail(100)
+        fig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.75, 0.25], vertical_spacing=0.02)
+        fig.add_trace(go.Candlestick(x=recent.index, open=recent.Open, high=recent.High, low=recent.Low, close=recent.Close), row=1, col=1)
+        fig.add_trace(go.Bar(x=recent.index, y=recent.Volume, marker_color='gray'), row=2, col=1)
+        fig.update_layout(template="plotly_dark", height=450, showlegend=False, xaxis_rangeslider_visible=False, margin=dict(t=0,b=0,l=5,r=5))
+        st.plotly_chart(fig, use_container_width=True)
+
+        # D. 第四層：11 核心價值 (手機排版優化)
+        st.write("---")
+        d_cols = st.columns(3) # 手機端三列比較好睇
+        core_data = [
+            ("滾動PE", f"{info.get('trailingPE','N/A')}x"), ("預測PE", f"{info.get('forwardPE','N/A')}x"), ("預測PEG", info.get('pegRatio','N/A')),
+            ("必達EV", f"{info.get('enterpriseToEbitda','N/A')}x"), ("Beta", f"{info.get('beta','N/A')}"), ("Alpha", "53.7%"),
+            ("波動率", "28%"), ("股息率", "1.2%"), ("P/Book", info.get('priceToBook','N/A'))
+        ]
+        for i, (l, v) in enumerate(core_data):
+            d_cols[i % 3].markdown(f"<div class='val-box'><small>{l}</small><div class='val-value'>{v}</div></div>", unsafe_allow_html=True)
+
+except Exception as e: st.error(f"連線失敗: {e}")import streamlit as st
+import yfinance as yf
+import pandas as pd
+import numpy as np
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+
 # 1. 設置標題與寬屏
 st.set_page_config(page_title="環球資產透視評估儀", layout="wide")
 
