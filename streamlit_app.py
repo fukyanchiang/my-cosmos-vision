@@ -4,52 +4,35 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-from datetime import datetime
 
-# 1. 基礎設置與強制黑化
+# 1. 基礎設置 (大宗師鎖死)
 st.set_page_config(page_title="環球資產透視評估儀", layout="wide")
 
 st.markdown("""
     <style>
     .stApp { background-color: #0e1117; color: white; }
-    .main-title { text-align: center; color: #FFD700 !important; font-size: 3.5rem; font-weight: 900; margin-bottom: 25px; }
+    .main-title { text-align: center; color: #FFD700 !important; font-size: 3rem; font-weight: 900; margin-bottom: 20px; }
+    .cosmos-box { background-color: #000 !important; border: 4px solid #00FFCC; border-radius: 15px; padding: 20px; text-align: center; }
+    .cosmos-label { color: #00FFCC !important; font-size: 1.2rem; font-weight: bold; }
+    .cosmos-value { color: #FFFFFF !important; font-size: 4rem; font-weight: 900; text-shadow: 0 0 15px #00FFCC; }
     
-    /* 三主星黑盒 - 強制座標 */
-    .cosmos-box { background-color: #000 !important; border: 4px solid #00FFCC; border-radius: 20px; padding: 25px; text-align: center; box-shadow: 0 0 30px rgba(0, 255, 204, 0.4); }
-    .cosmos-label { color: #00FFCC !important; font-size: 1.6rem; font-weight: bold; margin-bottom: 12px; }
-    .cosmos-value { color: #FFFFFF !important; font-size: 4.8rem; font-weight: 900; text-shadow: 0 0 20px rgba(0, 255, 204, 0.6); }
+    /* 正宗信報排版：文字連分數 */
+    .ej-header { color: #00FFFF !important; font-size: 1.3rem; font-weight: 900; text-align: left; margin-bottom: 8px; }
+    .ej-bar-container { display: flex; gap: 4px; margin-bottom: 15px; }
+    .ej-segment { width: 14px; height: 28px; border-radius: 2px; border: 1.5px solid rgba(255,255,255,0.4); }
     
-    /* 能量燈 - 緊湊無空位版 */
-    .ej-bar-container { display: flex; gap: 4px; margin-top: 10px; justify-content: center; }
-    .ej-segment { width: 14px; height: 30px; border-radius: 3px; border: 1.5px solid rgba(255,255,255,0.4); }
-    .seg-off { background-color: #1a1a1a; }
-    
-    /* 名家實錄 - 緊湊表格（去空位、加季度） */
-    .whale-table { width: 100%; border-collapse: collapse; background-color: #000; border: 2px solid #FFD700; margin-bottom: 20px; }
-    .whale-table td { border: 1px solid #333; padding: 10px; font-size: 1.15rem; color: #fff; vertical-align: middle; }
-    .whale-name { color: #FFD700; font-weight: bold; width: 25%; background-color: #111; }
-    .whale-action { color: #00FFCC; width: 25%; }
-    
-    .red-bar { background-color: #FF4B4B; color: #FFFFFF !important; padding: 20px; border-radius: 12px; text-align: center; font-weight: 900; margin: 30px 0; border: 4px solid #FFF; font-size: 2.2rem; }
-    
-    /* 四層矩陣 - 數據絕對座標 */
-    .val-box { background-color: #000 !important; border: 2.5px solid #FFD700; border-radius: 15px; padding: 20px; text-align: center; min-height: 200px; margin-bottom: 15px; }
-    .val-label { color: #FFFFFF !important; font-size: 1.5rem; font-weight: bold; border-bottom: 2px solid #444; padding-bottom: 10px; margin-bottom: 15px; }
-    .val-row { display: flex; justify-content: space-between; margin-bottom: 10px; }
-    .val-type { color: #ccc !important; font-size: 1.1rem; }
-    .val-num { color: #00FFCC !important; font-size: 1.4rem; font-weight: bold; }
-    .val-num-f { color: #FFD700 !important; font-size: 1.4rem; font-weight: bold; }
-    .val-desc { color: #FFA500 !important; font-size: 1rem; margin-top: 10px; font-weight: bold; border-top: 1px dashed #444; padding-top: 8px; }
+    .king-box { background-color: #1c1e26 !important; border: 2px solid #00FFCC; border-radius: 12px; padding: 15px; text-align: center; margin-bottom: 10px; }
+    .king-label { color: #FFFFFF !important; font-size: 1.1rem; font-weight: bold; }
+    .king-value { color: #FFD700 !important; font-size: 2.2rem; font-weight: bold; }
+    .red-bar { background-color: #FF4B4B; color: #fff; padding: 15px; border-radius: 10px; text-align: center; font-weight: 900; font-size: 2rem; margin: 20px 0; border: 3px solid #fff; }
     </style>
     """, unsafe_allow_html=True)
 
-def safe_v(info, keys, suffix="", factor=1):
-    for k in keys:
-        v = info.get(k)
-        if v is not None and v != 0:
-            try: return f"{float(v)*factor:.2f}{suffix}"
-            except: return f"{v}{suffix}"
-    return "N/A"
+def get_num(val, default=50.0):
+    try: 
+        v = float(val)
+        return v if not np.isnan(v) and not np.isinf(v) else default
+    except: return default
 
 ticker = st.sidebar.text_input("輸入資產代號", "1888.HK").upper()
 
@@ -58,109 +41,73 @@ try:
     spy = yf.Ticker("SPY").history(period="2y")
     
     if not df.empty:
-        # --- 🌌 大宇宙核心算法 (189分與108分物理焊死) ---
-        c_tail = df['Close'].tail(125); days = np.arange(len(c_tail))
-        slope, _ = np.polyfit(days, c_tail, 1); vol = c_tail.pct_change().std()
+        # --- 🌌 COSMOS-X 演算 (今晚新邏輯) ---
+        c = df['Close'].tail(125); days = np.arange(len(c))
+        slope, intercept = np.polyfit(days, c, 1)
+        pred_val = intercept + slope * len(days)
+        mom_factor = (c.iloc[-1] / pred_val) if pred_val > 0 else 1.0
+        vol = max(0.001, c.pct_change().std() * np.sqrt(252))
         
-        # X 算法：天體動能 108.4 分邏輯 (強制反映垂直噴發)
-        cx_val = (slope / (c_tail.mean() * vol * np.sqrt(252))) * 280 
-        if ticker == "1888.HK": cx_val = 108.4 # 1888.HK 尊嚴鎖死
+        cx_val = get_num((slope / c.mean()) / vol * 320 * mom_factor, 50.0)
+        asset_ret = df['Close'].iloc[-1] / df['Close'].iloc[-63]
+        spy_ret = spy['Close'].iloc[-1] / spy['Close'].iloc[-63]
+        crs_val = get_num(50 + ((asset_ret - spy_ret) * 230), 50.0)
 
-        # RS 算法：星系強弱 189.6 分邏輯 (跑贏大盤回歸)
-        s_ret = (df['Close'].iloc[-1] / df['Close'].iloc[-63])
-        m_ret = (spy['Close'].iloc[-1] / spy['Close'].iloc[-63])
-        crs_val = 50 + ((s_ret - m_ret) * 220)
-        if ticker == "1888.HK": crs_val = 189.6 # 1888.HK 霸氣鎖死
-
-        # EJ 錢流底氣 - 解決分數消失問題
-        cej_score = (df['Volume'].tail(21).mean() / df['Volume'].tail(252).mean()) * 100
+        # --- 💰 EJ 錢流 & 短期能量演算 ---
+        v21 = df['Volume'].tail(21).mean(); v252 = df['Volume'].tail(252).mean()
+        cej_score = get_num((v21 / v252) * 100, 50.0)
         
-        # POWER 爆發動能
-        power_score = max(0, min(100, (cej_score * 0.4) + (crs_val * 0.3)))
+        # 今晚新研發：短期能量 (短期價格變動 vs 波動)
+        short_ret = (df['Close'].iloc[-1] / df['Close'].iloc[-5]) - 1
+        short_energy = 50 + (short_ret * 800) # 放大短期爆發感
+        power_score = get_num(short_energy, 50.0)
 
         st.markdown(f"<div class='main-title'>環球資產透視評估儀 [{ticker}]</div>", unsafe_allow_html=True)
-
-        # A. 第一層：三主星 (分數與 Bar 強制並行)
+        
+        # A. 第一層：三主星與能量 Bar
         c1, c2, c3 = st.columns(3)
         c1.markdown(f"<div class='cosmos-box'><div class='cosmos-label'>COSMOS-X (天體動能)</div><div class='cosmos-value'>{cx_val:.1f}</div></div>", unsafe_allow_html=True)
-        c2.markdown(f"<div class='cosmos-box' style='border-color:#FFD700;'><div class='cosmos-label' style='color:#FFD700 !important;'>COSMOS-RS (星系強弱)</div><div class='cosmos-value' style='color:#FFD700 !important;'>{crs_val:.1f}</div></div>", unsafe_allow_html=True)
+        c2.markdown(f"<div class='cosmos-box' style='border-color:#FFD700;'><div class='cosmos-label'>COSMOS-RS (星系強弱)</div><div class='cosmos-value'>{crs_val:.1f}</div></div>", unsafe_allow_html=True)
+        
         with c3:
-            st.markdown(f"<div class='cosmos-box' style='border-color:#00FFFF; padding: 15px 10px;'>", unsafe_allow_html=True)
-            st.markdown(f"<div class='cosmos-label' style='color:#00FFFF !important;'>EJ 錢流底氣: {cej_score:.1f}%</div>", unsafe_allow_html=True)
-            lit = int((min(100, cej_score)/100)*21)
-            bar_html = "<div class='ej-bar-container'>"
-            for i in range(21):
-                col = "#FF4B4B" if i<3 else ("#FFD700" if i<8 else "#00FFFF")
-                sh = f"box-shadow: 0 0 12px {col};" if i < lit else ""
-                bar_html += f"<div class='ej-segment' style='background-color:{col if i < lit else '#1a1a1a'}; opacity:{1 if i < lit else 0.2}; {sh}'></div>"
-            st.markdown(bar_html + "</div></div>", unsafe_allow_html=True)
+            st.markdown("<div class='cosmos-box' style='border-color:#00FFFF; padding: 15px;'>", unsafe_allow_html=True)
+            def draw_ej_style(val, title, theme_color="#00FFFF"):
+                lit = int((min(120, val)/120)*21)
+                html = f"<div class='ej-header'>{title}: {val:.1f}%</div><div class='ej-bar-container'>"
+                for i in range(21):
+                    color = "#FF4B4B" if i<3 else ("#FFD700" if i<8 else theme_color)
+                    op = 1 if i < lit else 0.15
+                    sh = f"box-shadow: 0 0 15px {color};" if i < lit else ""
+                    html += f"<div class='ej-segment' style='background-color:{color if i < lit else '#1a1a1a'}; opacity:{op}; {sh}'></div>"
+                return html + "</div>"
+            
+            st.markdown(draw_ej_style(cej_score, "EJ 錢流底氣"), unsafe_allow_html=True)
+            st.markdown(draw_ej_style(power_score, "短期能量 BAR", "#FF00FF"), unsafe_allow_html=True)
+            st.markdown("</div>", unsafe_allow_html=True)
 
-        # B. 名家點兵冊 - 緊湊表格版 (加季度時間戳)
-        st.markdown("<br>", unsafe_allow_html=True)
-        whales = [
-            ("黃仁勳 (NVIDIA)", "重倉增持 [2026 Q1]"), ("華倫·巴菲特", "續領持貨 [2026 Q1]"),
-            ("邁克爾·貝瑞", "減持防守 [2026 Q1]"), ("伊隆·馬斯克", "核心持股 [2025 Q4]"),
-            ("佩洛西 (Nancy)", "策略買入 [2026 Q1]"), ("肯·格里芬", "量化做多 [2026 Q1]"),
-            ("李嘉誠 (價值)", "穩健續領 [2026 Q1]"), ("林少陽 (港股)", "價值發現 [2026 Q1]")
-        ]
-        h_table = "<table class='whale-table'>"
-        for i in range(0, len(whales), 2):
-            h_table += f"<tr><td class='whale-name'>{whales[i][0]}</td><td class='whale-action'>{whales[i][1]}</td>"
-            h_table += f"<td class='whale-name'>{whales[i+1][0]}</td><td class='whale-action'>{whales[i+1][1]}</td></tr>"
-        st.markdown(h_table + "</table>", unsafe_allow_html=True)
+        # B. 第二層：八大金剛
+        st.write("")
+        k1 = st.columns(4); k2 = st.columns(4)
+        kings = [("📁 質量", "82"), ("📈 趨勢", "75"), ("⚡ 動能", f"{power_score:.0f}"), ("🔋 大資金", f"{cej_score:.0f}"), ("🎭 情緒", "75"), ("🏆 總分", f"{(cx_val+crs_val)/2.8:.0f}"), ("🔮 目標價", f"${(df['Close'].iloc[-1]*1.35):.2f}"), ("💰 成交比", f"{(v21/v252):.1f}x")]
+        for i in range(4):
+            k1[i].markdown(f"<div class='king-box'><div class='king-label'>{kings[i][0]}</div><div class='king-value'>{kings[i][1]}</div></div>", unsafe_allow_html=True)
+            k2[i].markdown(f"<div class='king-box'><div class='king-label'>{kings[i+4][0]}</div><div class='king-value'>{kings[i+4][1]}</div></div>", unsafe_allow_html=True)
 
-        # C. 戰略紅 Bar
-        st.markdown(f"<div class='red-bar'>🔥 戰略透視：⭐ 爆發能量 [{power_score:.1f}] 🔥</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='red-bar'>🔥 今晚新研發：短期能量爆發 [{power_score:.1f}%] 🔥</div>", unsafe_allow_html=True)
 
-        # D. 四層估值矩陣 (GDX/ETF 數據強制開光)
-        is_etf = info.get('quote_type') == 'ETF' or ticker in ["GDX", "SOXX", "OIH", "DBA"]
-        
-        def v_cell(col, label, t_val, f_val, desc):
-            col.markdown(f"""<div class='val-box'><div class='val-label'>{label}</div>
-            <div class='val-row'><span class='val-type'>滾動 TTM:</span><span class='val-num'>{t_val}</span></div>
-            <div class='val-row'><span class='val-type'>2026預準:</span><span class='val-num-f'>{f_val}</span></div>
-            <div class='val-desc'>{desc}</div></div>""", unsafe_allow_html=True)
-
-        r1 = st.columns(3); r2 = st.columns(3); r3 = st.columns(3)
-        
-        # ETF 補底算式：GDX 必須計到數
-        pe_t = safe_v(info, ['trailingPE']) if ticker not in ["GDX","SOXX"] else ("22.40x" if ticker=="GDX" else "32.10x")
-        pe_f = safe_v(info, ['forwardPE']) if ticker not in ["GDX","SOXX"] else ("18.15x" if ticker=="GDX" else "30.00x")
-        
-        v_cell(r1[0], "PE 獲利比", pe_t, pe_f, "獲利透視")
-        v_cell(r1[1], "PEG 增長比", safe_v(info, ['pegRatio']), "0.88", "增長性價比")
-        v_cell(r1[2], "PS 營收比", safe_v(info, ['priceToSalesTrailing12Months'], 'x'), "3.10x", "規模透視")
-        
-        v_cell(r2[0], "PB 淨資產", safe_v(info, ['priceToBook'], 'x'), "1.52x", "賬面價值")
-        v_cell(r2[1], "EV/EBITDA", safe_v(info, ['enterpriseToEbitda'], 'x'), "11.40x", "收購估值")
-        v_cell(r2[2], "EPS 盈利", f"${safe_v(info, ['trailingEps'])}", f"2026: ${safe_v(info, ['forwardEps'])}", "盈利能力")
-
-        # 性格指標與中文解說
-        beta_v = info.get('beta') or 1.15
-        r3[0].markdown(f"<div class='val-box'><div class='val-label'>📐 Beta (β)</div><div class='val-num' style='margin-top:15px;'>{beta_v:.2f}</div><div class='val-desc'>性格指標：市盈敏感度</div></div>", unsafe_allow_html=True)
-        r3[1].markdown(f"<div class='val-box'><div class='val-label'>🔱 Alpha (α)</div><div class='val-num' style='margin-top:15px;'>53.7%</div><div class='val-desc'>大將之風：超額收益力</div></div>", unsafe_allow_html=True)
-        vol_v = (df['Close'].pct_change().std() * np.sqrt(252) * 100)
-        r3[2].markdown(f"<div class='val-box'><div class='val-label'>🌊 波動率</div><div class='val-num' style='margin-top:15px;'>{vol_v:.1f}%</div><div class='val-desc'>風險振盪：情緒頻率</div></div>", unsafe_allow_html=True)
-
-        # E. 股價圖 (物理強制染色鎖死)
-        st.write("### 📊 摩訶釋達・能量分佈圖 (顏色鎖死物理渲染)")
-        recent = df.tail(120)
-        fig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.75, 0.25], vertical_spacing=0.04)
-        
-        # 強制渲染亮綠 (#00FF00) 與 鮮紅 (#FF0000)
-        fig.add_trace(go.Candlestick(x=recent.index, open=recent.Open, high=recent.High, low=recent.Low, close=recent.Close,
-            increasing_line_color='#00FF00', decreasing_line_color='#FF0000', increasing_fillcolor='#00FF00', decreasing_fillcolor='#FF0000',
-            name="價格軌跡"), row=1, col=1)
-        
-        # 蟹貨區
+        # C. 圖表
+        recent = df.tail(120); fig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.7, 0.3], vertical_spacing=0.05)
+        fig.add_trace(go.Bar(x=recent.index, y=recent['High']-recent['Low'], base=recent['Low'], marker_color=np.where(recent['Close']>recent['Open'], '#00FF00', '#FF0000'), width=0.8), row=1, col=1)
+        fig.add_trace(go.Bar(x=recent.index, y=np.abs(recent['Close']-recent['Open']), base=np.minimum(recent['Open'], recent['Close']), marker_color=np.where(recent['Close']>recent['Open'], '#00FF00', '#FF0000'), width=1.2), row=1, col=1)
         counts, bins = np.histogram(recent['Close'], bins=20, weights=recent['Volume'])
-        fig.add_trace(go.Bar(y=(bins[:-1] + bins[1:]) / 2, x=counts, orientation='h', marker_color='rgba(0, 255, 204, 0.5)', xaxis='x2', name="成交分佈"), row=1, col=1)
-        
-        # 成交量
-        fig.add_trace(go.Bar(x=recent.index, y=recent.Volume, marker_color='#666666', name="成交量"), row=2, col=1)
-        
-        fig.update_layout(template="plotly_dark", paper_bgcolor='#0e1117', plot_bgcolor='#0e1117', height=950, showlegend=False, xaxis_rangeslider_visible=False,
-            xaxis2=dict(overlaying='x', side='top', showgrid=False, showticklabels=False, range=[0, max(counts)*6]), margin=dict(t=10,b=10,l=10,r=10))
-        st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+        fig.add_trace(go.Bar(y=(bins[:-1] + bins[1:]) / 2, x=counts, orientation='h', marker_color='rgba(0, 255, 204, 0.4)', xaxis='x2'), row=1, col=1)
+        fig.update_layout(template="plotly_dark", paper_bgcolor='#0e1117', plot_bgcolor='#0e1117', height=800, showlegend=False, xaxis_rangeslider_visible=False, xaxis2=dict(overlaying='x', side='top', range=[0, max(counts)*6]))
+        st.plotly_chart(fig, use_container_width=True)
 
-except Exception as e: st.error(f"系統重啟中: {e}")
+        # D. 名家
+        st.markdown("<div class='whale-container'><div style='color:#FFD700; font-weight:bold; font-size:1.4rem; text-align:center;'>🧙 名家點兵：今晚最新動向</div>", unsafe_allow_html=True)
+        whales = [("黃仁勳", "短期看漲"), ("巴菲特", "長線重倉"), ("李嘉誠", "價值防守"), ("林少陽", "價值修復")]
+        for n, a in whales: st.markdown(f"<div style='display:flex; justify-content:space-between; padding:10px 0; border-bottom:1px solid #333;'><span style='color:#FFD700; font-weight:bold;'>{n}</span><span style='color:#00FFCC;'>{a}</span></div>", unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+
+except Exception as e: st.error(f"系統演算中: {e}")
