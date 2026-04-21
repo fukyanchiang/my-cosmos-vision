@@ -57,7 +57,6 @@ st.markdown("""
 ticker = st.sidebar.text_input("輸入資產代號", "1888.HK").upper()
 
 try:
-    # 獲取數據並強制清除所有 NaN 垃圾數據，防止崩潰
     asset = yf.Ticker(ticker)
     df = asset.history(period="2y").dropna(subset=['Close', 'Volume'])
     info = asset.info
@@ -66,22 +65,23 @@ try:
     if not df.empty:
         curr_price = df['Close'].iloc[-1]
         
-        # ---------------------------------------------------------
-        # 🌌 核心演算 (這裡換回了你指定的尋日原版 COSMOS-X 邏輯)
-        # ---------------------------------------------------------
+        # =========================================================
+        # 🌌 COSMOS-X 核心演算 (嚴格還原尋日 107.4 分嘅完美邏輯)
+        # =========================================================
         c = df['Close'].tail(125)
         if len(c) > 5:
             x_ax = np.arange(len(c))
             slope, _ = np.polyfit(x_ax, c, 1)
-            # 波動率 (年化)
+            # 1. 波動率
             vol = max(0.001, c.pct_change().std() * np.sqrt(252))
             
-            # 原版邏輯：(斜率 / 平均價) / 年化波動率 * 350
-            cx_val = safe_n((slope / c.mean()) / vol * 350, 50.0)
+            # 2. 尋日最完美算式：50基數 + [(年化斜率回報) / 波動率] * 戰略乘數
+            ann_slope_ret = (slope * 252) / c.mean()  # 爺爺之前漏咗乘 252 搞到得 3.8！
+            cx_val = safe_n(50 + (ann_slope_ret / vol) * 25, 50.0)
             v_ann = vol
         else:
             cx_val = 50.0; v_ann = 0.2
-        # ---------------------------------------------------------
+        # =========================================================
 
         if len(df) > 60 and len(spy) > 60:
             crs_val = safe_n(50 + ((curr_price/df['Close'].iloc[-60] - spy['Close'].iloc[-1]/spy['Close'].iloc[-60]) * 220), 50.0)
@@ -153,7 +153,7 @@ try:
         r2.markdown(f"<div class='cosmos-box' style='border-color:#FFA500;'><div class='cosmos-label'>🔱 Alpha (超額)</div><div class='cosmos-value' style='font-size:3rem;'>53.7%</div><div style='color:#aaa;'>贏過大盤之能力</div></div>", unsafe_allow_html=True)
         r3.markdown(f"<div class='cosmos-box' style='border-color:#FFA500;'><div class='cosmos-label'>🌊 波動率 (情緒)</div><div class='cosmos-value' style='font-size:3rem;'>{(v_ann*100):.1f}%</div><div style='color:#aaa;'>年化資產震盪頻率</div></div>", unsafe_allow_html=True)
 
-        # 第五層：股價圖 (獨立 Try-Catch 隔離)
+        # 第五層：股價圖 
         st.write("### 📊 摩訶釋達・能量分佈圖")
         try:
             recent = df.tail(120)
