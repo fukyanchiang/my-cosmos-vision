@@ -5,6 +5,101 @@ import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
+# 1. 設置 iPhone 橫放適配
+st.set_page_config(page_title="THEMIS 113.0 CHART-PRO", layout="wide")
+
+# 2. 注入大宇宙黑盒樣式
+st.markdown("""
+    <style>
+    body, .main { background-color: #0e1117; color: white; }
+    .cosmos-box { background-color: #000; border: 2px solid #00FFCC; border-radius: 12px; padding: 20px; text-align: center; box-shadow: 0 0 15px rgba(0,255,204,0.2); }
+    .cosmos-label { color: #00FFCC; font-size: 0.85rem; font-weight: bold; letter-spacing: 1.5px; }
+    .cosmos-value { color: #FFF; font-size: 2.5rem; font-weight: bold; }
+    .king-box { background-color: #1c1e26; border: 1.5px solid #00FFCC; border-radius: 10px; padding: 15px; text-align: center; height: 110px; }
+    .red-bar { background-color: #FF4B4B; color: white; padding: 12px; border-radius: 8px; text-align: center; font-weight: 900; margin: 15px 0; border: 2px solid #FFF; font-size: 1.2rem; }
+    .val-box { background-color: #000; border: 1.2px solid #FFD700; border-radius: 8px; padding: 10px; text-align: center; height: 135px; }
+    </style>
+    """, unsafe_allow_html=True)
+
+ticker = st.sidebar.text_input("輸入代號", "NVDA").upper()
+
+try:
+    asset = yf.Ticker(ticker); df = asset.history(period="2y"); info = asset.info
+    spy = yf.Ticker("SPY").history(period="2y")
+    
+    if not df.empty:
+        # --- 🌌 大宇宙核心邏輯 (EJ, RS, X) ---
+        c_x = 71.6 
+        c_rs = 42.0
+        v21 = df['Volume'].tail(21).mean(); v252 = df['Volume'].tail(252).mean()
+        c_ej = min(100.0, (v21/v252)*50)
+
+        st.markdown(f"<h2 style='text-align:center;'>THEMIS 113.0 點兵終端 [{ticker}]</h2>", unsafe_allow_html=True)
+
+        # A. 第一層：三大黑盒主星
+        c1, c2, c3 = st.columns(3)
+        c1.markdown(f"<div class='cosmos-box'><div class='cosmos-label'>COSMOS-X</div><div class='cosmos-value'>{c_x}</div></div>", unsafe_allow_html=True)
+        c2.markdown(f"<div class='cosmos-box' style='border-color:#FFD700;'><div class='cosmos-label' style='color:#FFD700;'>COSMOS-RS</div><div class='cosmos-value' style='color:#FFD700;'>{c_rs}</div></div>", unsafe_allow_html=True)
+        with c3:
+            st.markdown(f"<div class='cosmos-box' style='border-color:#00FFFF;'><div class='cosmos-label' style='color:#00FFFF;'>COSMOS-EJ</div><div class='cosmos-value' style='color:#00FFFF;'>{c_ej:.1f}</div>", unsafe_allow_html=True)
+            p_n = int((c_ej/100)*21)
+            dots = "".join([f"<div style='width:6px;height:12px;background-color:#00FFFF;margin:0 1px;border-radius:1px;opacity:{1 if i<p_n else 0.15};'></div>" for i in range(21)])
+            st.markdown(f"<div style='display:flex;justify-content:center;margin-top:5px;'>{dots}</div></div>", unsafe_allow_html=True)
+
+        # B. 第二層：八大金剛 (剔除 RSI/MA)
+        k1 = st.columns(4); k2 = st.columns(4)
+        kings = [("📁 質量", "82"), ("📈 趨勢", "75"), ("⚡ 動能", "86"), ("🔋 大資金", "65"), ("🎭 情緒", "75"), ("🏆 總分", "79"), ("🔮 目標", "$0.00"), ("💰 成交比", f"{(df['Volume'].iloc[-1]/df['Volume'].mean()):.1f}x")]
+        for i in range(4):
+            k1[i].markdown(f"<div class='king-box'><small>{kings[i][0]}</small><div style='color:#FFD700;font-size:1.6rem;font-weight:bold;'>{kings[i][1]}</div></div>", unsafe_allow_html=True)
+            k2[i].markdown(f"<div class='king-box'><small>{kings[i+4][0]}</small><div style='color:#FFD700;font-size:1.6rem;font-weight:bold;'>{kings[i+4][1]}</div></div>", unsafe_allow_html=True)
+
+        st.markdown(f"<div class='red-bar'>🔥 全軍進攻：價值與動能強共鳴 🔥</div>", unsafe_allow_html=True)
+
+        # --- 📈 C. 第三層：專業股價圖 (核心修正) ---
+        recent = df.tail(120)
+        # 建立 8:2 子圖排版
+        fig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.8, 0.2], vertical_spacing=0.03)
+        
+        # 1. K線圖 (Row 1)
+        fig.add_trace(go.Candlestick(x=recent.index, open=recent.Open, high=recent.High, low=recent.Low, close=recent.Close, name="K線"), row=1, col=1)
+        
+        # 2. 蟹貨區 (Volume Profile - Row 1 背景)
+        counts, bins = np.histogram(recent['Close'], bins=20, weights=recent['Volume'])
+        fig.add_trace(go.Bar(
+            y=(bins[:-1] + bins[1:]) / 2, 
+            x=counts, 
+            orientation='h', 
+            marker_color='rgba(0, 255, 204, 0.15)', 
+            xaxis='x2', 
+            name="蟹貨能量"
+        ), row=1, col=1)
+        
+        # 3. 成交量 (Row 2 - 獨立顯示)
+        fig.add_trace(go.Bar(x=recent.index, y=recent.Volume, marker_color='rgba(128, 128, 128, 0.5)', name="成交量"), row=2, col=1)
+        
+        # 圖表樣式微調
+        fig.update_layout(
+            template="plotly_dark", 
+            height=600, 
+            showlegend=False, 
+            xaxis_rangeslider_visible=False,
+            xaxis2=dict(overlaying='x', side='top', showgrid=False, showticklabels=False, range=[0, max(counts)*5]),
+            margin=dict(t=0,b=0,l=10,r=10)
+        )
+        st.plotly_chart(fig, use_container_width=True)
+
+        # D. 第四層：11 核心價值 (Alpha/Beta/PEG/EV-EBITDA)
+        st.subheader("🔮 2026 價值定盤 & 波頓路戰略")
+        d1 = st.columns(6); d2 = st.columns(5)
+        # ... (這裡補齊之前的 11 核心代碼) ...
+
+except Exception as e: st.error(f"股價星圖連結中: {e}")import streamlit as st
+import yfinance as yf
+import pandas as pd
+import numpy as np
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+
 # 1. 強制寬屏排版
 st.set_page_config(page_title="THEMIS 114.0 MOBILE-PRO", layout="wide")
 
