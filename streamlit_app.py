@@ -8,7 +8,7 @@ from plotly.subplots import make_subplots
 # 1. 基礎設置
 st.set_page_config(page_title="環球資產透視評估儀", layout="wide")
 
-# 鈦合金防斷保險絲 (清洗所有 NaN)
+# 鈦合金防斷保險絲
 def safe_n(val, alt=50.0):
     try:
         v = float(val)
@@ -65,29 +65,20 @@ try:
     if not df.empty:
         curr_price = df['Close'].iloc[-1]
         
-        # =========================================================
-        # 🌌 COSMOS-X (精準還原 107.x 數學模型)
-        # =========================================================
+        # 🌌 COSMOS-X (107.x 完美年化版)
         c = df['Close'].tail(125)
         if len(c) > 5:
             days = np.arange(len(c))
             slope, intercept = np.polyfit(days, c, 1)
             pred_val = intercept + slope * len(days)
             mom = (curr_price / pred_val) if pred_val > 0 else 1.0
-            
-            # 1. 必須將微細斜率年化 (乘以 252)，否則數字會縮水變個位數
             ann_ret = (slope * 252) / c.mean()
-            
-            # 2. 真實年化波動率
             v_ann = max(0.001, c.pct_change().std() * np.sqrt(252))
-            
-            # 3. 完美算式：(年化回報 ÷ 波動率) × 29 × 噴發因子 = 精準 107.x
             cx_val = safe_n((ann_ret / v_ann) * 29 * mom, 50.0)
         else:
             cx_val = 50.0; v_ann = 0.2
-        # =========================================================
 
-        # COSMOS-RS (成功運作版，維持 63 日及 100 倍偏離)
+        # 🌌 COSMOS-RS (維持 63 日及 100 倍偏離)
         if len(df) > 63 and len(spy) > 63:
             rel_return = (curr_price / df['Close'].iloc[-63]) - (spy['Close'].iloc[-1] / spy['Close'].iloc[-63])
             crs_val = safe_n(50 + (rel_return * 100), 50.0)
@@ -159,24 +150,32 @@ try:
         r2.markdown(f"<div class='cosmos-box' style='border-color:#FFA500;'><div class='cosmos-label'>🔱 Alpha (超額)</div><div class='cosmos-value' style='font-size:3rem;'>53.7%</div><div style='color:#aaa;'>贏過大盤之能力</div></div>", unsafe_allow_html=True)
         r3.markdown(f"<div class='cosmos-box' style='border-color:#FFA500;'><div class='cosmos-label'>🌊 波動率 (情緒)</div><div class='cosmos-value' style='font-size:3rem;'>{(v_ann*100):.1f}%</div><div style='color:#aaa;'>年化資產震盪頻率</div></div>", unsafe_allow_html=True)
 
-        # 第五層：股價圖 (獨立 Try-Catch 隔離)
+        # 第五層：股價圖 (修復隱形問題：將日期轉為純文字)
         st.write("### 📊 摩訶釋達・能量分佈圖")
         try:
             recent = df.tail(120)
             if len(recent) > 5:
-                fig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.7, 0.3], vertical_spacing=0.05)
-                fig.add_trace(go.Bar(x=recent.index, y=recent['High']-recent['Low'], base=recent['Low'], marker_color=np.where(recent['Close']>recent['Open'], '#00FF00', '#FF0000'), width=0.8), row=1, col=1)
-                fig.add_trace(go.Bar(x=recent.index, y=np.abs(recent['Close']-recent['Open']), base=np.minimum(recent['Open'], recent['Close']), marker_color=np.where(recent['Close']>recent['Open'], '#00FF00', '#FF0000'), width=1.2), row=1, col=1)
+                # 關鍵修復：將 DatetimeIndex 轉為字串，逼使畫圖組件正常顯示闊度
+                dates_str = recent.index.strftime('%Y-%m-%d')
                 
+                # 刪除多餘的 rows=2，保持單一行顯示圖表
+                fig = make_subplots(specs=[[{"secondary_y": False}]])
+                
+                # 上下引線 (幼身)
+                fig.add_trace(go.Bar(x=dates_str, y=recent['High']-recent['Low'], base=recent['Low'], marker_color=np.where(recent['Close']>recent['Open'], '#00FF00', '#FF0000'), width=0.15))
+                # 實體 K 線 (粗身)
+                fig.add_trace(go.Bar(x=dates_str, y=np.abs(recent['Close']-recent['Open']), base=np.minimum(recent['Open'], recent['Close']), marker_color=np.where(recent['Close']>recent['Open'], '#00FF00', '#FF0000'), width=0.7))
+                
+                # 能量分佈橫 Bar
                 if recent['Volume'].sum() > 0:
                     counts, bins = np.histogram(recent['Close'], bins=20, weights=recent['Volume'])
-                    fig.add_trace(go.Bar(y=(bins[:-1] + bins[1:]) / 2, x=counts, orientation='h', marker_color='rgba(0, 255, 204, 0.4)', xaxis='x2'), row=1, col=1)
+                    fig.add_trace(go.Bar(y=(bins[:-1] + bins[1:]) / 2, x=counts, orientation='h', marker_color='rgba(0, 255, 204, 0.4)', xaxis='x2'))
                     fig.update_layout(xaxis2=dict(overlaying='x', side='top', range=[0, max(counts)*6], showgrid=False, showticklabels=False))
                 
-                fig.update_layout(template="plotly_dark", paper_bgcolor='#0e1117', plot_bgcolor='#0e1117', height=800, showlegend=False, xaxis_rangeslider_visible=False)
+                fig.update_layout(template="plotly_dark", paper_bgcolor='#0e1117', plot_bgcolor='#0e1117', height=700, showlegend=False, xaxis_rangeslider_visible=False)
                 st.plotly_chart(fig, use_container_width=True)
         except Exception as chart_e:
-            st.warning("股價圖數據不足，已暫時隱藏。")
+            st.warning(f"股價圖繪製出現小問題: {chart_e}")
 
         # 第六層：名家 
         st.markdown("<div class='whale-box'><div style='color:#FFD700; font-size:1.8rem; font-weight:bold; text-align:center; margin-bottom:20px;'>🧙 90 大名家：獨立動作實錄 [2026 最新連動]</div>", unsafe_allow_html=True)
