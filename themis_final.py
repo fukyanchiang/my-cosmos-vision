@@ -24,7 +24,7 @@ def safe_s(info, keys, suffix="", alt="N/A"):
             except: pass
     return alt
 
-# 🛠️ [新增] ETF Beta 救援函數 (只係加咗呢度，其他冇郁)
+# 🛠️ ETF Beta 救援函數
 def get_beta(info, df, spy_df):
     b = info.get('beta')
     if b is not None and str(b).lower() not in ['nan', 'none', '']: return f"{float(b):.2f}"
@@ -81,7 +81,7 @@ try:
     if not df.empty:
         curr_price = df['Close'].iloc[-1]
         
-        # 🌌 COSMOS-X (保留完美 107.x 邏輯)
+        # 🌌 COSMOS-X
         c = df['Close'].tail(125)
         if len(c) > 5:
             days = np.arange(len(c))
@@ -160,7 +160,7 @@ try:
         v_card(v5, "EV/EBITDA", safe_s(info, ['enterpriseToEbitda'], suffix="x"), "10.8x", "企業估值")
         v_card(v6, "股息率", safe_s(info, ['dividendYield'], suffix="%"), "3.2%", "現金流回報")
 
-        # 第四層：Beta/Alpha/波動率 🛠️ [修改] 引用咗 get_beta
+        # 第四層：Beta/Alpha/波動率 
         calc_beta = get_beta(info, df, spy)
         r1, r2, r3 = st.columns(3)
         r1.markdown(f"<div class='cosmos-box' style='border-color:#FFA500;'><div class='cosmos-label'>📐 Beta (性格)</div><div class='cosmos-value' style='font-size:3rem;'>{calc_beta}</div><div style='color:#aaa;'>市場同步率：1.0為基準</div></div>", unsafe_allow_html=True)
@@ -168,9 +168,9 @@ try:
         r3.markdown(f"<div class='cosmos-box' style='border-color:#FFA500;'><div class='cosmos-label'>🌊 波動率 (情緒)</div><div class='cosmos-value' style='font-size:3rem;'>{(v_ann*100):.1f}%</div><div style='color:#aaa;'>年化資產震盪頻率</div></div>", unsafe_allow_html=True)
 
         # =========================================================
-        # 📊 第五層：股價圖 (🛠️ [修改] 完美修復：改用雙層圖表加返成交量)
+        # 📊 第五層：股價圖 (🛠️ 終極修復：K線 + 下方成交量 + 橫向蟹貨)
         # =========================================================
-        st.write("### 📊 摩訶釋達・能量分佈圖")
+        st.write("### 📊 摩訶釋達・能量與籌碼透視圖")
         try:
             recent = df.tail(120)
             if len(recent) > 5:
@@ -178,26 +178,36 @@ try:
                 fig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.7, 0.3], vertical_spacing=0.05)
                 dates_str = recent.index.strftime('%Y-%m-%d')
                 
-                # 陰陽燭 (第一層)
+                # 1. 陰陽燭 (第一層)
                 fig.add_trace(go.Candlestick(
                     x=dates_str, open=recent['Open'], high=recent['High'], low=recent['Low'], close=recent['Close'],
                     increasing_line_color='#00FF00', decreasing_line_color='#FF0000',
                     increasing_fillcolor='#00FF00', decreasing_fillcolor='#FF0000', name='股價'
                 ), row=1, col=1)
                 
-                # 成交量 (第二層)
+                # 2. 直向成交量 (第二層)
                 vol_colors = ['#00FF00' if recent['Close'].iloc[i] >= recent['Open'].iloc[i] else '#FF0000' for i in range(len(recent))]
                 fig.add_trace(go.Bar(
                     x=dates_str, y=recent['Volume'], marker_color=vol_colors, name='成交量'
                 ), row=2, col=1)
                 
-                # 保持 Category X 軸 (唔會斷截禾蟲)
+                # 3. 橫向蟹貨籌碼 (疊加喺第一層)
+                if recent['Volume'].sum() > 0:
+                    counts, bins = np.histogram(recent['Close'], bins=20, weights=recent['Volume'])
+                    fig.add_trace(go.Bar(
+                        y=(bins[:-1] + bins[1:]) / 2, x=counts, orientation='h',
+                        marker_color='rgba(0, 255, 204, 0.4)', name='蟹貨籌碼',
+                        xaxis='x3', yaxis='y1' # 綁定隱藏嘅第三軸
+                    ))
+                
+                # 更新排版 (加入 xaxis3 設定)
                 fig.update_layout(
                     template="plotly_dark", paper_bgcolor='#0e1117', plot_bgcolor='#0e1117', height=750,
                     showlegend=False, xaxis_rangeslider_visible=False,
                     xaxis=dict(type='category', showgrid=False),
                     yaxis=dict(showgrid=True, gridcolor='#333'),
-                    yaxis2=dict(showgrid=False)
+                    yaxis2=dict(showgrid=False),
+                    xaxis3=dict(overlaying='x', side='top', range=[0, max(counts)*6], showgrid=False, showticklabels=False)
                 )
                 st.plotly_chart(fig, use_container_width=True)
         except Exception as chart_e:
@@ -235,4 +245,5 @@ try:
             st.markdown(f"<div class='whale-row'><span class='whale-n'>{n}</span><span class='whale-a'>{a}</span></div>", unsafe_allow_html=True)
         st.markdown("</div>", unsafe_allow_html=True)
 
+# ⚠️ 呢句最重要，千祈唔好漏！
 except Exception as e: st.error(f"系統大宇宙連接中: {e}")
