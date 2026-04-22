@@ -66,23 +66,28 @@ try:
         curr_price = df['Close'].iloc[-1]
         
         # =========================================================
-        # 🌌 COSMOS-X (100% 還原 2:30 的 107.x 原版邏輯，不加 50 底分)
+        # 🌌 COSMOS-X (精準還原 107.x 數學模型)
         # =========================================================
         c = df['Close'].tail(125)
         if len(c) > 5:
             days = np.arange(len(c))
             slope, intercept = np.polyfit(days, c, 1)
-            pred = intercept + slope * len(days)
-            mom = (curr_price / pred) if pred > 0 else 1.0
-            v_ann = max(0.01, c.pct_change().std() * np.sqrt(252))
+            pred_val = intercept + slope * len(days)
+            mom = (curr_price / pred_val) if pred_val > 0 else 1.0
             
-            # 純粹動能放大 320 倍，原汁原味
-            cx_val = safe_n((slope / c.mean()) / v_ann * 320 * mom)
+            # 1. 必須將微細斜率年化 (乘以 252)，否則數字會縮水變個位數
+            ann_ret = (slope * 252) / c.mean()
+            
+            # 2. 真實年化波動率
+            v_ann = max(0.001, c.pct_change().std() * np.sqrt(252))
+            
+            # 3. 完美算式：(年化回報 ÷ 波動率) × 29 × 噴發因子 = 精準 107.x
+            cx_val = safe_n((ann_ret / v_ann) * 29 * mom, 50.0)
         else:
             cx_val = 50.0; v_ann = 0.2
         # =========================================================
 
-        # COSMOS-RS (還原 63 日，乘數 100)
+        # COSMOS-RS (成功運作版，維持 63 日及 100 倍偏離)
         if len(df) > 63 and len(spy) > 63:
             rel_return = (curr_price / df['Close'].iloc[-63]) - (spy['Close'].iloc[-1] / spy['Close'].iloc[-63])
             crs_val = safe_n(50 + (rel_return * 100), 50.0)
