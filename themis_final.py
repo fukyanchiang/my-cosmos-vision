@@ -299,19 +299,24 @@ try:
             
             if dragon_index >= 85: 
                 v_name, v_color, v_icon, v_action = "🌟 乾坤真龍", "#FFFFFF", "🐉", "【無視估值】核心能源爆發，高 PE 只是未來增長的幻覺。"
+                val_level = 1
             elif dragon_index >= 65:
                 v_name, v_color, v_icon, v_action = "🔥 烈火鳳凰", "#9D00FF", "🔥", "【順勢而為】底氣充足，估值雖貴但有支撐，緊貼趨勢操作。"
+                val_level = 2
             elif dragon_index >= 40:
                 v_name, v_color, v_icon, v_action = "💨 雲霧幻象", "#00FFCC", "🌫️", "【投機博弈】情緒大於基本面，隨時回調，嚴禁長揸。"
+                val_level = 3
             else:
                 v_name, v_color, v_icon, v_action = "☠️ 亡靈泡沫", "#FF3131", "💀", "【死穴警報】能源枯竭卻估值虛高，大戶撤退中，快逃！"
+                val_level = 4
 
             st.markdown(f"""
             <div style="border: 3px solid {v_color}; border-radius: 15px; padding: 25px; background: rgba(0,0,0,0.8); margin-top: 30px; box-shadow: 0 0 20px {v_color}44;">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
                     <div>
                         <h4 style="color: {v_color}; margin: 0; font-size: 1.8rem;">{v_icon} COSMOS-VAL 估值解碼：{v_name}</h4>
-                        <p style="color: #aaa; margin-top: 5px;">( 針對 TTM PE {pe_val:.2f}x 的獨立戰略評分 )</p>
+                        <p style="color: #aaa; margin-top: 5px; margin-bottom: 2px;">( 針對 TTM PE {pe_val:.2f}x 的獨立戰略評分 )</p>
+                        <p style="color: {v_color}; font-size: 0.85rem; font-weight: bold; margin-top: 0;">[ 註明：共分 4 級，現在這公司是屬第 {val_level} 級 ]</p>
                     </div>
                     <div style="text-align: right;">
                         <span style="color: #888;">真龍指數：</span><br>
