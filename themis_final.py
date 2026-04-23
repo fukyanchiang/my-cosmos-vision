@@ -36,7 +36,7 @@ def get_beta(info, df, spy_df):
     except: pass
     return "1.00"
 
-# 2. 視覺裝修 
+# 2. 視覺裝修 (移除寫死的 val-box-purple，改用動態生成)
 st.markdown("""
     <style>
     .stApp { background-color: #0e1117; color: white; }
@@ -53,7 +53,6 @@ st.markdown("""
     .val-text { font-size: 1.3rem; color: #ccc; margin: 8px 0; }
     .val-focus { color: #FFD700; font-weight: bold; font-size: 1.8rem; }
     .red-bar { background-color: #FF4B4B; color: #fff; padding: 20px; border-radius: 10px; text-align: center; font-weight: 900; font-size: 2.5rem; margin: 30px 0; border: 3px solid #fff; }
-    .val-box-purple { border: 3px solid #BC13FE; border-radius: 15px; padding: 30px; background-color: #000; box-shadow: 0 0 25px #BC13FE66; margin: 25px 0; }
     .energy-bar-container-8d { display: flex; gap: 4px; margin-top: 10px; margin-bottom: 15px; }
     .energy-seg-8d { flex: 1; height: 16px; border-radius: 2px; }
     .whale-box { background-color: #000; border: 3px solid #FFD700; border-radius: 15px; padding: 35px; margin-top: 30px; }
@@ -107,44 +106,23 @@ try:
             st.markdown(draw_triad_bar(se_s, "短期能量 BAR", "#FF00FF"), unsafe_allow_html=True)
             st.markdown("""</div>""", unsafe_allow_html=True)
 
-        # 🧬 [DNA 10 級註明 - 防斷行處理] 🧬
+        # 🧬 [DNA 10 級]
         st.write("---")
         d_c1, d_c2 = st.columns([1, 2.5])
         real_roe = info.get('returnOnEquity', 0)
         dna_v = round(safe_n(real_roe * 350 + 15, 23.6), 1)
         dna_v = max(0.0, min(100.0, dna_v)) 
         
-        # 拆開行寫，防止太長被編輯器切斷
-        if dna_v >= 90:
-            d_lv = "第 1 級"
-            d_desc = "👑 創世真神"
-        elif dna_v >= 80:
-            d_lv = "第 2 級"
-            d_desc = "🌟 星系霸主"
-        elif dna_v >= 70:
-            d_lv = "第 3 級"
-            d_desc = "🚀 恆星巨頭"
-        elif dna_v >= 60:
-            d_lv = "第 4 級"
-            d_desc = "🛡️ 行星中堅"
-        elif dna_v >= 50:
-            d_lv = "第 5 級"
-            d_desc = "⚖️ 凡骨平庸"
-        elif dna_v >= 40:
-            d_lv = "第 6 級"
-            d_desc = "⚠️ 能量衰退"
-        elif dna_v >= 30:
-            d_lv = "第 7 級"
-            d_desc = "🍂 恆星殞落"
-        elif dna_v >= 20:
-            d_lv = "第 8 級"
-            d_desc = "🩸 基因突變"
-        elif dna_v >= 10:
-            d_lv = "第 9 級"
-            d_desc = "☠️ 黑洞邊緣"
-        else:
-            d_lv = "第 10 級"
-            d_desc = "🪦 宇宙塵埃"
+        if dna_v >= 90: d_lv, d_desc = "第 1 級", "👑 創世真神"
+        elif dna_v >= 80: d_lv, d_desc = "第 2 級", "🌟 星系霸主"
+        elif dna_v >= 70: d_lv, d_desc = "第 3 級", "🚀 恆星巨頭"
+        elif dna_v >= 60: d_lv, d_desc = "第 4 級", "🛡️ 行星中堅"
+        elif dna_v >= 50: d_lv, d_desc = "第 5 級", "⚖️ 凡骨平庸"
+        elif dna_v >= 40: d_lv, d_desc = "第 6 級", "⚠️ 能量衰退"
+        elif dna_v >= 30: d_lv, d_desc = "第 7 級", "🍂 恆星殞落"
+        elif dna_v >= 20: d_lv, d_desc = "第 8 級", "🩸 基因突變"
+        elif dna_v >= 10: d_lv, d_desc = "第 9 級", "☠️ 黑洞邊緣"
+        else: d_lv, d_desc = "第 10 級", "🪦 宇宙塵埃"
 
         with d_c1:
             st.markdown(f"""
@@ -160,7 +138,6 @@ try:
         
         with d_c2:
             st.markdown(f"""**{ticker} ・ 8D 投行精確透視 BAR**""")
-            # 字典拆行，防止斷開
             m8 = {
                 "🩸 血液純度": int(safe_n(info.get('operatingMargins', 0)*30+3, 5)),
                 "🛡️ 免疫系統": int(safe_n(real_roe*30+3, 7)),
@@ -179,7 +156,6 @@ try:
 
         # 第二層評級
         st.write(""); k1 = st.columns(4); k2 = st.columns(4)
-        # 列表拆行，防止斷開
         kings = [
             ("📁 質量", f"{dna_v:.0f}"), 
             ("📈 趨勢", f"{crs_val:.0f}"), 
@@ -208,45 +184,53 @@ try:
         v_card(v5, "EV/EBITDA", safe_s(info, ['enterpriseToEbitda'], "x"), "N/A", "企業估值")
         v_card(v6, "股息率", safe_s(info, ['dividendYield'], "%"), "N/A", "現金流回報")
 
-        # 烈火鳳凰 (4級評級 - 防斷行處理)
+        # 🔥 [修正: 4級稱號與變色框] 🔥
         ttm_pe = info.get('trailingPE', 0) or 0
         if ttm_pe > 80:
             dragon_index = round((dna_v * 0.4) + (cx_val * 0.3) + (crs_val * 0.3), 1)
             dragon_index = max(5.0, min(98.5, dragon_index)) 
             
-            # 拆開寫，防止句子太長被編輯器切斷
             if dragon_index >= 80:
                 t_lv = "第 1 級"
                 t_desc = "極致真龍"
                 act_desc = "【順勢而為】真實財報極度健康，估值雖貴但有強大動能支撐，緊貼趨勢操作。"
+                val_title = "🔥 烈火鳳凰"
+                val_color = "#BC13FE" # 魅影紫
             elif dragon_index >= 65:
                 t_lv = "第 2 級"
                 t_desc = "潛力金龍"
                 act_desc = "【價值防守】財報穩健，動能醞釀中，適合分批建倉或持有觀望。"
+                val_title = "🌟 潛龍伏躍"
+                val_color = "#00FFCC" # 霓虹青
             elif dragon_index >= 40:
                 t_lv = "第 3 級"
                 t_desc = "中庸凡骨"
                 act_desc = "【謹慎觀望】動能與財報表現平平，估值偏高，注意回調風險。"
+                val_title = "⚠️ 海市蜃樓"
+                val_color = "#FFA500" # 警告橙
             else:
                 t_lv = "第 4 級"
                 t_desc = "高危泥鰍"
                 act_desc = "【規避風險】財報轉弱且動能破位，估值存在泡沫，建議嚴格止損。"
+                val_title = "☠️ 末路狂花"
+                val_color = "#FF4B4B" # 血紅色
             
+            # 動態渲染邊框與發光顏色
             st.markdown(f"""
-            <div class='val-box-purple'>
+            <div style='border: 4px solid {val_color}; border-radius: 15px; padding: 30px; background-color: #000; box-shadow: 0 0 30px {val_color}66; margin: 25px 0;'>
                 <div style='display:flex; justify-content:space-between; align-items:center;'>
                     <div>
-                        <span style='font-size:2rem; font-weight:900;'>🔥 COSMOS-VAL 解碼：<span style='color:#BC13FE;'>烈火鳳凰</span></span><br>
-                        <span style='font-size:1rem; opacity:0.8;'>（針對 TTM PE {ttm_pe:.2f}x 獨立戰術評分）</span><br>
-                        <span style='font-size:1.1rem; color:#FFD700; font-weight:bold; margin-top:5px; display:inline-block;'>[ 註明：共分 4 級，現在這公司基於真實財報屬 {t_lv} ({t_desc}) ]</span>
+                        <span style='font-size:2.2rem; font-weight:900;'>COSMOS-VAL 解碼：<span style='color:{val_color};'>{val_title}</span></span><br>
+                        <span style='font-size:1.1rem; opacity:0.8;'>（針對 TTM PE {ttm_pe:.2f}x 獨立戰術評分）</span><br>
+                        <span style='font-size:1.2rem; color:#FFD700; font-weight:bold; margin-top:5px; display:inline-block;'>[ 註明：共分 4 級，現在這公司基於真實財報屬 {t_lv} ({t_desc}) ]</span>
                     </div>
                     <div style='text-align:right;'>
-                        <span style='font-size:1.5rem;'>真龍指數：</span><br>
-                        <span style='font-size:4.5rem; font-weight:900; color:#BC13FE;'>{dragon_index}</span>
+                        <span style='font-size:1.6rem;'>真龍指數：</span><br>
+                        <span style='font-size:5rem; font-weight:900; color:{val_color};'>{dragon_index}</span>
                     </div>
                 </div>
                 <div style='background-color:#111; padding:20px; border-radius:10px; margin-top:20px; border:1px solid #333;'>
-                    <b style='color:white; font-size:1.2rem;'>真實財報決策指令：</b> <span style='color:#BC13FE; font-size:1.2rem;'>{act_desc}</span>
+                    <b style='color:white; font-size:1.3rem;'>真實財報決策指令：</b> <span style='color:{val_color}; font-size:1.3rem;'>{act_desc}</span>
                 </div>
             </div>""", unsafe_allow_html=True)
 
