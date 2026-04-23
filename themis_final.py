@@ -53,6 +53,7 @@ st.markdown("""
     .val-text { font-size: 1.3rem; color: #ccc; margin: 8px 0; }
     .val-focus { color: #FFD700; font-weight: bold; font-size: 1.8rem; }
     .red-bar { background-color: #FF4B4B; color: #fff; padding: 20px; border-radius: 10px; text-align: center; font-weight: 900; font-size: 2.5rem; margin: 30px 0; border: 3px solid #fff; }
+    .val-box-purple { border: 3px solid #BC13FE; border-radius: 15px; padding: 30px; background-color: #000; box-shadow: 0 0 25px #BC13FE66; margin: 25px 0; }
     .energy-bar-container-8d { display: flex; gap: 4px; margin-top: 10px; margin-bottom: 15px; }
     .energy-seg-8d { flex: 1; height: 16px; border-radius: 2px; }
     .whale-box { background-color: #000; border: 3px solid #FFD700; border-radius: 15px; padding: 35px; margin-top: 30px; }
@@ -106,7 +107,7 @@ try:
             st.markdown(draw_triad_bar(se_s, "短期能量 BAR", "#FF00FF"), unsafe_allow_html=True)
             st.markdown("""</div>""", unsafe_allow_html=True)
 
-        # 🧬 [DNA 自動切換 ETF / 個股] 🧬
+        # 🧬 [DNA 自動切換 ETF / 個股]
         st.write("---")
         d_c1, d_c2 = st.columns([1, 2.5])
         
@@ -175,17 +176,18 @@ try:
                 st.markdown(f"""<div style='display:flex; justify-content:space-between; font-weight:bold;'><span>{label}</span><span>{sc}/10</span></div>{grid}""", unsafe_allow_html=True)
 
         # -------------------------------------------------------------
-        # ⚠️ 解決括號報錯的關鍵修改：將計算獨立抽出，唔再塞入 f-string 裡面
+        # ✅ 正名: 12M 目標價 & N/A 誠實處理
         # -------------------------------------------------------------
         st.write(""); k1 = st.columns(4); k2 = st.columns(4)
         
-        # 提前計算好所有數值，變成乾淨的變量
         val_emotion = safe_n(crs_val * 0.9, 50.0)
         val_total = (cx_val + crs_val + se_s) / 3
-        val_target = info.get('targetMeanPrice', curr_p * 1.35)
         val_vol_ratio = v21 / max(v252, 1)
 
-        # 宜家個列表清清爽爽，絕對唔會再有括號未閂嘅問題
+        # 讀取分析師大行 12 個月目標價，搵唔到就 N/A，絕不老作
+        target_p_raw = info.get('targetMeanPrice')
+        val_target_str = f"${target_p_raw:.2f}" if target_p_raw else "N/A"
+
         kings = [
             ("📁 質量", f"{dna_v:.0f}"), 
             ("📈 趨勢", f"{crs_val:.0f}"), 
@@ -193,7 +195,7 @@ try:
             ("🔋 大資金", f"{cej_s:.0f}"), 
             ("🎭 情緒", f"{val_emotion:.0f}"), 
             ("🏆 總分", f"{val_total:.0f}"), 
-            ("🔮 2026目標", f"${val_target:.2f}"), 
+            ("🔮 12M目標", val_target_str),   # 已經改名為 12M 目標
             ("💰 成交比", f"{val_vol_ratio:.1f}x")
         ]
         
@@ -203,11 +205,11 @@ try:
 
         st.markdown(f"""<div class='red-bar'>🔥 戰略透視：短期動能爆發數值 [{se_s:.1f}%] 🔥</div>""", unsafe_allow_html=True)
 
-        # 估值矩陣
+        # 估值矩陣 (正名為 12M預期)
         st.write("### 🏛️ 估值與風險全方位透視")
         v1, v2, v3 = st.columns(3); v4, v5, v6 = st.columns(3)
         def v_card(col, title, t_val, f_val, desc):
-            col.markdown(f"""<div class='val-box'><div class='val-label'>{title}</div><div class='val-text'>TTM: <span class='val-focus'>{t_val}</span></div><div class='val-text'>2026預準: <span class='val-focus'>{f_val}</span></div><div style='color:#FFA500; font-size:0.9rem; margin-top:10px;'>{desc}</div></div>""", unsafe_allow_html=True)
+            col.markdown(f"""<div class='val-box'><div class='val-label'>{title}</div><div class='val-text'>TTM: <span class='val-focus'>{t_val}</span></div><div class='val-text'>12M預期: <span class='val-focus'>{f_val}</span></div><div style='color:#FFA500; font-size:0.9rem; margin-top:10px;'>{desc}</div></div>""", unsafe_allow_html=True)
         v_card(v1, "PE 獲利比", safe_s(info, ['trailingPE'], "x"), safe_s(info, ['forwardPE'], "x"), "獲利估值透視")
         v_card(v2, "PEG 增長比", safe_s(info, ['pegRatio']), "N/A", "增長性價比")
         v_card(v3, "PS 營收比", safe_s(info, ['priceToSalesTrailing12Months'], "x"), "N/A", "營收規模")
