@@ -36,7 +36,7 @@ def get_beta(info, df, spy_df):
     except: pass
     return "1.00"
 
-# 2. 視覺裝修 (格式顏色 100% 復刻)
+# 2. 視覺裝修
 st.markdown("""
     <style>
     .stApp { background-color: #0e1117; color: white; }
@@ -49,8 +49,8 @@ st.markdown("""
     .bar-triad { display: flex; gap: 3px; }
     .ej-seg { width: 16px; height: 35px; border-radius: 2px; border: 1.2px solid rgba(255,255,255,0.4); }
     .val-box { background-color: #000 !important; border: 2px solid #FFD700; border-radius: 12px; padding: 20px; text-align: center; min-height: 200px; }
-    .val-label { color: #FFFFFF !important; font-size: 1.8rem; font-weight: bold; border-bottom: 2px solid #444; padding-bottom: 8px; margin-bottom: 12px; }
-    .val-text { font-size: 1.5rem; color: #ccc; margin: 8px 0; }
+    .val-label { color: #FFFFFF !important; font-size: 1.6rem; font-weight: bold; border-bottom: 2px solid #444; padding-bottom: 8px; margin-bottom: 12px; }
+    .val-text { font-size: 1.3rem; color: #ccc; margin: 8px 0; }
     .val-focus { color: #FFD700; font-weight: bold; font-size: 1.8rem; }
     .red-bar { background-color: #FF4B4B; color: #fff; padding: 20px; border-radius: 10px; text-align: center; font-weight: 900; font-size: 2.5rem; margin: 30px 0; border: 3px solid #fff; }
     .val-box-purple { border: 3px solid #BC13FE; border-radius: 15px; padding: 30px; background-color: #000; box-shadow: 0 0 25px #BC13FE66; margin: 25px 0; }
@@ -58,8 +58,8 @@ st.markdown("""
     .energy-seg-8d { flex: 1; height: 16px; border-radius: 2px; }
     .whale-box { background-color: #000; border: 3px solid #FFD700; border-radius: 15px; padding: 35px; margin-top: 30px; }
     .whale-row { display: flex; justify-content: space-between; padding: 15px 0; border-bottom: 1px solid #333; }
-    .whale-n { color: #FFD700; font-weight: bold; font-size: 3rem; }
-    .whale-a { color: #00FFCC; font-size: 2.2rem; text-align: right; }
+    .whale-n { color: #FFD700; font-weight: bold; font-size: 2.5rem; }
+    .whale-a { color: #00FFCC; font-size: 1.6rem; text-align: right; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -86,7 +86,7 @@ try:
 
         st.markdown(f"<div class='main-title'>環球資產透維評估儀 [{ticker}]</div>", unsafe_allow_html=True)
         
-        # 第一層看板
+        #看板
         c1, c2, c3 = st.columns(3)
         c1.markdown(f"<div class='cosmos-box'><div class='cosmos-label'>COSMOS-X (天體動能)</div><div class='cosmos-value'>{cx_val:.1f}</div></div>", unsafe_allow_html=True)
         c2.markdown(f"<div class='cosmos-box' style='border-color:#FFD700;'><div class='cosmos-label'>COSMOS-RS (星系強弱)</div><div class='cosmos-value'>{crs_val:.1f}</div></div>", unsafe_allow_html=True)
@@ -113,7 +113,7 @@ try:
         real_roe = info.get('returnOnEquity', 0)
         dna_v = round(safe_n(real_roe * 350 + 15, 23.6), 1)
         with d_c1:
-            st.markdown(f"<div class='cosmos-box' style='border-color:#FF4B4B; height:380px; display:flex; flex-direction:column; justify-content:center;'><div style='color:#FF4B4B; font-weight:900;'>🧬 COSMOS-DNA</div><div style='font-size:0.9rem; opacity:0.7;'>投行級股王基因 (100分滿分)</div><div style='font-size:6rem; font-weight:900;'>{dna_v}</div></div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='cosmos-box' style='border-color:#FF4B4B; height:380px; display:flex; flex-direction:column; justify-content:center;'><div style='color:#FF4B4B; font-weight:900;'>🧬 COSMOS-DNA</div><div style='font-size:0.9rem; opacity:0.7; margin:10px 0;'>投行級股王基因 (100分滿分)</div><div style='font-size:6rem; font-weight:900;'>{dna_v}</div></div>", unsafe_allow_html=True)
         with d_c2:
             st.markdown(f"**{ticker} ・ 8D 投行精確透視 BAR**")
             m8 = {"🩸 血液純度": int(safe_n(info.get('operatingMargins', 0)*30+3, 5)), "🛡️ 免疫系統": int(safe_n(real_roe*30+3, 7)), "🏗️ 心跳頻率": int(safe_n(info.get('revenueGrowth', 0)*20+4, 6)), "🧬 大腦潛力": int(safe_n(info.get('profitMargins', 0)*30+3, 8)), "🧱 骨架重量": int(max(1, 10 - safe_n(info.get('priceToBook', 5), 5))), "⚡ 物理底盤": 8 if safe_n(info.get('debtToEquity', 150), 150) < 80 else 3, "💰 資本配置": int(safe_n(info.get('dividendYield', 0)*200+2, 5)), "📈 經營拐點": int(safe_n(info.get('earningsGrowth', 0)*25+4, 8))}
@@ -123,7 +123,7 @@ try:
                 grid = '<div class="energy-bar-container-8d">' + "".join([f'<div class="energy-seg-8d" style="background-color:{colors_8d[i%8]}; opacity:{"1" if j<=sc else "0.1"};"></div>' for j in range(1,11)]) + '</div>'
                 st.markdown(f"<div style='display:flex; justify-content:space-between; font-weight:bold;'><span>{label}</span><span>{sc}/10</span></div>{grid}", unsafe_allow_html=True)
 
-        # 第二層評級
+        # 評級
         st.write(""); k1 = st.columns(4); k2 = st.columns(4)
         kings = [("📁 質量", f"{dna_v:.0f}"), ("📈 趨勢", f"{crs_val:.0f}"), ("⚡ 動能", f"{se_s:.0f}"), ("🔋 大資金", f"{cej_s:.0f}"), ("🎭 情緒", f"{safe_n(crs_val*0.9, 50):.0f}"), ("🏆 總分", f"{(cx_val+crs_val+se_s)/3:.0f}"), ("🔮 2026目標", f"${info.get('targetMeanPrice', curr_p*1.35):.2f}"), ("💰 成交比", f"{(v21/max(v252,1)):.1f}x")]
         for i in range(4):
@@ -132,7 +132,7 @@ try:
 
         st.markdown(f"<div class='red-bar'>🔥 戰略透視：短期動能爆發數值 [{se_s:.1f}%] 🔥</div>", unsafe_allow_html=True)
 
-        # 第三層：估值 (N/A 誠實版)
+        # 估值矩陣
         st.write("### 🏛️ 估值與風險全方位透視")
         v1, v2, v3 = st.columns(3); v4, v5, v6 = st.columns(3)
         def v_card(col, title, t_val, f_val, desc):
@@ -144,25 +144,22 @@ try:
         v_card(v5, "EV/EBITDA", safe_s(info, ['enterpriseToEbitda'], "x"), "N/A", "企業估值")
         v_card(v6, "股息率", safe_s(info, ['dividendYield'], "%"), "N/A", "現金流回報")
 
-        # 紫色烈火鳳凰
+        # 烈火鳳凰
         ttm_pe = info.get('trailingPE', 0) or 0
         if ttm_pe > 80:
             st.markdown(f"""<div class='val-box-purple'><div style='display:flex; justify-content:space-between; align-items:center;'><div><span style='font-size:2rem; font-weight:900;'>🔥 COSMOS-VAL 解碼：<span style='color:#BC13FE;'>烈火鳳凰</span></span><br><span style='font-size:1rem; opacity:0.8;'>（針對 TTM PE {ttm_pe:.2f}x 獨立戰術評分）</span></div><div style='text-align:right;'><span style='font-size:1.5rem;'>真龍指數：</span><br><span style='font-size:4rem; font-weight:900; color:#BC13FE;'>82.5</span></div></div></div>""", unsafe_allow_html=True)
 
-        # --- 🛠️ 重要修復：Alpha & 波動率數據修剪 ---
+        # Alpha/波動率
         b_val = float(get_beta(info, df, spy))
         y1_r = (curr_p / df['Close'].iloc[-252] - 1) if len(df) > 252 else 0
         s_y1_r = (spy['Close'].iloc[-1] / spy['Close'].iloc[-252] - 1) if len(spy) > 252 else 0
         real_alpha = (y1_r - b_val * s_y1_r) * 100
-        
         r1, r2, r3 = st.columns(3)
         r1.markdown(f"<div class='cosmos-box' style='border-color:#FFA500;'><div class='cosmos-label'>📐 Beta (性格)</div><div class='cosmos-value' style='font-size:3.5rem;'>{b_val:.2f}</div></div>", unsafe_allow_html=True)
-        # 修剪 Alpha 格式：如果超過 100% 就只顯示 1 位小數，甚至取整
         r2.markdown(f"<div class='cosmos-box' style='border-color:#FFA500;'><div class='cosmos-label'>🔱 Alpha (超額)</div><div class='cosmos-value' style='font-size:3.5rem;'>{real_alpha:.1f}%</div></div>", unsafe_allow_html=True)
-        # 修剪 波動率 格式：取 1 位小數
         r3.markdown(f"<div class='cosmos-box' style='border-color:#FFA500;'><div class='cosmos-label'>🌊 波動率 (情緒)</div><div class='cosmos-value' style='font-size:3.5rem;'>{(v_ann*100):.1f}%</div></div>", unsafe_allow_html=True)
 
-        # 📊 股價圖 (復刻)
+        # 📊 股價圖
         st.write("### 📊 摩訶釋達・能量與籌碼透視圖")
         recent = df.tail(120); dates = recent.index.strftime('%Y-%m-%d')
         fig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.7, 0.3], vertical_spacing=0.05)
@@ -173,14 +170,19 @@ try:
         fig.update_layout(template="plotly_dark", paper_bgcolor='#0e1117', plot_bgcolor='#0e1117', height=750, showlegend=False, xaxis_rangeslider_visible=False, xaxis=dict(type='category', showgrid=False), yaxis=dict(showgrid=True, gridcolor='#333'), yaxis2=dict(showgrid=False), xaxis3=dict(overlaying='x', side='top', range=[0, max(counts)*6], showgrid=False, showticklabels=False))
         st.plotly_chart(fig, use_container_width=True)
 
-        # 名家 (100% 真名單)
-        st.markdown("<div class='whale-box'><div style='color:#FFD700; font-size:2.5rem; font-weight:bold; text-align:center; margin-bottom:20px;'>🧙 90 大名家：真實機構持倉比例 (13F)</div>", unsafe_allow_html=True)
+        # ✅ [名家清單: 修正百分比為 0.00% 的問題]
+        st.markdown("<div class='whale-box'><div style='color:#FFD700; font-size:2.2rem; font-weight:bold; text-align:center; margin-bottom:20px;'>🧙 90 大名家：真實申報持倉 (自動計算佔比)</div>", unsafe_allow_html=True)
+        total_shares = info.get('sharesOutstanding', 1)
         holders = asset.institutional_holders
         if holders is not None and not holders.empty and 'Holder' in holders.columns:
             for _, row in holders.head(8).iterrows():
-                st.markdown(f"<div class='whale-row'><span class='whale-n'>{row['Holder']}</span><span class='whale-a'>持有 {row.get('Shares', 0):,.0f} 股 | 佔比 {row.get('Pct', 0):.2%}</span></div>", unsafe_allow_html=True)
+                shares = row.get('Shares', 0)
+                # 如果 API 沒給 Pct，我們手動用 (股數 / 總股數) 計出嚟
+                calc_pct = (shares / total_shares) if total_shares > 1 else 0
+                val_m = row.get('Value', 0) / 1e6
+                st.markdown(f"<div class='whale-row'><span class='whale-n'>{row['Holder']}</span><span class='whale-a'>持有 {shares:,.0f} 股 | 佔比 {calc_pct:.2%} | 市值 ${val_m:.1f}M</span></div>", unsafe_allow_html=True)
         else:
-            st.markdown("<div style='text-align:center; color:#888; padding:20px;'>此資產暫無公開機構持倉申報數據</div>", unsafe_allow_html=True)
+            st.markdown("<div style='text-align:center; color:#888; padding:20px;'>此資產暫無公開機構申報數據</div>", unsafe_allow_html=True)
         st.markdown("</div>", unsafe_allow_html=True)
 
-except Exception as e: st.error(f"系統大宇宙連接中: {e}")
+except Exception as e: st.error(f"數據診斷中: {e}")
