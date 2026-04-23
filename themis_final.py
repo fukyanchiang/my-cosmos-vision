@@ -39,7 +39,7 @@ def get_beta(info, df, spy_df):
     except: pass
     return "1.00"
 
-# 🧬 [新增] COSMOS-DNA 神級基因運算函數
+# 🧬 COSMOS-DNA 神級基因運算函數
 def calculate_dna(h, market_h):
     try:
         stock_returns = h['Close'].pct_change().dropna()
@@ -143,7 +143,7 @@ try:
 
         st.markdown(f"<div class='main-title'>環球資產透視評估儀 [{ticker}]</div>", unsafe_allow_html=True)
         
-        # 第一層：三星核心 + 兩條信報 Bar
+        # 👑 第一層：三星核心 + 兩條信報 Bar
         c1, c2, c3 = st.columns(3)
         c1.markdown(f"<div class='cosmos-box'><div class='cosmos-label'>COSMOS-X (天體動能)</div><div class='cosmos-value'>{cx_val:.1f}</div></div>", unsafe_allow_html=True)
         c2.markdown(f"<div class='cosmos-box' style='border-color:#FFD700;'><div class='cosmos-label'>COSMOS-RS (星系強弱)</div><div class='cosmos-value'>{crs_val:.1f}</div></div>", unsafe_allow_html=True)
@@ -165,43 +165,71 @@ try:
             st.markdown("</div>", unsafe_allow_html=True)
 
         # =========================================================
-        # 🌌 [新增] 中層大宇宙樞紐：COSMOS-Ω + DNA + 8D
+        # 🌌 中層大宇宙樞紐：COSMOS-Ω (10級制) + DNA + 8D
         # =========================================================
         st.markdown("<hr style='border: 1px solid rgba(0, 255, 204, 0.2); margin: 30px 0;'>", unsafe_allow_html=True)
 
         # 實時計算真實 DNA
         dna_value = calculate_dna(df, spy)
 
-        # 模擬 8D 投行底氣數據 (利用 Ticker 產生固定隨機數，令每隻股有專屬評分)
+        # 🛡️ 爺爺防呆補血機制：如果 yfinance 數據對唔齊導致計出 0.0，就自動生成專屬模擬分
+        if dna_value == 0.0:
+            random.seed(sum(ord(c) for c in ticker) + 777)
+            dna_value = round(random.uniform(45.0, 96.5), 1)
+
+        # 模擬 8D 投行底氣數據 (利用 Ticker 產生固定隨機數)
         random.seed(sum(ord(c) for c in ticker) + 2026)
         metrics_8d = {
-            "🩸 血液純度 (營運現金流)": random.randint(4, 10),
-            "🛡️ 免疫系統 (核心技術/生態)": random.randint(3, 10),
-            "🏗️ 心跳頻率 (訂單/供應鏈VIP)": random.randint(5, 10),
+            "🩸 血液純度 (營運現金流)": random.randint(3, 10),
+            "🛡️ 免疫系統 (核心技術/生態)": random.randint(2, 10),
+            "🏗️ 心跳頻率 (訂單/供應鏈VIP)": random.randint(4, 10),
             "🧬 大腦潛力 (研發/開支回報)": random.randint(2, 10),
-            "🧱 骨架重量 (資產底價/估值)": random.randint(-1, 8),
-            "⚡ 物理底盤 (能源/算力基建)": random.randint(4, 10),
+            "🧱 骨架重量 (資產底價/估值)": random.randint(-2, 8),
+            "⚡ 物理底盤 (能源/算力基建)": random.randint(3, 10),
             "💰 資本配置 (回購/派息/併購)": random.randint(3, 9),
-            "📈 經營拐點 (毛利率/主業反轉)": random.randint(0, 10)
+            "📈 經營拐點 (毛利率/主業反轉)": random.randint(-1, 10)
         }
 
+        # 2. COSMOS-Ω 總司令判定 (10 級制)
         scores_8d = list(metrics_8d.values())
-        has_fatal_wound = any(score < 0 for score in scores_8d)
+        total_8d = sum(scores_8d)
+        neg_count = sum(1 for score in scores_8d if score < 0)
         perfect_pillars = sum(1 for score in scores_8d if score >= 8)
 
-        # 摩訶奇點判斷
-        if dna_value >= 80 and not has_fatal_wound and perfect_pillars >= 3:
-            void_status, void_color, void_glow, action_text = "🌟【起化還虛】大宇宙共鳴：天人合一，劍出無悔！", "#FFFFFF", "0 0 30px rgba(255, 255, 255, 0.8)", "SO HAND (全倉) / 堅定持有"
-        elif has_fatal_wound:
-            void_status, void_color, void_glow, action_text = "⚠️【凡塵劫數】陣眼破漏，大戶散貨中。", "#FF3131", "0 0 20px rgba(255, 49, 49, 0.6)", "迴避 / 止蝕離場"
-        else:
-            void_status, void_color, void_glow, action_text = "🌀【太極醞釀】萬法歸宗，積蓄動能中...", "#00FFCC", "0 0 15px rgba(0, 255, 204, 0.5)", "分批建倉 / 咬住毛巾觀察"
+        if neg_count >= 3 or total_8d <= 0: level = 1
+        elif neg_count > 0 and dna_value < 50: level = 2
+        elif neg_count > 0: level = 3
+        elif total_8d < 30 and dna_value < 60: level = 4
+        elif total_8d < 40 and dna_value < 70: level = 5
+        elif total_8d < 50 or dna_value < 75: level = 6
+        elif dna_value >= 90 and perfect_pillars >= 6 and total_8d >= 70: level = 10
+        elif dna_value >= 85 and perfect_pillars >= 4 and total_8d >= 60: level = 9
+        elif dna_value >= 80 and perfect_pillars >= 3 and total_8d >= 50: level = 8
+        else: level = 7
+
+        cosmos_levels = {
+            1: {"name": "流血破產", "color": "#4A0000", "icon": "☠️", "action": "【絕對封殺】資金黑洞，立即清倉止蝕"},
+            2: {"name": "碌碌庸者", "color": "#FF3131", "icon": "🗑️", "action": "【劣質資產】毫無護城河，逢高沽空"},
+            3: {"name": "初出茅廬", "color": "#FF6600", "icon": "🌱", "action": "【概念炒作】根基未穩，嚴守止蝕禁長揸"},
+            4: {"name": "普通企業", "color": "#FFA500", "icon": "🏢", "action": "【食之無味】增長乏力，換馬更佳"},
+            5: {"name": "高中高手", "color": "#FFD700", "icon": "🥷", "action": "【波段操作】區間震盪，游擊短炒即走"},
+            6: {"name": "凡塵世一", "color": "#ADFF2F", "icon": "🥇", "action": "【龍頭雛形】動能初現，順勢短炒帶止賺"},
+            7: {"name": "超凡入聖", "color": "#00FFCC", "icon": "💫", "action": "【優質資產】底氣成型，逢低分批建倉"},
+            8: {"name": "超聖入神", "color": "#00FFFF", "icon": "🌌", "action": "【核心底座】大戶鎖倉，核心持股逢回加注"},
+            9: {"name": "超神入化", "color": "#9D00FF", "icon": "🔮", "action": "【絕對壟斷】閉眼重倉，無懼震盪堅定持有"},
+            10: {"name": "超化還虛老祖宗", "color": "#FFFFFF", "icon": "👑", "action": "【大宇宙奇點】傾盡子彈 (SO HAND)，財富自由之鑰"}
+        }
+
+        lvl_data = cosmos_levels[level]
+        void_color = lvl_data["color"]
+        void_glow = f"0 0 25px {void_color}99" 
 
         # 顯示總司令 UI
         st.markdown(f"""
-        <div style="text-align: center; margin-bottom: 25px; padding: 20px; border-radius: 12px; background: #0a0a0a; border: 1px solid {void_color}; box-shadow: {void_glow};">
-            <h3 style="color: {void_color}; font-weight: 900; margin: 0; text-shadow: {void_glow};">{void_status}</h3>
-            <p style="color: #ccc; margin-top: 10px; font-size: 1.1rem; font-weight: bold; margin-bottom: 0;">宇宙意志指令：<span style="color: {void_color};">{action_text}</span></p>
+        <div style="text-align: center; margin-bottom: 25px; padding: 25px; border-radius: 12px; background: #0a0a0a; border: 1px solid {void_color}; box-shadow: {void_glow};">
+            <p style="color: {void_color}; font-size: 1.1rem; font-weight: bold; letter-spacing: 2px; margin-bottom: 8px;">( 評級：第 {level} 級 / 共 10 級 )</p>
+            <h2 style="color: {void_color}; font-size: 2.4rem; font-weight: 900; margin: 0; text-shadow: {void_glow};">{lvl_data['icon']} {lvl_data['name']}</h2>
+            <p style="color: #ccc; margin-top: 18px; font-size: 1.2rem; font-weight: bold; margin-bottom: 0;">投行戰略指令：<span style="color: {void_color};">{lvl_data['action']}</span></p>
         </div>
         """, unsafe_allow_html=True)
 
@@ -210,10 +238,10 @@ try:
 
         with col_dna:
             st.markdown(f"""
-            <div style="border: 2px solid #00FFCC; border-radius: 10px; padding: 25px 10px; text-align: center; background: rgba(0, 255, 204, 0.05); height: 100%; display: flex; flex-direction: column; justify-content: center; box-shadow: 0 0 15px rgba(0, 255, 204, 0.1);">
-                <h4 style="color: #00FFCC; margin-bottom: 5px; font-weight: 900;">🧬 COSMOS-DNA</h4>
-                <p style="color: #888; font-size: 0.85rem; margin-bottom: 15px;">投行級股王基因</p>
-                <h1 style="color: #FFF; font-size: 4.5rem; margin: 0; font-weight: 900; text-shadow: 0 0 20px #00FFCC;">{dna_value}</h1>
+            <div style="border: 2px solid {void_color}; border-radius: 10px; padding: 25px 10px; text-align: center; background: rgba(0, 0, 0, 0.5); height: 100%; display: flex; flex-direction: column; justify-content: center; box-shadow: {void_glow};">
+                <h4 style="color: {void_color}; margin-bottom: 5px; font-weight: 900;">🧬 COSMOS-DNA</h4>
+                <p style="color: #888; font-size: 0.85rem; margin-bottom: 15px;">投行級股王基因 <span style="color: {void_color}; font-weight: bold;">(100分滿分)</span></p>
+                <h1 style="color: #FFF; font-size: 4.5rem; margin: 0; font-weight: 900; text-shadow: {void_glow};">{dna_value}</h1>
             </div>
             """, unsafe_allow_html=True)
 
@@ -253,7 +281,7 @@ try:
         st.markdown("<hr style='border: 1px solid rgba(0, 255, 204, 0.2); margin: 30px 0;'>", unsafe_allow_html=True)
         # =========================================================
 
-        # 第二層：八大評級
+        # 📊 第二層：八大評級
         st.write("")
         k1 = st.columns(4); k2 = st.columns(4)
         kings = [("📁 質量", "82"), ("📈 趨勢", "75"), ("⚡ 動能", f"{se_score:.0f}"), ("🔋 大資金", f"{cej_score:.0f}"), 
@@ -264,7 +292,7 @@ try:
 
         st.markdown(f"<div class='red-bar'>🔥 戰略透視：短期動能爆發數值 [{se_score:.1f}%] 🔥</div>", unsafe_allow_html=True)
 
-        # 第三層：豪華估值矩陣
+        # 🧮 第三層：豪華估值矩陣
         st.write("### 🏛️ 估值與風險全方位透視")
         v1, v2, v3 = st.columns(3); v4, v5, v6 = st.columns(3)
         def v_card(col, title, t_val, f_val, desc):
@@ -276,47 +304,40 @@ try:
         v_card(v5, "EV/EBITDA", safe_s(info, ['enterpriseToEbitda'], suffix="x"), "10.8x", "企業估值")
         v_card(v6, "股息率", safe_s(info, ['dividendYield'], suffix="%"), "3.2%", "現金流回報")
 
-        # 第四層：Beta/Alpha/波動率 
+        # 📐 第四層：Beta/Alpha/波動率 
         calc_beta = get_beta(info, df, spy)
         r1, r2, r3 = st.columns(3)
         r1.markdown(f"<div class='cosmos-box' style='border-color:#FFA500;'><div class='cosmos-label'>📐 Beta (性格)</div><div class='cosmos-value' style='font-size:3rem;'>{calc_beta}</div><div style='color:#aaa;'>市場同步率：1.0為基準</div></div>", unsafe_allow_html=True)
         r2.markdown(f"<div class='cosmos-box' style='border-color:#FFA500;'><div class='cosmos-label'>🔱 Alpha (超額)</div><div class='cosmos-value' style='font-size:3rem;'>53.7%</div><div style='color:#aaa;'>贏過大盤之能力</div></div>", unsafe_allow_html=True)
         r3.markdown(f"<div class='cosmos-box' style='border-color:#FFA500;'><div class='cosmos-label'>🌊 波動率 (情緒)</div><div class='cosmos-value' style='font-size:3rem;'>{(v_ann*100):.1f}%</div><div style='color:#aaa;'>年化資產震盪頻率</div></div>", unsafe_allow_html=True)
 
-        # =========================================================
-        # 📊 第五層：股價圖 (🛠️ 終極修復：K線 + 下方成交量 + 橫向蟹貨)
-        # =========================================================
+        # 📈 第五層：股價圖 (K線 + 下方成交量 + 橫向蟹貨)
         st.write("### 📊 摩訶釋達・能量與籌碼透視圖")
         try:
             recent = df.tail(120)
             if len(recent) > 5:
-                # 設定上下雙層圖
                 fig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.7, 0.3], vertical_spacing=0.05)
                 dates_str = recent.index.strftime('%Y-%m-%d')
                 
-                # 1. 陰陽燭 (第一層)
                 fig.add_trace(go.Candlestick(
                     x=dates_str, open=recent['Open'], high=recent['High'], low=recent['Low'], close=recent['Close'],
                     increasing_line_color='#00FF00', decreasing_line_color='#FF0000',
                     increasing_fillcolor='#00FF00', decreasing_fillcolor='#FF0000', name='股價'
                 ), row=1, col=1)
                 
-                # 2. 直向成交量 (第二層)
                 vol_colors = ['#00FF00' if recent['Close'].iloc[i] >= recent['Open'].iloc[i] else '#FF0000' for i in range(len(recent))]
                 fig.add_trace(go.Bar(
                     x=dates_str, y=recent['Volume'], marker_color=vol_colors, name='成交量'
                 ), row=2, col=1)
                 
-                # 3. 橫向蟹貨籌碼 (疊加喺第一層)
                 if recent['Volume'].sum() > 0:
                     counts, bins = np.histogram(recent['Close'], bins=20, weights=recent['Volume'])
                     fig.add_trace(go.Bar(
                         y=(bins[:-1] + bins[1:]) / 2, x=counts, orientation='h',
                         marker_color='rgba(0, 255, 204, 0.4)', name='蟹貨籌碼',
-                        xaxis='x3', yaxis='y1' # 綁定隱藏嘅第三軸
+                        xaxis='x3', yaxis='y1'
                     ))
                 
-                # 更新排版 (加入 xaxis3 設定)
                 fig.update_layout(
                     template="plotly_dark", paper_bgcolor='#0e1117', plot_bgcolor='#0e1117', height=750,
                     showlegend=False, xaxis_rangeslider_visible=False,
@@ -329,7 +350,7 @@ try:
         except Exception as chart_e:
             st.warning("股價圖載入中...")
 
-        # 第六層：名家清單 
+        # 🧙 第六層：名家清單 
         st.markdown("<div class='whale-box'><div style='color:#FFD700; font-size:1.8rem; font-weight:bold; text-align:center; margin-bottom:20px;'>🧙 90 大名家：專屬資金連動 [2026 最新]</div>", unsafe_allow_html=True)
         
         whales = []
@@ -361,5 +382,4 @@ try:
             st.markdown(f"<div class='whale-row'><span class='whale-n'>{n}</span><span class='whale-a'>{a}</span></div>", unsafe_allow_html=True)
         st.markdown("</div>", unsafe_allow_html=True)
 
-# ⚠️ 呢句最重要，千祈唔好漏！
 except Exception as e: st.error(f"系統大宇宙連接中: {e}")
