@@ -6,8 +6,9 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 # 1. 基礎設置
-st.set_page_config(page_title="環球資產透維評估儀", layout="wide")
+st.set_page_config(page_title="COSMOS 戰略指揮部 V43", layout="wide")
 
+# --- 基礎工具函數 ---
 def safe_n(val, alt=50.0):
     try:
         v = float(val)
@@ -36,7 +37,48 @@ def get_beta(info, df, spy_df):
     except: pass
     return "1.00"
 
-# 2. 視覺裝修 (100% 保留你原本的設計)
+def draw_triad_bar(val, title, color):
+    lit = int((min(120, val)/120)*21)
+    html = f"<div class='ej-header'>{title}: {val:.1f}%</div><div class='bar-group-container'>"
+    for g in range(7):
+        html += "<div class='bar-triad'>"
+        for i in range(3):
+            idx = g*3+i; c_code = "#FF4B4B" if idx<6 else ("#FFD700" if idx<12 else color)
+            op = 1 if idx < lit else 0.1; sh = f"box-shadow: 0 0 10px {c_code};" if idx < lit else ""
+            html += f"<div class='ej-seg' style='background-color:{c_code if idx < lit else '#222'}; opacity:{op}; {sh}'></div>"
+        html += "</div>"
+    return html + "</div>"
+
+# --- 乖孫的美股版塊地圖 & 核心成份股名單 (爺爺幫你整理好) ---
+US_SECTOR_MAP = {
+    "半導體 (SMH)": "SMH", "科技 (XLK)": "XLK", "通訊 (XLC)": "XLC", "可選消費 (XLY)": "XLY",
+    "金融 (XLF)": "XLF", "醫療 (XLV)": "XLV", "能源 (XLE)": "XLE", "工業 (XLI)": "XLI", 
+    "必消 (XLP)": "XLP", "公用事業 (XLU)": "XLU", "房地產 (XLRE)": "XLRE", "銀行 (KRE)": "KRE",
+    "建築 (ITB)": "ITB", "油服 (OIH)": "OIH", "生技 (IBB)": "IBB", "太陽能 (TAN)": "TAN", "黃金礦工 (GDX)": "GDX"
+}
+
+# 版塊對應嘅「龍頭名單」，用嚟做尋龍掃描
+SECTOR_COMPONENTS = {
+    "半導體 (SMH)": ["NVDA", "TSM", "AVGO", "ASML", "AMD", "QCOM", "TXN", "AMAT", "MU", "INTC"],
+    "科技 (XLK)": ["AAPL", "MSFT", "NVDA", "AVGO", "ADBE", "CRM", "AMD", "ACN", "CSCO"],
+    "通訊 (XLC)": ["META", "GOOGL", "NFLX", "DIS", "CMCSA", "TMUS", "CHTR", "TTWO"],
+    "可選消費 (XLY)": ["AMZN", "TSLA", "HD", "MCD", "NKE", "LOW", "BKNG", "SBUX"],
+    "金融 (XLF)": ["BRK-B", "JPM", "V", "MA", "BAC", "WFC", "MS", "GS", "C"],
+    "醫療 (XLV)": ["LLY", "UNH", "JNJ", "MRK", "ABBV", "TMO", "DHR", "AMGN", "PFE"],
+    "能源 (XLE)": ["XOM", "CVX", "COP", "EOG", "SLB", "MPC", "PSX", "VLO"],
+    "工業 (XLI)": ["CAT", "GE", "UNP", "HON", "BA", "RTX", "LMT", "UPS"],
+    "必消 (XLP)": ["PG", "PEP", "KO", "COST", "WMT", "PM", "MO", "TGT"],
+    "公用事業 (XLU)": ["NEE", "SO", "DUK", "SRE", "AEP", "D", "PCG", "EXC"],
+    "房地產 (XLRE)": ["PLD", "AMT", "EQIX", "CCI", "PSA", "O", "SPG"],
+    "銀行 (KRE)": ["NYCB", "USB", "PNC", "TFC", "FITB", "MTB", "CFG"],
+    "建築 (ITB)": ["DHI", "LEN", "PHM", "NVR", "TOL", "BLDR"],
+    "油服 (OIH)": ["SLB", "HAL", "BKR", "FTI", "NOV", "CHX"],
+    "生技 (IBB)": ["VRTX", "REGN", "AMGN", "GILD", "BIIB", "IQV"],
+    "太陽能 (TAN)": ["FSLR", "ENPH", "SEDG", "RUN", "SHLS"],
+    "黃金礦工 (GDX)": ["NEM", "GOLD", "AEM", "FNV", "KGC", "WPM"]
+}
+
+# 2. 視覺裝修 (CSS)
 st.markdown("""
     <style>
     .stApp { background-color: #0e1117; color: white; }
@@ -61,55 +103,109 @@ st.markdown("""
     .whale-a { color: #00FFCC; font-size: 1.6rem; text-align: right; }
     .radar-box { background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); color: #000 !important; padding: 15px; border-radius: 10px; text-align: center; font-weight: 900; margin-bottom: 20px; border: 2px solid #FFF; font-size: 1.5rem; }
     .radar-on { background: linear-gradient(135deg, #00FFCC 0%, #00FFA5 100%); }
+    .scan-card { background-color: #111; border-left: 5px solid #00FFCC; padding: 15px; margin-bottom: 10px; border-radius: 5px; }
+    .scan-card-fire { border-left: 5px solid #FF4B4B; background-color: #310000; }
     </style>
     """, unsafe_allow_html=True)
 
-# ----------------- 新增：側邊欄功能切換 -----------------
+# 3. 側邊欄控制
 st.sidebar.markdown("## 🛰️ 戰術控制台")
-app_mode = st.sidebar.radio("請選擇操作", ["🚀 個股精確透視", "📡 版塊強勢掃描 (美股)"])
+# ⚠️ 爺爺加咗新模式 ⚠️
+app_mode = st.sidebar.radio("請選擇操作", ["📡 版塊強勢熱力圖", "🔍 版塊內尋龍掃描", "🚀 個股 DNA 深度透視"])
 
-if app_mode == "📡 版塊強勢掃描 (美股)":
-    # 這是加進來的版塊掃描功能，不影響你原來的個股畫面
-    st.markdown("<div class='main-title'>🛰️ 全美版塊能量對比圖</div>", unsafe_allow_html=True)
-    st.write("爺爺正在檢查資金流向... (計算近 3 個月相對強弱 RS)")
-    
-    US_SECTOR_MAP = {
-        "太陽能 (TAN)": "TAN", "公用事業 (XLU)": "XLU", "油服 (OIH)": "OIH", "工業 (XLI)": "XLI", 
-        "必消 (XLP)": "XLP", "房地產 (XLRE)": "XLRE", "銀行 (KRE)": "KRE", "建築 (ITB)": "ITB", 
-        "半導體 (SMH)": "SMH", "能源 (XLE)": "XLE", "醫療 (XLV)": "XLV", "通訊 (XLC)": "XLC", 
-        "金融 (XLF)": "XLF", "可選消費 (XLY)": "XLY", "科技 (XLK)": "XLK", "生技 (IBB)": "IBB", "黃金礦工 (GDX)": "GDX"
-    }
-    
-    spy = yf.Ticker("SPY").history(period="60d")['Close']
+# ==========================================
+# 模式 A：版塊掃描 (大地圖)
+# ==========================================
+if app_mode == "📡 版塊強勢熱力圖":
+    st.markdown("<h1 class='main-title'>🛰️ 全美星系版塊能量分布</h1>", unsafe_allow_html=True)
+    spy_data = yf.Ticker("SPY").history(period="60d")['Close']
     results = []
-    with st.spinner('星系掃描中...'):
+    with st.spinner('爺爺正在掃描全美版塊...'):
         for name, sym in US_SECTOR_MAP.items():
             try:
-                data = yf.Ticker(sym).history(period="60d")['Close']
-                if len(data) >= 20:
-                    asset_perf = (data.iloc[-1] / data.iloc[-20]) - 1
-                    spy_perf = (spy.iloc[-1] / spy.iloc[-20]) - 1
-                    rs_score = 50 + (asset_perf - spy_perf) * 100
-                    results.append({"版塊": name, "RS強弱": round(rs_score, 1)})
+                d = yf.Ticker(sym).history(period="60d")['Close']
+                if len(d) >= 20:
+                    rs = 50 + ((d.iloc[-1]/d.iloc[-20]) - (spy_data.iloc[-1]/spy_data.iloc[-20])) * 100
+                    results.append({"版塊": name, "RS強弱": round(rs, 1)})
             except: pass
-            
     if results:
         df_rs = pd.DataFrame(results).sort_values("RS強弱", ascending=False)
-        fig = go.Figure(go.Bar(
-            x=df_rs["RS強弱"], y=df_rs["版塊"], orientation='h',
-            marker=dict(color=df_rs["RS強弱"], colorscale='Portland'),
-            text=df_rs["RS強弱"], textposition='auto'
-        ))
-        fig.update_layout(template="plotly_dark", height=600, title="版塊領先程度 (RS > 50 代表贏大盤)")
+        fig = go.Figure(go.Bar(x=df_rs["RS強弱"], y=df_rs["版塊"], orientation='h', marker=dict(color=df_rs["RS強弱"], colorscale='Portland')))
+        fig.update_layout(template="plotly_dark", height=700, title="版塊相對強度 (RS > 50 代表跑贏大盤)")
         st.plotly_chart(fig, use_container_width=True)
+        st.success(f"👴 爺爺提示：目前最強戰場在【{df_rs.iloc[0]['版塊']}】！請切換到「版塊內尋龍掃描」去挖寶！")
 
-else:
-    # ----------------- 原有版本邏輯 (個股透視) -----------------
-    ticker = st.sidebar.text_input("🚀 輸入資產代號", "6869.HK").upper()
+# ==========================================
+# 模式 B：版塊內尋龍掃描 (新功能！)
+# ==========================================
+elif app_mode == "🔍 版塊內尋龍掃描":
+    st.markdown("<h1 class='main-title'>🔍 版塊內尋龍起步雷達</h1>", unsafe_allow_html=True)
+    st.write("爺爺會幫你逐隻檢查版塊內嘅龍頭股，搵出 **DNA優良 + 資金湧入 + 剛起步** 嘅目標。")
     
-    # 新增：爆發雷達按鈕
-    detect_btn = st.sidebar.button("📡 掃描趨勢爆發起點")
+    target_sector = st.sidebar.selectbox("選擇要掃描的版塊", list(SECTOR_COMPONENTS.keys()))
+    scan_btn = st.sidebar.button("開始掃描！")
+    
+    if scan_btn:
+        tickers_to_scan = SECTOR_COMPONENTS[target_sector]
+        st.markdown(f"### 正在掃描 【{target_sector}】 核心龍頭...")
+        
+        spy = yf.Ticker("SPY").history(period="2y").dropna(subset=['Close'])
+        
+        breakout_found = False
+        progress_bar = st.progress(0)
+        
+        for idx, t in enumerate(tickers_to_scan):
+            progress_bar.progress((idx + 1) / len(tickers_to_scan))
+            try:
+                asset = yf.Ticker(t); info = asset.info
+                df = asset.history(period="1y").dropna(subset=['Close', 'Volume'])
+                if len(df) > 63:
+                    curr_p = df['Close'].iloc[-1]
+                    c_tail = df['Close'].tail(125); days = np.arange(len(c_tail))
+                    slope, intercept = np.polyfit(days, c_tail, 1)
+                    crs_val = safe_n(50 + ((curr_p / df['Close'].iloc[-63]) - (spy['Close'].iloc[-1] / spy['Close'].iloc[-63])) * 100, 50.0)
+                    
+                    v21 = df['Volume'].tail(21).mean(); v252 = df['Volume'].tail(252).mean()
+                    cej_s = safe_n((v21 / max(v252, 1)) * 100, 50.0)
+                    se_s = safe_n(50 + (((curr_p / df['Close'].iloc[-5]) - 1) * 1200), 50.0)
+                    real_roe = info.get('returnOnEquity', 0) or 0
+                    dna_v = round(safe_n(real_roe * 350 + 15, 23.6), 1)
 
+                    # 判斷起步訊號
+                    is_breakout = se_s > 85 and cej_s > 110 and crs_val > 52
+                    
+                    if is_breakout:
+                        breakout_found = True
+                        st.markdown(f"""
+                        <div class='scan-card scan-card-fire'>
+                            <h2 style='color:#FFD700; margin:0;'>🎯 {t} | 能量共振！趨勢剛啟動！</h2>
+                            <p style='margin:5px 0; color:#ddd;'>
+                                🧬 DNA質量: <b>{dna_v}</b> | ⚡ 短期動能 (SE): <b style='color:#FF4B4B;'>{se_s:.1f}</b> | 
+                                🔋 資金底氣 (EJ): <b style='color:#00FFCC;'>{cej_s:.1f}</b> | 📈 大盤強弱 (RS): <b>{crs_val:.1f}</b>
+                            </p>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    else:
+                        st.markdown(f"""
+                        <div class='scan-card'>
+                            <h4 style='color:#ccc; margin:0;'>💤 {t} | 尚未到達爆發點</h4>
+                            <span style='font-size:0.9rem; color:#888;'>動能 SE: {se_s:.1f} | 資金 EJ: {cej_s:.1f}</span>
+                        </div>
+                        """, unsafe_allow_html=True)
+            except: pass
+            
+        if not breakout_found:
+            st.warning("爺爺掃描完畢：目前呢個版塊內，無龍頭股出現「起步爆發」訊號。建議耐心等候或者睇其他版塊！")
+        else:
+            st.success("🔥 掃描完畢！有標的出現爆發訊號，請抄低代號，去「個股 DNA 深度透視」做最後檢查！")
+
+# ==========================================
+# 模式 C：個股透視 (狙擊鏡)
+# ==========================================
+else:
+    ticker = st.sidebar.text_input("🚀 輸入狙擊代號", "NVDA").upper()
+    detect_btn = st.sidebar.button("📡 掃描趨勢爆發起點")
+    
     try:
         asset = yf.Ticker(ticker); info = asset.info
         df = asset.history(period="2y").dropna(subset=['Close', 'Volume'])
@@ -118,7 +214,7 @@ else:
         if not df.empty:
             curr_p = df['Close'].iloc[-1]
             
-            # 🌌 COSMOS-X & RS
+            # 核心計算
             c_tail = df['Close'].tail(125); days = np.arange(len(c_tail))
             slope, intercept = np.polyfit(days, c_tail, 1); pred = intercept + slope * len(days)
             mom = (curr_p / pred) if pred > 0 else 1.0; v_ann = max(0.001, c_tail.pct_change().std() * np.sqrt(252))
@@ -131,7 +227,7 @@ else:
 
             st.markdown(f"""<div class='main-title'>環球資產透維評估儀 [{ticker}]</div>""", unsafe_allow_html=True)
             
-            # --- 新增：雷達掃描結果顯示 ---
+            # 雷達掃描結果
             if detect_btn:
                 is_breakout = se_s > 85 and cej_s > 110 and crs_val > 52
                 if is_breakout:
@@ -145,22 +241,11 @@ else:
             c2.markdown(f"""<div class='cosmos-box' style='border-color:#FFD700;'><div class='cosmos-label'>COSMOS-RS (星系強弱)</div><div class='cosmos-value'>{crs_val:.1f}</div></div>""", unsafe_allow_html=True)
             with c3:
                 st.markdown("""<div class='cosmos-box' style='border-color:#00FFFF; padding: 20px;'>""", unsafe_allow_html=True)
-                def draw_triad_bar(val, title, color):
-                    lit = int((min(120, val)/120)*21)
-                    html = f"<div class='ej-header'>{title}: {val:.1f}%</div><div class='bar-group-container'>"
-                    for g in range(7):
-                        html += "<div class='bar-triad'>"
-                        for i in range(3):
-                            idx = g*3+i; c_code = "#FF4B4B" if idx<6 else ("#FFD700" if idx<12 else color)
-                            op = 1 if idx < lit else 0.1; sh = f"box-shadow: 0 0 10px {c_code};" if idx < lit else ""
-                            html += f"<div class='ej-seg' style='background-color:{c_code if idx < lit else '#222'}; opacity:{op}; {sh}'></div>"
-                        html += "</div>"
-                    return html + "</div>"
                 st.markdown(draw_triad_bar(cej_s, "EJ 錢流底氣", "#00FFFF"), unsafe_allow_html=True)
                 st.markdown(draw_triad_bar(se_s, "短期能量 BAR", "#FF00FF"), unsafe_allow_html=True)
                 st.markdown("""</div>""", unsafe_allow_html=True)
 
-            # 🧬 [DNA 自動切換 ETF / 個股] 🧬
+            # 🧬 DNA 自動切換 ETF / 個股 
             st.write("---")
             d_c1, d_c2 = st.columns([1, 2.5])
             
@@ -171,32 +256,24 @@ else:
                 dna_v = round(safe_n((cx_val * 0.5) + (crs_val * 0.5), 50.0), 1)
                 dna_title = "ETF 綜合質量基因"
                 m8 = {
-                    "🩸 資金純度 (流動)": int(safe_n(cej_s / 10, 5)),
-                    "🛡️ 免疫系統 (抗跌)": int(safe_n(crs_val / 10, 5)),
-                    "🏗️ 心跳頻率 (動能)": int(safe_n(cx_val / 10, 5)),
-                    "🧬 大腦潛力 (趨勢)": int(safe_n(se_s / 10, 5)),
-                    "🧱 骨架重量 (規模)": 9 if info.get('totalAssets', 0) > 1e9 else 5,
-                    "⚡ 物理底盤 (波幅)": int(max(1, 10 - (v_ann * 20))),
-                    "💰 資本配置 (派息)": int(safe_n(info.get('yield', info.get('dividendYield', 0))*200+2, 5)),
-                    "📈 經營拐點 (相對)": int(safe_n(crs_val / 10, 5))
+                    "🩸 資金純度 (流動)": int(safe_n(cej_s / 10, 5)), "🛡️ 免疫系統 (抗跌)": int(safe_n(crs_val / 10, 5)),
+                    "🏗️ 心跳頻率 (動能)": int(safe_n(cx_val / 10, 5)), "🧬 大腦潛力 (趨勢)": int(safe_n(se_s / 10, 5)),
+                    "🧱 骨架重量 (規模)": 9 if info.get('totalAssets', 0) > 1e9 else 5, "⚡ 物理底盤 (波幅)": int(max(1, 10 - (v_ann * 20))),
+                    "💰 資本配置 (派息)": int(safe_n(info.get('yield', info.get('dividendYield', 0))*200+2, 5)), "📈 經營拐點 (相對)": int(safe_n(crs_val / 10, 5))
                 }
             else:
                 dna_v = round(safe_n(real_roe * 350 + 15, 23.6), 1)
                 dna_title = "投行級股王基因"
                 m8 = {
-                    "🩸 血液純度": int(safe_n(info.get('operatingMargins', 0)*30+3, 5)),
-                    "🛡️ 免疫系統": int(safe_n(real_roe*30+3, 7)),
-                    "🏗️ 心跳頻率": int(safe_n(info.get('revenueGrowth', 0)*20+4, 6)),
-                    "🧬 大腦潛力": int(safe_n(info.get('profitMargins', 0)*30+3, 8)),
-                    "🧱 骨架重量": int(max(1, 10 - safe_n(info.get('priceToBook', 5), 5))),
-                    "⚡ 物理底盤": 8 if safe_n(info.get('debtToEquity', 150), 150) < 80 else 3,
-                    "💰 資本配置": int(safe_n(info.get('dividendYield', 0)*200+2, 5)),
-                    "📈 經營拐點": int(safe_n(info.get('earningsGrowth', 0)*25+4, 8))
+                    "🩸 血液純度": int(safe_n(info.get('operatingMargins', 0)*30+3, 5)), "🛡️ 免疫系統": int(safe_n(real_roe*30+3, 7)),
+                    "🏗️ 心跳頻率": int(safe_n(info.get('revenueGrowth', 0)*20+4, 6)), "🧬 大腦潛力": int(safe_n(info.get('profitMargins', 0)*30+3, 8)),
+                    "🧱 骨架重量": int(max(1, 10 - safe_n(info.get('priceToBook', 5), 5))), "⚡ 物理底盤": 8 if safe_n(info.get('debtToEquity', 150), 150) < 80 else 3,
+                    "💰 資本配置": int(safe_n(info.get('dividendYield', 0)*200+2, 5)), "📈 經營拐點": int(safe_n(info.get('earningsGrowth', 0)*25+4, 8))
                 }
 
             dna_v = max(0.0, min(100.0, dna_v)) 
             
-            # 10 級分類邏輯
+            # 10 級分類
             if dna_v >= 90: d_lv, d_desc = "第 1 級", "👑 創世真神"
             elif dna_v >= 80: d_lv, d_desc = "第 2 級", "🌟 星系霸主"
             elif dna_v >= 70: d_lv, d_desc = "第 3 級", "🚀 恆星巨頭"
@@ -239,14 +316,8 @@ else:
             val_target_str = f"${target_p_raw:.2f}" if target_p_raw else "N/A"
 
             kings = [
-                ("📁 質量", f"{dna_v:.0f}"), 
-                ("📈 趨勢", f"{crs_val:.0f}"), 
-                ("⚡ 動能", f"{se_s:.0f}"), 
-                ("🔋 大資金", f"{cej_s:.0f}"), 
-                ("🎭 情緒", f"{val_emotion:.0f}"), 
-                ("🏆 總分", f"{val_total:.0f}"), 
-                ("🔮 12M目標", val_target_str),
-                ("💰 成交比", f"{val_vol_ratio:.1f}x")
+                ("📁 質量", f"{dna_v:.0f}"), ("📈 趨勢", f"{crs_val:.0f}"), ("⚡ 動能", f"{se_s:.0f}"), ("🔋 大資金", f"{cej_s:.0f}"), 
+                ("🎭 情緒", f"{val_emotion:.0f}"), ("🏆 總分", f"{val_total:.0f}"), ("🔮 12M目標", val_target_str), ("💰 成交比", f"{val_vol_ratio:.1f}x")
             ]
             
             for i in range(4):
@@ -274,17 +345,13 @@ else:
                 dragon_index = max(5.0, min(98.5, dragon_index)) 
                 
                 if dragon_index >= 80:
-                    t_lv, t_desc, val_title, val_color = "第 1 級", "極致真龍", "🔥 烈火鳳凰", "#BC13FE"
-                    act_desc = "【順勢而為】真實財報極度健康，估值雖貴但有強大動能支撐，緊貼趨勢操作。"
+                    t_lv, t_desc, val_title, val_color, act_desc = "第 1 級", "極致真龍", "🔥 烈火鳳凰", "#BC13FE", "【順勢而為】真實財報極度健康，估值雖貴但有強大動能支撐，緊貼趨勢操作。"
                 elif dragon_index >= 65:
-                    t_lv, t_desc, val_title, val_color = "第 2 級", "潛力金龍", "🌟 潛龍伏躍", "#00FFCC"
-                    act_desc = "【價值防守】財報穩健，動能醞釀中，適合分批建倉或持有觀望。"
+                    t_lv, t_desc, val_title, val_color, act_desc = "第 2 級", "潛力金龍", "🌟 潛龍伏躍", "#00FFCC", "【價值防守】財報穩健，動能醞釀中，適合分批建倉或持有觀望。"
                 elif dragon_index >= 40:
-                    t_lv, t_desc, val_title, val_color = "第 3 級", "中庸凡骨", "⚠️ 海市蜃樓", "#FFA500"
-                    act_desc = "【謹慎觀望】動能與財報表現平平，估值偏高，注意回調風險。"
+                    t_lv, t_desc, val_title, val_color, act_desc = "第 3 級", "中庸凡骨", "⚠️ 海市蜃樓", "#FFA500", "【謹慎觀望】動能與財報表現平平，估值偏高，注意回調風險。"
                 else:
-                    t_lv, t_desc, val_title, val_color = "第 4 級", "高危泥鰍", "☠️ 末路狂花", "#FF4B4B"
-                    act_desc = "【規避風險】財報轉弱且動能破位，估值存在泡沫，建議嚴格止損。"
+                    t_lv, t_desc, val_title, val_color, act_desc = "第 4 級", "高危泥鰍", "☠️ 末路狂花", "#FF4B4B", "【規避風險】財報轉弱且動能破位，估值存在泡沫，建議嚴格止損。"
                 
                 st.markdown(f"""
                 <div style='border: 4px solid {val_color}; border-radius: 15px; padding: 30px; background-color: #000; box-shadow: 0 0 30px {val_color}66; margin: 25px 0;'>
