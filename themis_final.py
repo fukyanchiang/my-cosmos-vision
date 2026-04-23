@@ -36,7 +36,7 @@ def get_beta(info, df, spy_df):
     except: pass
     return "1.00"
 
-# 2. 視覺裝修 (移除寫死的 val-box-purple，改用動態生成)
+# 2. 視覺裝修 
 st.markdown("""
     <style>
     .stApp { background-color: #0e1117; color: white; }
@@ -62,7 +62,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-ticker = st.sidebar.text_input("🚀 輸入資產代號", "6869.HK").upper()
+ticker = st.sidebar.text_input("🚀 輸入資產代號", "XLV").upper()
 
 try:
     asset = yf.Ticker(ticker); info = asset.info
@@ -106,38 +106,35 @@ try:
             st.markdown(draw_triad_bar(se_s, "短期能量 BAR", "#FF00FF"), unsafe_allow_html=True)
             st.markdown("""</div>""", unsafe_allow_html=True)
 
-        # 🧬 [DNA 10 級]
+        # 🧬 [核心修復: 自動識別 ETF 與個股] 🧬
         st.write("---")
         d_c1, d_c2 = st.columns([1, 2.5])
-        real_roe = info.get('returnOnEquity', 0)
-        dna_v = round(safe_n(real_roe * 350 + 15, 23.6), 1)
-        dna_v = max(0.0, min(100.0, dna_v)) 
         
-        if dna_v >= 90: d_lv, d_desc = "第 1 級", "👑 創世真神"
-        elif dna_v >= 80: d_lv, d_desc = "第 2 級", "🌟 星系霸主"
-        elif dna_v >= 70: d_lv, d_desc = "第 3 級", "🚀 恆星巨頭"
-        elif dna_v >= 60: d_lv, d_desc = "第 4 級", "🛡️ 行星中堅"
-        elif dna_v >= 50: d_lv, d_desc = "第 5 級", "⚖️ 凡骨平庸"
-        elif dna_v >= 40: d_lv, d_desc = "第 6 級", "⚠️ 能量衰退"
-        elif dna_v >= 30: d_lv, d_desc = "第 7 級", "🍂 恆星殞落"
-        elif dna_v >= 20: d_lv, d_desc = "第 8 級", "🩸 基因突變"
-        elif dna_v >= 10: d_lv, d_desc = "第 9 級", "☠️ 黑洞邊緣"
-        else: d_lv, d_desc = "第 10 級", "🪦 宇宙塵埃"
-
-        with d_c1:
-            st.markdown(f"""
-            <div class='cosmos-box' style='border-color:#FF4B4B; height:380px; display:flex; flex-direction:column; justify-content:center;'>
-                <div style='color:#FF4B4B; font-weight:900; font-size:1.8rem;'>🧬 COSMOS-DNA</div>
-                <div style='font-size:0.9rem; opacity:0.7; margin:5px 0;'>投行級股王基因 (100分滿分)</div>
-                <div style='font-size:6rem; font-weight:900;'>{dna_v}</div>
-                <div style='color:#FFD700; font-size:1rem; font-weight:bold; margin-top:10px;'>
-                    [ 註明：共分 10 級，現屬 {d_lv} ]<br>
-                    <span style='font-size:1.6rem; color:#FFF;'>{d_desc}</span>
-                </div>
-            </div>""", unsafe_allow_html=True)
+        is_etf = info.get('quoteType') == 'ETF'
+        real_roe = info.get('returnOnEquity')
         
-        with d_c2:
-            st.markdown(f"""**{ticker} ・ 8D 投行精確透視 BAR**""")
+        # 如果是 ETF 或者無 ROE，切換至「動能量化引擎」計分
+        if is_etf or real_roe is None or real_roe == 0:
+            dna_v = round(safe_n((cx_val * 0.5) + (crs_val * 0.5), 50.0), 1)
+            dna_title = "ETF 綜合質量基因"
+            
+            # ETF 專屬 8D 指標
+            m8 = {
+                "🩸 資金純度 (流動)": int(safe_n(cej_s / 10, 5)),
+                "🛡️ 免疫系統 (抗跌)": int(safe_n(crs_val / 10, 5)),
+                "🏗️ 心跳頻率 (動能)": int(safe_n(cx_val / 10, 5)),
+                "🧬 大腦潛力 (趨勢)": int(safe_n(se_s / 10, 5)),
+                "🧱 骨架重量 (規模)": 9 if info.get('totalAssets', 0) > 1e9 else 5,
+                "⚡ 物理底盤 (波幅)": int(max(1, 10 - (v_ann * 20))),
+                "💰 資本配置 (派息)": int(safe_n(info.get('yield', info.get('dividendYield', 0))*200+2, 5)),
+                "📈 經營拐點 (相對)": int(safe_n(crs_val / 10, 5))
+            }
+        else:
+            # 個股保持真實財報計分
+            dna_v = round(safe_n(real_roe * 350 + 15, 23.6), 1)
+            dna_title = "投行級股王基因"
+            
+            # 個股專屬 8D 指標
             m8 = {
                 "🩸 血液純度": int(safe_n(info.get('operatingMargins', 0)*30+3, 5)),
                 "🛡️ 免疫系統": int(safe_n(real_roe*30+3, 7)),
@@ -148,6 +145,55 @@ try:
                 "💰 資本配置": int(safe_n(info.get('dividendYield', 0)*200+2, 5)),
                 "📈 經營拐點": int(safe_n(info.get('earningsGrowth', 0)*25+4, 8))
             }
+
+        dna_v = max(0.0, min(100.0, dna_v)) 
+        
+        # 10 級分類邏輯
+        if dna_v >= 90:
+            d_lv = "第 1 級"
+            d_desc = "👑 創世真神"
+        elif dna_v >= 80:
+            d_lv = "第 2 級"
+            d_desc = "🌟 星系霸主"
+        elif dna_v >= 70:
+            d_lv = "第 3 級"
+            d_desc = "🚀 恆星巨頭"
+        elif dna_v >= 60:
+            d_lv = "第 4 級"
+            d_desc = "🛡️ 行星中堅"
+        elif dna_v >= 50:
+            d_lv = "第 5 級"
+            d_desc = "⚖️ 凡骨平庸"
+        elif dna_v >= 40:
+            d_lv = "第 6 級"
+            d_desc = "⚠️ 能量衰退"
+        elif dna_v >= 30:
+            d_lv = "第 7 級"
+            d_desc = "🍂 恆星殞落"
+        elif dna_v >= 20:
+            d_lv = "第 8 級"
+            d_desc = "🩸 基因突變"
+        elif dna_v >= 10:
+            d_lv = "第 9 級"
+            d_desc = "☠️ 黑洞邊緣"
+        else:
+            d_lv = "第 10 級"
+            d_desc = "🪦 宇宙塵埃"
+
+        with d_c1:
+            st.markdown(f"""
+            <div class='cosmos-box' style='border-color:#FF4B4B; height:380px; display:flex; flex-direction:column; justify-content:center;'>
+                <div style='color:#FF4B4B; font-weight:900; font-size:1.8rem;'>🧬 COSMOS-DNA</div>
+                <div style='font-size:0.9rem; opacity:0.7; margin:5px 0;'>{dna_title} (100分滿分)</div>
+                <div style='font-size:6rem; font-weight:900;'>{dna_v}</div>
+                <div style='color:#FFD700; font-size:1rem; font-weight:bold; margin-top:10px;'>
+                    [ 註明：共分 10 級，現屬 {d_lv} ]<br>
+                    <span style='font-size:1.6rem; color:#FFF;'>{d_desc}</span>
+                </div>
+            </div>""", unsafe_allow_html=True)
+        
+        with d_c2:
+            st.markdown(f"""**{ticker} ・ 8D 投行精確透視 BAR**""")
             colors_8d = ["#00FFCC", "#00FFCC", "#00FFCC", "#00FFCC", "#FF4B4B", "#BC13FE", "#FFFFFF", "#FFD700"]
             for i, (label, score) in enumerate(m8.items()):
                 sc = max(1, min(10, score))
@@ -164,109 +210,4 @@ try:
             ("🎭 情緒", f"{safe_n(crs_val*0.9, 50):.0f}"), 
             ("🏆 總分", f"{(cx_val+crs_val+se_s)/3:.0f}"), 
             ("🔮 2026目標", f"${info.get('targetMeanPrice', curr_p*1.35):.2f}"), 
-            ("💰 成交比", f"{(v21/max(v252,1)):.1f}x")
-        ]
-        for i in range(4):
-            k1[i].markdown(f"""<div class='cosmos-box' style='padding:15px; border-width:2px;'><div style='color:#ccc; font-size:1.2rem;'>{kings[i][0]}</div><div style='color:#FFD700; font-size:2.5rem; font-weight:bold;'>{kings[i][1]}</div></div>""", unsafe_allow_html=True)
-            k2[i].markdown(f"""<div class='cosmos-box' style='padding:15px; border-width:2px; border-color:#FFD700;'><div style='color:#ccc; font-size:1.2rem;'>{kings[i+4][0]}</div><div style='color:#FFD700; font-size:2.5rem; font-weight:bold;'>{kings[i+4][1]}</div></div>""", unsafe_allow_html=True)
-
-        st.markdown(f"""<div class='red-bar'>🔥 戰略透視：短期動能爆發數值 [{se_s:.1f}%] 🔥</div>""", unsafe_allow_html=True)
-
-        # 估值矩陣
-        st.write("### 🏛️ 估值與風險全方位透視")
-        v1, v2, v3 = st.columns(3); v4, v5, v6 = st.columns(3)
-        def v_card(col, title, t_val, f_val, desc):
-            col.markdown(f"""<div class='val-box'><div class='val-label'>{title}</div><div class='val-text'>TTM: <span class='val-focus'>{t_val}</span></div><div class='val-text'>2026預準: <span class='val-focus'>{f_val}</span></div><div style='color:#FFA500; font-size:0.9rem; margin-top:10px;'>{desc}</div></div>""", unsafe_allow_html=True)
-        v_card(v1, "PE 獲利比", safe_s(info, ['trailingPE'], "x"), safe_s(info, ['forwardPE'], "x"), "獲利估值透視")
-        v_card(v2, "PEG 增長比", safe_s(info, ['pegRatio']), "N/A", "增長性價比")
-        v_card(v3, "PS 營收比", safe_s(info, ['priceToSalesTrailing12Months'], "x"), "N/A", "營收規模")
-        v_card(v4, "PB 淨資產", safe_s(info, ['priceToBook'], "x"), "N/A", "賬面價值")
-        v_card(v5, "EV/EBITDA", safe_s(info, ['enterpriseToEbitda'], "x"), "N/A", "企業估值")
-        v_card(v6, "股息率", safe_s(info, ['dividendYield'], "%"), "N/A", "現金流回報")
-
-        # 🔥 [修正: 4級稱號與變色框] 🔥
-        ttm_pe = info.get('trailingPE', 0) or 0
-        if ttm_pe > 80:
-            dragon_index = round((dna_v * 0.4) + (cx_val * 0.3) + (crs_val * 0.3), 1)
-            dragon_index = max(5.0, min(98.5, dragon_index)) 
-            
-            if dragon_index >= 80:
-                t_lv = "第 1 級"
-                t_desc = "極致真龍"
-                act_desc = "【順勢而為】真實財報極度健康，估值雖貴但有強大動能支撐，緊貼趨勢操作。"
-                val_title = "🔥 烈火鳳凰"
-                val_color = "#BC13FE" # 魅影紫
-            elif dragon_index >= 65:
-                t_lv = "第 2 級"
-                t_desc = "潛力金龍"
-                act_desc = "【價值防守】財報穩健，動能醞釀中，適合分批建倉或持有觀望。"
-                val_title = "🌟 潛龍伏躍"
-                val_color = "#00FFCC" # 霓虹青
-            elif dragon_index >= 40:
-                t_lv = "第 3 級"
-                t_desc = "中庸凡骨"
-                act_desc = "【謹慎觀望】動能與財報表現平平，估值偏高，注意回調風險。"
-                val_title = "⚠️ 海市蜃樓"
-                val_color = "#FFA500" # 警告橙
-            else:
-                t_lv = "第 4 級"
-                t_desc = "高危泥鰍"
-                act_desc = "【規避風險】財報轉弱且動能破位，估值存在泡沫，建議嚴格止損。"
-                val_title = "☠️ 末路狂花"
-                val_color = "#FF4B4B" # 血紅色
-            
-            # 動態渲染邊框與發光顏色
-            st.markdown(f"""
-            <div style='border: 4px solid {val_color}; border-radius: 15px; padding: 30px; background-color: #000; box-shadow: 0 0 30px {val_color}66; margin: 25px 0;'>
-                <div style='display:flex; justify-content:space-between; align-items:center;'>
-                    <div>
-                        <span style='font-size:2.2rem; font-weight:900;'>COSMOS-VAL 解碼：<span style='color:{val_color};'>{val_title}</span></span><br>
-                        <span style='font-size:1.1rem; opacity:0.8;'>（針對 TTM PE {ttm_pe:.2f}x 獨立戰術評分）</span><br>
-                        <span style='font-size:1.2rem; color:#FFD700; font-weight:bold; margin-top:5px; display:inline-block;'>[ 註明：共分 4 級，現在這公司基於真實財報屬 {t_lv} ({t_desc}) ]</span>
-                    </div>
-                    <div style='text-align:right;'>
-                        <span style='font-size:1.6rem;'>真龍指數：</span><br>
-                        <span style='font-size:5rem; font-weight:900; color:{val_color};'>{dragon_index}</span>
-                    </div>
-                </div>
-                <div style='background-color:#111; padding:20px; border-radius:10px; margin-top:20px; border:1px solid #333;'>
-                    <b style='color:white; font-size:1.3rem;'>真實財報決策指令：</b> <span style='color:{val_color}; font-size:1.3rem;'>{act_desc}</span>
-                </div>
-            </div>""", unsafe_allow_html=True)
-
-        # Alpha/波動率
-        b_val = float(get_beta(info, df, spy))
-        y1_r = (curr_p / df['Close'].iloc[-252] - 1) if len(df) > 252 else 0
-        s_y1_r = (spy['Close'].iloc[-1] / spy['Close'].iloc[-252] - 1) if len(spy) > 252 else 0
-        real_alpha = (y1_r - b_val * s_y1_r) * 100
-        r1, r2, r3 = st.columns(3)
-        r1.markdown(f"""<div class='cosmos-box' style='border-color:#FFA500;'><div class='cosmos-label'>📐 Beta (性格)</div><div class='cosmos-value' style='font-size:3.5rem;'>{b_val:.2f}</div></div>""", unsafe_allow_html=True)
-        r2.markdown(f"""<div class='cosmos-box' style='border-color:#FFA500;'><div class='cosmos-label'>🔱 Alpha (超額)</div><div class='cosmos-value' style='font-size:3.5rem;'>{real_alpha:.1f}%</div></div>""", unsafe_allow_html=True)
-        r3.markdown(f"""<div class='cosmos-box' style='border-color:#FFA500;'><div class='cosmos-label'>🌊 波動率 (情緒)</div><div class='cosmos-value' style='font-size:3.5rem;'>{(v_ann*100):.1f}%</div></div>""", unsafe_allow_html=True)
-
-        # 📊 股價圖
-        st.write("### 📊 摩訶釋達・能量與籌碼透視圖")
-        recent = df.tail(120); dates = recent.index.strftime('%Y-%m-%d')
-        fig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.7, 0.3], vertical_spacing=0.05)
-        fig.add_trace(go.Candlestick(x=dates, open=recent['Open'], high=recent['High'], low=recent['Low'], close=recent['Close'], name='股價'), row=1, col=1)
-        fig.add_trace(go.Bar(x=dates, y=recent['Volume'], marker_color=['#00FF00' if recent['Close'].iloc[i] >= recent['Open'].iloc[i] else '#FF0000' for i in range(len(recent))], name='成交量'), row=2, col=1)
-        counts, bins = np.histogram(recent['Close'], bins=20, weights=recent['Volume'])
-        fig.add_trace(go.Bar(y=(bins[:-1] + bins[1:]) / 2, x=counts, orientation='h', marker_color='rgba(0, 255, 204, 0.4)', name='蟹貨', xaxis='x3', yaxis='y1'))
-        fig.update_layout(template="plotly_dark", paper_bgcolor='#0e1117', plot_bgcolor='#0e1117', height=750, showlegend=False, xaxis_rangeslider_visible=False, xaxis=dict(type='category', showgrid=False), yaxis=dict(showgrid=True, gridcolor='#333'), yaxis2=dict(showgrid=False), xaxis3=dict(overlaying='x', side='top', range=[0, max(counts)*6], showgrid=False, showticklabels=False))
-        st.plotly_chart(fig, use_container_width=True)
-
-        # 名家清單
-        st.markdown("""<div class='whale-box'><div style='color:#FFD700; font-size:2.2rem; font-weight:bold; text-align:center; margin-bottom:20px;'>🧙 90 大名家：真實申報持倉 (自動計算佔比)</div>""", unsafe_allow_html=True)
-        total_shares = info.get('sharesOutstanding', 1)
-        holders = asset.institutional_holders
-        if holders is not None and not holders.empty and 'Holder' in holders.columns:
-            for _, row in holders.head(8).iterrows():
-                shares = row.get('Shares', 0)
-                calc_pct = (shares / total_shares) if total_shares > 1 else 0
-                val_m = row.get('Value', 0) / 1e6
-                st.markdown(f"""<div class='whale-row'><span class='whale-n'>{row['Holder']}</span><span class='whale-a'>持有 {shares:,.0f} 股 | 佔比 {calc_pct:.2%} | 市值 ${val_m:.1f}M</span></div>""", unsafe_allow_html=True)
-        else:
-            st.markdown("""<div style='text-align:center; color:#888; padding:20px;'>此資產暫無公開機構申報數據</div>""", unsafe_allow_html=True)
-        st.markdown("""</div>""", unsafe_allow_html=True)
-
-except Exception as e: st.error(f"數據診斷中: {e}")
+            ("💰 成交比", f"{(v2
