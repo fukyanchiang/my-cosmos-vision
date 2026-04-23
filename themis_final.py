@@ -186,17 +186,24 @@ try:
             random.seed(sum(ord(c) for c in ticker) + 777)
             dna_value = round(random.uniform(45.0, 96.5), 1)
 
+        # 🛠️ 爺爺修復版：模擬 8D 投行底氣數據 (消除隨機負數冤案)
         random.seed(sum(ord(c) for c in ticker) + 2026)
         metrics_8d = {
             "🩸 血液純度 (營運現金流)": random.randint(3, 10),
             "🛡️ 免疫系統 (核心技術/生態)": random.randint(2, 10),
             "🏗️ 心跳頻率 (訂單/供應鏈VIP)": random.randint(4, 10),
             "🧬 大腦潛力 (研發/開支回報)": random.randint(2, 10),
-            "🧱 骨架重量 (資產底價/估值)": random.randint(-2, 8),
+            "🧱 骨架重量 (資產底價/估值)": random.randint(1, 8),  # 修正：避免隨機出現負數
             "⚡ 物理底盤 (能源/算力基建)": random.randint(3, 10),
             "💰 資本配置 (回購/派息/併購)": random.randint(3, 9),
-            "📈 經營拐點 (毛利率/主業反轉)": random.randint(-1, 10)
+            "📈 經營拐點 (毛利率/主業反轉)": random.randint(1, 10)  # 修正：避免隨機出現負數
         }
+
+        # 👑 王者識別系統：針對頂級大盤 ETF 給予霸氣加成
+        if ticker in ['SOXX', 'SPY', 'QQQ', 'SMH', 'XLK', 'DIA']:
+            metrics_8d["🛡️ 免疫系統 (核心技術/生態)"] = 10
+            metrics_8d["⚡ 物理底盤 (能源/算力基建)"] = 10
+            metrics_8d["🩸 血液純度 (營運現金流)"] = 9
 
         scores_8d = list(metrics_8d.values())
         total_8d = sum(scores_8d)
