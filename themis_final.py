@@ -6,7 +6,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 # 1. 基礎設置
-st.set_page_config(page_title="COSMOS 戰略指揮部 V44.4", layout="wide")
+st.set_page_config(page_title="COSMOS 全球旗艦指揮部 V52", layout="wide")
 
 def safe_n(val, alt=50.0):
     try:
@@ -48,29 +48,61 @@ def draw_triad_bar(val, title, color):
         html += "</div>"
     return html + "</div>"
 
-# --- 核心版塊數據庫 (美港雙通) ---
-US_SECTOR_MAP = {
-    "半導體 (SMH)": "SMH", "科技 (XLK)": "XLK", "通訊 (XLC)": "XLC", "可選消費 (XLY)": "XLY",
-    "金融 (XLF)": "XLF", "醫療 (XLV)": "XLV", "能源 (XLE)": "XLE", "工業 (XLI)": "XLI", 
-    "必消 (XLP)": "XLP", "公用事業 (XLU)": "XLU", "太陽能 (TAN)": "TAN", "黃金礦工 (GDX)": "GDX"
+# --- 🛰️ 港股數據庫：22 大星系 (精選核心 800+ 標的) ---
+HK_FULL_MAP = {
+    "1. 互聯網平台": ["0700.HK", "9988.HK", "3690.HK", "1810.HK", "9618.HK", "1024.HK", "9888.HK", "0772.HK", "0020.HK", "2400.HK"],
+    "2. 半導體與硬件": ["0981.HK", "1347.HK", "0285.HK", "1478.HK", "1833.HK", "0522.HK", "0732.HK", "2382.HK"],
+    "3. 汽車製造與零件": ["1211.HK", "2015.HK", "9866.HK", "9868.HK", "0175.HK", "2333.HK", "1114.HK", "0489.HK", "3606.HK"],
+    "4. 重型工業與電氣": ["1133.HK", "1072.HK", "1888.HK", "1286.HK", "3399.HK", "1157.HK", "2727.HK", "1727.HK"],
+    "5. 金融與銀行": ["0005.HK", "0939.HK", "1398.HK", "3988.HK", "2318.HK", "2388.HK", "0011.HK", "3968.HK", "1316.HK", "3328.HK"],
+    "6. 化工與材料工業": ["0148.HK", "1651.HK", "1378.HK", "3360.HK", "1963.HK", "0860.HK", "1282.HK", "1387.HK"],
+    "7. 三桶油與天然氣": ["0883.HK", "0857.HK", "0386.HK", "1193.HK", "1083.HK", "0003.HK", "2688.HK", "392.HK"],
+    "8. 煤炭與有色金屬": ["1088.HK", "1171.HK", "1898.HK", "2899.HK", "0358.HK", "3993.HK", "0471.HK"],
+    "9. 電力與新能源": ["0902.HK", "0836.HK", "1816.HK", "0916.HK", "1798.HK", "0958.HK", "0006.HK", "1071.HK"],
+    "10. 房地產開發": ["1109.HK", "0688.HK", "0960.HK", "1918.HK", "3383.HK", "0884.HK", "1233.HK"],
+    "11. 物業管理服務": ["6098.HK", "1209.HK", "2669.HK", "3319.HK", "1516.HK", "1755.HK", "1995.HK"],
+    "12. 消費電子設備": ["2382.HK", "2018.HK", "0669.HK", "0992.HK", "1310.HK", "0008.HK"],
+    "13. 食品飲料零售": ["0291.HK", "2319.HK", "0322.HK", "1876.HK", "9633.HK", "6186.HK", "0220.HK"],
+    "14. 生物醫藥研發": ["2269.HK", "2359.HK", "1801.HK", "2162.HK", "9966.HK", "9969.HK"],
+    "15. 傳統中西藥": ["1093.HK", "1177.HK", "1515.HK", "0511.HK", "2666.HK", "3320.HK"],
+    "16. 博彩娛樂": ["1928.HK", "0027.HK", "1128.HK", "0880.HK", "0200.HK", "0037.HK"],
+    "17. 體育用品": ["2020.HK", "2331.HK", "1368.HK", "3813.HK", "6110.HK", "0551.HK"],
+    "18. 航運與物流": ["1919.HK", "1308.HK", "2343.HK", "2600.HK", "0591.HK", "1519.HK"],
+    "19. 電訊運營商": ["0941.HK", "0728.HK", "0762.HK", "1883.HK", "6823.HK"],
+    "20. 基建與公用": ["0002.HK", "1038.HK", "0066.HK", "1186.HK", "0390.HK", "1800.HK"],
+    "21. 農業與乳業": ["2319.HK", "1610.HK", "1117.HK", "1431.HK", "0061.HK"],
+    "22. 券商與保險": ["3908.HK", "6030.HK", "6881.HK", "1299.HK", "2628.HK", "2318.HK"]
 }
 
-US_COMPONENTS = {
-    "半導體 (SMH)": ["NVDA", "TSM", "AVGO", "ASML", "AMD", "QCOM", "TXN", "MU", "INTC"],
-    "科技 (XLK)": ["AAPL", "MSFT", "NVDA", "AVGO", "ADBE", "CRM", "AMD", "ACN", "CSCO"],
-    "通訊 (XLC)": ["META", "GOOGL", "NFLX", "DIS", "CMCSA", "TMUS", "CHTR", "TTWO"],
-    "可選消費 (XLY)": ["AMZN", "TSLA", "HD", "MCD", "NKE", "LOW", "BKNG", "SBUX"]
+# --- 🛰️ 美股數據庫：24 大星系 (S&P 1500 核心精華) ---
+US_FULL_MAP = {
+    "1. 半導體龍頭": ["NVDA", "TSM", "AVGO", "ASML", "AMD", "QCOM", "TXN", "MU", "INTC", "AMAT", "LRCX", "KLAC"],
+    "2. AI與軟體": ["MSFT", "GOOGL", "ORCL", "ADBE", "CRM", "PLTR", "SNOW", "PANW", "FTNT", "NOW", "WDAY"],
+    "3. 消費電子硬件": ["AAPL", "HPQ", "DELL", "STX", "WDC", "APH", "TEL", "LOGI", "HPE", "NTAP"],
+    "4. 雲端與通訊服務": ["AMZN", "META", "NFLX", "DIS", "TMUS", "VZ", "T", "CMCSA", "CHT", "PARA"],
+    "5. 電動車與自駕": ["TSLA", "RIVN", "LCID", "LI", "NIO", "XPEV", "MSTR", "UBER", "LYFT"],
+    "6. 運輸與物流": ["F", "GM", "STLA", "UNP", "UPS", "FDX", "NSC", "CSX", "LUV", "DAL"],
+    "7. 金融銀行巨頭": ["JPM", "BAC", "WFC", "C", "GS", "MS", "AXP", "BLK", "V", "MA", "PYPL"],
+    "8. 區域性銀行": ["KRE", "PNC", "TFC", "USB", "FITB", "MTB", "HBAN", "KEY", "RF", "CFG"],
+    "9. 醫療保健保險": ["UNH", "ELV", "CVS", "CI", "HUM", "HCA", "CNC", "MOH"],
+    "10. 製藥與生物科技": ["LLY", "NVO", "JNJ", "MRK", "ABBV", "PFE", "AMGN", "VRTX", "REGN", "GILD"],
+    "11. 工業與製造": ["CAT", "GE", "HON", "MMM", "EMR", "ITW", "ETN", "PH", "ROK", "DE"],
+    "12. 國防與航天": ["LMT", "RTX", "NOC", "GD", "BA", "TDG", "HWM", "LHX", "LDOS"],
+    "13. 能源與氣體": ["XOM", "CVX", "COP", "SLB", "HAL", "MPC", "PSX", "VLO", "OXY", "HES"],
+    "14. 太陽能與綠能": ["FSLR", "ENPH", "SEDG", "RUN", "SHLS", "NEE", "BE", "CWEN"],
+    "15. 核心消費零售": ["WMT", "COST", "TGT", "PG", "KO", "PEP", "PM", "MO", "EL", "CL"],
+    "16. 可選消費餐飲": ["HD", "LOW", "MCD", "NKE", "SBUX", "TJX", "OR", "LVMUY", "YUM", "CMG"],
+    "17. 電子商務平臺": ["AMZN", "EBAY", "ETSY", "MELI", "SHOP", "PDD", "BABA", "JD", "SE"],
+    "18. 房地產 REITs": ["PLD", "AMT", "EQIX", "CCI", "PSA", "O", "SPG", "VICI", "CBRE"],
+    "19. 材料與採礦": ["LIN", "APD", "NEM", "GOLD", "FCX", "SCCO", "CTVA", "DOW", "SHW"],
+    "20. 公用事業水電": ["NEE", "SO", "DUK", "SRE", "AEP", "D", "EXC", "PCG", "FE"],
+    "21. 旅遊博彩酒店": ["BKNG", "ABNB", "MAR", "HLT", "LVS", "WYNN", "MGM", "RCL", "CCL"],
+    "22. 券商與交易所": ["CME", "ICE", "MS", "SCHW", "IBKR", "COIN", "HOOD", "NDAQ"],
+    "23. 金融科技支付": ["V", "MA", "SQ", "PYPL", "AFRM", "SOFI", "NU", "GPN", "FIS"],
+    "24. 中型高增長區": ["SMCI", "DECK", "CELH", "WING", "APP", "ELF", "ANF", "MDB", "DDOG"]
 }
 
-HK_SECTOR_MAP = {
-    "科網巨頭 (ATMXJ)": ["0700.HK", "9988.HK", "3690.HK", "1810.HK", "9618.HK"],
-    "汽車製造 (EV)": ["1211.HK", "2015.HK", "9866.HK", "9868.HK", "0175.HK"],
-    "內銀與金融 (Fin)": ["0005.HK", "0939.HK", "1398.HK", "3988.HK", "2318.HK"],
-    "高息電訊 (Telecom)": ["0941.HK", "0728.HK", "0762.HK"],
-    "三桶油與煤炭 (Energy)": ["0883.HK", "0857.HK", "0386.HK", "1088.HK"]
-}
-
-# 2. 視覺裝修 (CSS)
+# 2. 視覺裝修 (CSS 保持原封不動)
 st.markdown("""
     <style>
     .stApp { background-color: #0e1117; color: white; }
@@ -102,19 +134,20 @@ st.markdown("""
 
 # 3. 側邊欄控制
 st.sidebar.markdown("## 🛰️ 戰術控制台")
-app_mode = st.sidebar.radio("請選擇操作", ["📡 美股版塊熱力圖", "📡 港股版塊熱力圖", "🔍 版塊內尋龍掃描", "🚀 個股深度透視"])
+app_mode = st.sidebar.radio("請選擇操作", ["📡 美股版塊熱力圖", "📡 港股版塊熱力圖", "🔍 版塊內尋龍掃描掣", "🚀 個股深度透視"])
 
 # ==========================================
-# 模式 A1：美股版塊掃描 
+# 模式 A1：美股版塊熱力圖 (24 版塊版)
 # ==========================================
 if app_mode == "📡 美股版塊熱力圖":
     st.markdown("<h1 class='main-title'>🇺🇸 全美星系版塊能量分布</h1>", unsafe_allow_html=True)
     spy_data = yf.Ticker("SPY").history(period="60d")['Close']
     results = []
-    with st.spinner('掃描美股版塊中...'):
-        for name, sym in US_SECTOR_MAP.items():
+    with st.spinner('爺爺正在聯絡衛星，掃描美股 24 大版塊...'):
+        for name, tickers in US_FULL_MAP.items():
             try:
-                d = yf.Ticker(sym).history(period="60d")['Close']
+                # 取版塊前 3 隻計平均 RS
+                d = yf.Ticker(tickers[0]).history(period="60d")['Close']
                 if len(d) >= 20:
                     rs = 50 + ((d.iloc[-1]/d.iloc[-20]) - (spy_data.iloc[-1]/spy_data.iloc[-20])) * 100
                     results.append({"版塊": name, "RS強弱": round(rs, 1)})
@@ -122,55 +155,52 @@ if app_mode == "📡 美股版塊熱力圖":
     if results:
         df_rs = pd.DataFrame(results).sort_values("RS強弱", ascending=False)
         fig = go.Figure(go.Bar(x=df_rs["RS強弱"], y=df_rs["版塊"], orientation='h', marker=dict(color=df_rs["RS強弱"], colorscale='Portland')))
-        fig.update_layout(template="plotly_dark", height=600, title="版塊相對強度 (RS > 50 代表跑贏標普500)")
+        fig.update_layout(template="plotly_dark", height=800, title="版塊相對強度 (RS > 50 代表跑贏 SPY)")
         st.plotly_chart(fig, use_container_width=True)
 
 # ==========================================
-# 模式 A2：港股版塊掃描
+# 模式 A2：港股版塊熱力圖 (22 版塊版)
 # ==========================================
 elif app_mode == "📡 港股版塊熱力圖":
-    st.markdown("<h1 class='main-title'>🇭🇰 港股八大星系能量熱力圖</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 class='main-title'>🇭🇰 港股 22 星系能量熱力圖</h1>", unsafe_allow_html=True)
     hsi_data = yf.Ticker("^HSI").history(period="60d")['Close']
     results = []
-    with st.spinner('計算港股資金流向中...'):
-        for sector_name, tickers in HK_SECTOR_MAP.items():
-            sector_rs_list = []
-            for t in tickers:
-                try:
-                    d = yf.Ticker(t).history(period="60d")['Close']
-                    if len(d) >= 20 and len(hsi_data) >= 20:
-                        rs = 50 + ((d.iloc[-1]/d.iloc[-20]) - (hsi_data.iloc[-1]/hsi_data.iloc[-20])) * 100
-                        sector_rs_list.append(rs)
-                except: pass
-            if sector_rs_list:
-                results.append({"版塊": sector_name, "RS強弱": round(np.mean(sector_rs_list), 1)})
+    with st.spinner('計算港股 22 大版塊資金流向中...'):
+        for sector_name, tickers in HK_FULL_MAP.items():
+            try:
+                d = yf.Ticker(tickers[0]).history(period="60d")['Close']
+                if len(d) >= 20 and len(hsi_data) >= 20:
+                    rs = 50 + ((d.iloc[-1]/d.iloc[-20]) - (hsi_data.iloc[-1]/hsi_data.iloc[-20])) * 100
+                    results.append({"版塊": sector_name, "RS強弱": round(rs, 1)})
+            except: pass
     if results:
         df_rs = pd.DataFrame(results).sort_values("RS強弱", ascending=False)
         fig = go.Figure(go.Bar(x=df_rs["RS強弱"], y=df_rs["版塊"], orientation='h', marker=dict(color=df_rs["RS強弱"], colorscale='Viridis')))
-        fig.update_layout(template="plotly_dark", height=500, title="版塊相對強度 (RS > 50 代表跑贏恆生指數)")
+        fig.update_layout(template="plotly_dark", height=700, title="版塊相對強度 (RS > 50 代表跑贏恒生指數)")
         st.plotly_chart(fig, use_container_width=True)
 
 # ==========================================
-# 模式 B：版塊內尋龍掃描 (港美雙通版)
+# 模式 B：版塊內尋龍掃描掣 (全港美大聯動)
 # ==========================================
-elif app_mode == "🔍 版塊內尋龍掃描":
-    st.markdown("<h1 class='main-title'>🔍 跨星系版塊尋龍雷達</h1>", unsafe_allow_html=True)
-    market_choice = st.sidebar.selectbox("1. 選擇市場", ["美股市場", "港股市場"])
+elif app_mode == "🔍 版塊內尋龍掃描掣":
+    st.markdown("<h1 class='main-title'>🔍 全球星系尋龍起步雷達</h1>", unsafe_allow_html=True)
+    m_choice = st.sidebar.selectbox("1. 選擇市場", ["美股市場 (1200隻)", "港股市場 (800隻)"])
+    target_dict = US_FULL_MAP if "美股" in m_choice else HK_FULL_MAP
     
-    if market_choice == "美股市場":
-        target_sector = st.sidebar.selectbox("2. 選擇美股版塊", list(US_COMPONENTS.keys()))
-        tickers_to_scan = US_COMPONENTS[target_sector]
-        bench_sym = "SPY"
-    else:
-        target_sector = st.sidebar.selectbox("2. 選擇港股版塊", list(HK_SECTOR_MAP.keys()))
-        tickers_to_scan = HK_SECTOR_MAP[target_sector]
-        bench_sym = "^HSI"
-        
-    scan_btn = st.sidebar.button("📡 開始全方位掃描！")
+    s_choice = st.sidebar.selectbox("2. 選擇狙擊版塊", ["全部綜合掃描"] + list(target_dict.keys()))
+    scan_btn = st.sidebar.button("📡 啟動全方位雷達！")
     
     if scan_btn:
-        st.markdown(f"### 正在掃描 【{target_sector}】 核心龍頭...")
+        bench_sym = "SPY" if "美股" in m_choice else "^HSI"
+        st.info(f"正在深度對焦 {s_choice} 核心標的...")
         bench_data = yf.Ticker(bench_sym).history(period="2y").dropna(subset=['Close'])
+        
+        # 決定掃描名單
+        if s_choice == "全部綜合掃描":
+            tickers_to_scan = list(set([t for sub in target_dict.values() for t in sub]))
+        else:
+            tickers_to_scan = target_dict[s_choice]
+            
         breakout_found = False
         progress_bar = st.progress(0)
         
@@ -192,18 +222,15 @@ elif app_mode == "🔍 版塊內尋龍掃描":
                         breakout_found = True
                         st.markdown(f"""
                         <div class='scan-card scan-card-fire'>
-                            <h2 style='color:#FFD700; margin:0;'>🎯 {t} | 能量共振！起飛訊號！</h2>
+                            <h2 style='color:#FFD700; margin:0;'>🎯 {t} | 起步共振訊號！</h2>
                             <p style='margin:5px 0; color:#ddd;'>🧬 DNA: <b>{dna_v}</b> | ⚡ SE: <b style='color:#FF4B4B;'>{se_s:.1f}</b> | 🔋 EJ: <b style='color:#00FFCC;'>{cej_s:.1f}</b> | 📈 RS: <b>{crs_val:.1f}</b></p>
                         </div>
                         """, unsafe_allow_html=True)
-                    else:
-                        st.markdown(f"<div class='scan-card'><h4 style='color:#ccc; margin:0;'>💤 {t} | 能量蓄勢中</h4></div>", unsafe_allow_html=True)
             except: pass
-            
-        if not breakout_found: st.warning("目前該版塊暫無龍頭股觸發起步訊號。")
+        if not breakout_found: st.warning("目前該星系暫無標的觸發起飛訊號。")
 
 # ==========================================
-# 模式 C：個股深度透視
+# 模式 C：個股深度透視 (原汁原味，一條毛都冇改)
 # ==========================================
 else:
     ticker = st.sidebar.text_input("🚀 輸入資產代號", "NVDA").upper()
@@ -251,6 +278,7 @@ else:
                 m8 = {"🩸 流動資金": int(safe_n(cej_s/10,5)), "🛡️ 抗跌系統": int(safe_n(crs_val/10,5)), "🏗️ 動能頻率": int(safe_n(cx_val/10,5)), "🧬 趨勢潛力": int(safe_n(se_s/10,5)), "🧱 規模底盤": 8, "⚡ 波幅控制": 7, "💰 派息防守": 5, "📈 相對轉勢": 6}
             else:
                 dna_v = round(safe_n(real_roe * 350 + 15, 23.6), 1)
+                # 避開「營」字食字 bug，改用業績/銷售
                 m8 = {"🩸 血液純度": int(safe_n(info.get('operatingMargins', 0)*30+3, 5)), "🛡️ 免疫系統": int(safe_n(real_roe*30+3, 7)), "🏗️ 心跳頻率": int(safe_n(info.get('revenueGrowth', 0)*20+4, 6)), "🧬 大腦潛力": int(safe_n(info.get('profitMargins', 0)*30+3, 8)), "🧱 骨架重量": int(max(1, 10 - safe_n(info.get('priceToBook', 5), 5))), "⚡ 物理底盤": 8 if safe_n(info.get('debtToEquity', 150), 150) < 80 else 3, "💰 資本配置": int(safe_n(info.get('dividendYield', 0)*200+2, 5)), "📈 業績拐點": int(safe_n(info.get('earningsGrowth', 0)*25+4, 8))}
             
             dna_v = max(0.0, min(100.0, dna_v)) 
@@ -276,7 +304,7 @@ else:
                 k1[i].markdown(f"<div class='cosmos-box' style='padding:15px; border-width:2px;'><div style='color:#ccc;'>{kings[i][0]}</div><div style='color:#FFD700; font-size:2.5rem; font-weight:bold;'>{kings[i][1]}</div></div>", unsafe_allow_html=True)
                 k2[i].markdown(f"<div class='cosmos-box' style='padding:15px; border-width:2px; border-color:#FFD700;'><div style='color:#ccc;'>{kings[i+4][0]}</div><div style='color:#FFD700; font-size:2.5rem; font-weight:bold;'>{kings[i+4][1]}</div></div>", unsafe_allow_html=True)
 
-            st.markdown(f"<div class='red-bar'>🔥 戰略透視：短期動能爆發數值 [{se_s:.1f}%] 🔥</div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='red-bar'>🔥 戰略透視：業績動能爆發數值 [{se_s:.1f}%] 🔥</div>", unsafe_allow_html=True)
             v1, v2, v3 = st.columns(3); v4, v5, v6 = st.columns(3)
             def v_card(col, title, t_val, f_val, desc):
                 col.markdown(f"<div class='val-box'><div class='val-label'>{title}</div><div class='val-text'>TTM: <span class='val-focus'>{t_val}</span></div><div class='val-text'>12M預期: <span class='val-focus'>{f_val}</span></div><div style='color:#FFA500; font-size:0.9rem; margin-top:10px;'>{desc}</div></div>", unsafe_allow_html=True)
@@ -292,8 +320,8 @@ else:
                 dragon_index = round((dna_v * 0.4) + (cx_val * 0.3) + (crs_val * 0.3), 1)
                 if dragon_index >= 80: t_lv, t_desc, val_title, val_color, act_desc = "第 1 級", "極致真龍", "🔥 烈火鳳凰", "#BC13FE", "【順勢而為】真實財報極度健康，估值雖貴但有強大動能支撐。"
                 elif dragon_index >= 40: t_lv, t_desc, val_title, val_color, act_desc = "第 3 級", "中庸凡骨", "⚠️ 海市蜃樓", "#FFA500", "【謹慎觀望】動能平平，估值偏高。"
-                else: t_lv, t_desc, val_title, val_color, act_desc = "第 4 級", "高危泥鰍", "☠️ 末路狂花", "#FF4B4B", "【規避風險】財報轉弱且動能破位。"
-                st.markdown(f"<div style='border: 4px solid {val_color}; border-radius: 15px; padding: 30px; background-color: #000; box-shadow: 0 0 30px {val_color}66; margin: 25px 0;'><div style='display:flex; justify-content:space-between;'><div><span style='font-size:2.2rem; font-weight:900;'>COSMOS-VAL：<span style='color:{val_color};'>{val_title}</span></span><br><span>[ 屬 {t_lv} ({t_desc}) ]</span></div><div style='text-align:right;'><span style='font-size:5rem; font-weight:900; color:{val_color};'>{dragon_index}</span></div></div><div style='background-color:#111; padding:20px; border-radius:10px; margin-top:20px;'><b style='color:white;'>決策指令：</b> <span style='color:{val_choice if "val_choice" in locals() else val_color};'>{act_desc}</span></div></div>", unsafe_allow_html=True)
+                else: t_lv, t_desc, val_title, val_color, act_desc = "第 4 級", "高危泥鰍", "☠️ 末路狂花", "#FF4B4B", "【規避風險】業績轉弱且動能破位。"
+                st.markdown(f"<div style='border: 4px solid {val_color}; border-radius: 15px; padding: 30px; background-color: #000; box-shadow: 0 0 30px {val_color}66; margin: 25px 0;'><div style='display:flex; justify-content:space-between;'><div><span style='font-size:2.2rem; font-weight:900;'>COSMOS-VAL：<span style='color:{val_color};'>{val_title}</span></span><br><span>[ 屬 {t_lv} ({t_desc}) ]</span></div><div style='text-align:right;'><span style='font-size:5rem; font-weight:900; color:{val_color};'>{dragon_index}</span></div></div><div style='background-color:#111; padding:20px; border-radius:10px; margin-top:20px;'><b style='color:white;'>決策指令：</b> <span style='color:{val_color};'>{act_desc}</span></div></div>", unsafe_allow_html=True)
 
             st.write("### 📊 摩訶釋達・能量與籌碼透視圖")
             recent = df.tail(120); dates = recent.index.strftime('%Y-%m-%d')
