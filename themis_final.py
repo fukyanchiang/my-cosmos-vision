@@ -172,7 +172,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# 3. 側邊欄控制 - ✅ 六大獨立按鈕
+# 3. 側邊欄控制
 st.sidebar.markdown("## 🛰️ 戰術控制台 (六大引擎版)")
 app_mode = st.sidebar.radio("請選擇操作", [
     "🚀 個股深度透視", 
@@ -448,11 +448,11 @@ if app_mode == "🚀 個股深度透視":
     except Exception as e: st.error(f"數據診斷中: {e}")
 
 # =========================================================================
-# 📡 模式 B1：個股版塊拔河熱力圖 (專注個股板塊排名)
+# 📡 模式 B1：個股版塊拔河熱力圖 (✅ 已加上鎖定防止誤觸)
 # =========================================================================
 elif app_mode == "📡 個股版塊拔河熱力圖":
     st.markdown("<h1 class='main-title'>📡 個股版塊相對強弱拔河排名</h1>", unsafe_allow_html=True)
-    st.write("👴 爺爺提示：此處專注比較**個股板塊**，尋找資金炒作的熱點。")
+    st.write("👴 爺爺提示：此處專注比較**個股板塊**，尋找資金炒作的熱點。圖表已鎖定，可用手指點擊查看數值。")
     m_view = st.sidebar.radio("選擇星系地圖", ["🇺🇸 美股 50 大版塊", "🇭🇰 港股 22 大版塊"])
     is_us = "美股" in m_view
     bench_sym = "SPY" if is_us else "^HSI"
@@ -473,15 +473,24 @@ elif app_mode == "📡 個股版塊拔河熱力圖":
             df_rs = pd.DataFrame(results).sort_values("RS強弱", ascending=True) 
             fig = go.Figure(go.Bar(x=df_rs["RS強弱"], y=df_rs["版塊"], orientation='h', 
                                     marker=dict(color=df_rs["RS強弱"], colorscale='Portland' if is_us else 'Viridis')))
-            fig.update_layout(template="plotly_dark", height=1000 if is_us else 700, title=f"最強個股吸金版塊：{df_rs.iloc[-1]['版塊']}")
-            st.plotly_chart(fig, use_container_width=True)
+            
+            # ✅ 鎖定 X/Y 軸防止誤觸縮放
+            fig.update_layout(
+                template="plotly_dark", 
+                height=1000 if is_us else 700, 
+                title=f"最強個股吸金版塊：{df_rs.iloc[-1]['版塊']}",
+                xaxis=dict(fixedrange=True),
+                yaxis=dict(fixedrange=True)
+            )
+            # ✅ 隱藏 ModeBar
+            st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
 # =========================================================================
-# 📡 模式 B2：ETF 資產拔河熱力圖 (專注 ETF 大類資產排名)
+# 📡 模式 B2：ETF 資產拔河熱力圖 (✅ 已加上鎖定防止誤觸)
 # =========================================================================
 elif app_mode == "📡 ETF 資產拔河熱力圖":
     st.markdown("<h1 class='main-title'>📡 ETF 資產相對強弱拔河排名</h1>", unsafe_allow_html=True)
-    st.write("👴 爺爺提示：此處展示**大類資產與國家 ETF** 排名，判斷避險與進攻大方向。")
+    st.write("👴 爺爺提示：此處展示**大類資產與國家 ETF** 排名，判斷避險與進攻大方向。圖表已鎖定，可用手指點擊查看數值。")
     m_view = st.sidebar.radio("選擇星系地圖", ["🇺🇸 美股 ETF 陣列", "🇭🇰 港股 (含A股) ETF 陣列"])
     is_us = "美股" in m_view
     bench_sym = "SPY" if is_us else "^HSI"
@@ -502,8 +511,17 @@ elif app_mode == "📡 ETF 資產拔河熱力圖":
             df_rs = pd.DataFrame(results).sort_values("RS強弱", ascending=True) 
             fig = go.Figure(go.Bar(x=df_rs["RS強弱"], y=df_rs["版塊"], orientation='h', 
                                     marker=dict(color=df_rs["RS強弱"], colorscale='Aggrnyl')))
-            fig.update_layout(template="plotly_dark", height=600, title=f"最強 ETF 資產：{df_rs.iloc[-1]['版塊']}")
-            st.plotly_chart(fig, use_container_width=True)
+            
+            # ✅ 鎖定 X/Y 軸防止誤觸縮放
+            fig.update_layout(
+                template="plotly_dark", 
+                height=600, 
+                title=f"最強 ETF 資產：{df_rs.iloc[-1]['版塊']}",
+                xaxis=dict(fixedrange=True),
+                yaxis=dict(fixedrange=True)
+            )
+            # ✅ 隱藏 ModeBar
+            st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
 # =========================================================================
 # 🔍 模式 C：千龍起步尋龍雷達 (專注個股)
@@ -626,5 +644,3 @@ elif app_mode == "🛡️ 港/A股 ETF 專屬雷達":
             except: pass
         progress_bar.empty()
         if not breakout_found: st.warning("💤 掃描完畢：目前未有 ETF 觸發起飛訊號。")
-
-except Exception as e: st.error(f"數據診斷中: {e}")
