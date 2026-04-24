@@ -6,7 +6,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 # 1. 基礎設置
-st.set_page_config(page_title="COSMOS 全球旗艦指揮部 V55", layout="wide")
+st.set_page_config(page_title="COSMOS 全球旗艦指揮部 V56", layout="wide")
 
 def safe_n(val, alt=50.0):
     try:
@@ -71,7 +71,7 @@ HK_FULL_MAP = {
     "19. 電訊網絡": "0941.HK 0728.HK 0762.HK 1883.HK 6823.HK 6033.HK 0008.HK 0215.HK 1098.HK 0066.HK 1883.HK 6823.HK 0116.HK 0215.HK".split(),
     "20. 基建公用": "0002.HK 1038.HK 0066.HK 1186.HK 0390.HK 1800.HK 0270.HK 3311.HK 1618.HK 1038.HK 1083.HK 0390.HK 0270.HK 0371.HK 0165.HK 0066.HK 0250.HK".split(),
     "21. 農業乳業": "2319.HK 1610.HK 1117.HK 1431.HK 0061.HK 0220.HK 0341.HK 3998.HK 1089.HK 1269.HK 1006.HK 3998.HK 1431.HK 1610.HK 1117.HK 0061.HK".split(),
-    "22. 券商保險": "3908.HK 6030.HK 6881.HK 1299.HK 2628.HK 2318.HK 0966.HK 1336.HK 6099.HK 1776.HK 0966.HK 3908.HK 6178.HK 3968.HK 1551.HK 6066.HK 1339.HK 2628.HK 2318.HK" .split()
+    "22. 券商保險": "3908.HK 6030.HK 6881.HK 1299.HK 2628.HK 2318.HK 0966.HK 1336.HK 6099.HK 1776.HK 0966.HK 3908.HK 6178.HK 3968.HK 1551.HK 6066.HK 1339.HK 2628.HK 2318.HK".split()
 }
 
 # --- 🛰️ 美股 24 星系 (1000+ 核心標的，S&P 1500 精華) ---
@@ -102,7 +102,7 @@ US_FULL_MAP = {
     "24. 中型高增長區": "SMCI DECK CELH WING APP ELF ANF MDB DDOG NET OKTA TTD HUBS BILL MOND ASAN CFLT TOST FROG MNDY DOCN GLBE ESTC".split()
 }
 
-# 2. 視覺裝修 (100% 照抄原裝 UI 發光設計)
+# 2. 視覺裝修 (CSS)
 st.markdown("""
     <style>
     .stApp { background-color: #0e1117; color: white; }
@@ -134,7 +134,7 @@ st.sidebar.markdown("## 🛰️ 戰術控制台")
 app_mode = st.sidebar.radio("請選擇操作", ["🚀 個股深度透視", "📡 全球版塊排序熱力圖", "🔍 版塊內尋龍掃描掣"])
 
 # ==========================================
-# 🚀 模式 A：個股深度透視 (首頁 - 100% 完整還原)
+# 🚀 模式 A：個股深度透視 (首頁 - 靈魂全歸位)
 # ==========================================
 if app_mode == "🚀 個股深度透視":
     ticker = st.sidebar.text_input("🚀 輸入資產代號", "NVDA").upper()
@@ -153,8 +153,10 @@ if app_mode == "🚀 個股深度透視":
             crs_val = safe_n(50 + ((curr_p / df['Close'].iloc[-63]) - (spy['Close'].iloc[-1] / spy['Close'].iloc[-63])) * 100, 50.0)
             v21 = df['Volume'].tail(21).mean(); v252 = df['Volume'].tail(252).mean()
             cej_s = safe_n((v21 / max(v252, 1)) * 100, 50.0)
-            se_s = safe_n(50 + (((curr_p / df['Close'].iloc[-5]) - 1) * 1200), 50.0)
-
+            
+            # 短期能量 BAR (支援負數顯示)
+            se_p = ((curr_p / df['Close'].iloc[-5]) - 1) * 100
+            
             st.markdown(f"<div class='main-title'>環球資產透維評估儀 [{ticker}]</div>", unsafe_allow_html=True)
             
             c1, c2, c3 = st.columns(3)
@@ -163,7 +165,18 @@ if app_mode == "🚀 個股深度透視":
             with c3:
                 st.markdown("<div class='cosmos-box' style='border-color:#00FFFF; padding: 20px;'>", unsafe_allow_html=True)
                 st.markdown(draw_triad_bar(cej_s, "EJ 錢流底氣", "#00FFFF"), unsafe_allow_html=True)
-                st.markdown(draw_triad_bar(se_s, "短期能量 BAR", "#FF00FF"), unsafe_allow_html=True)
+                # 短期能量 BAR 特殊處理
+                se_lit = int(abs(se_p) / 5) # 每 5% 著一格
+                html_se = f"<div class='ej-header'>短期能量 BAR: {se_p:.1f}%</div><div class='bar-group-container'>"
+                for g in range(7):
+                    html_se += "<div class='bar-triad'>"
+                    for i in range(3):
+                        idx = g*3+i
+                        c_code = "#FF4B4B" if se_p < 0 else "#FF00FF"
+                        op = 1 if idx < se_lit else 0.1
+                        html_se += f"<div class='ej-seg' style='background-color:{c_code if idx < se_lit else '#222'}; opacity:{op};'></div>"
+                    html_se += "</div>"
+                st.markdown(html_se + "</div>", unsafe_allow_html=True)
                 st.markdown("</div>", unsafe_allow_html=True)
 
             st.write("---")
@@ -174,22 +187,50 @@ if app_mode == "🚀 個股深度透視":
             
             with d_c1:
                 st.markdown(f"""
-                <div class='cosmos-box' style='border-color:#FF4B4B; height:380px; display:flex; flex-direction:column; justify-content:center;'>
+                <div class='cosmos-box' style='border-color:#FF4B4B; height:450px; display:flex; flex-direction:column; justify-content:center;'>
                     <div style='color:#FF4B4B; font-weight:900; font-size:1.8rem;'>🧬 COSMOS-DNA</div>
-                    <div style='font-size:6rem; font-weight:900;'>{dna_v}</div>
-                    <div style='color:#FFD700;'>[ 現屬 第 2 級 ]<br><span style='font-size:1.6rem;'>🌟 星系霸主</span></div>
+                    <div style='font-size:0.9rem; color:#ccc; margin-bottom:10px;'>投行級股王基因 (100分滿分)</div>
+                    <div style='font-size:6.5rem; font-weight:900;'>{dna_v}</div>
+                    <div style='color:#FFD700; margin-top:20px;'>[ 現屬 第 2 級 ]<br><span style='font-size:1.8rem;'>🌟 星系霸主</span></div>
                 </div>""", unsafe_allow_html=True)
             with d_c2:
-                st.markdown(f"**{ticker} ・ 8D 投行精確透視 BAR**")
-                m8 = {"🩸 血液純度": 10, "🛡️ 免疫系統": 10, "🏗️ 心跳頻率": 10, "🧬 大腦潛力": 10, "🧱 骨架重量": 1}
-                for label, sc in m8.items():
-                    grid = '<div class="energy-bar-container-8d">' + "".join([f'<div class="energy-seg-8d" style="background-color:#00FFCC; opacity:{"1" if j<=sc else "0.1"};"></div>' for j in range(1,11)]) + '</div>'
-                    st.markdown(f"<div style='display:flex; justify-content:space-between;'><span>{label}</span><span>{sc}/10</span></div>{grid}", unsafe_allow_html=True)
+                # ✅ 完美復刻：8行詳細數據分析 (支援負數與專屬顏色)
+                st.markdown(f"<div style='background-color:#111; padding:15px; text-align:center; font-weight:bold; font-size:1.2rem; border-radius:8px; margin-bottom:15px;'><span style='color:#00FFCC;'>🌌 {ticker} ・ 8D 投行精確透視 BAR</span></div>", unsafe_allow_html=True)
+                
+                # 計算動態分數
+                s1 = int(safe_n(info.get('operatingMargins', 0)*30+3, 7))
+                s2 = int(safe_n(real_roe*30+3, 7))
+                s3 = int(safe_n(info.get('revenueGrowth', 0)*20+4, 6))
+                s4 = int(safe_n(info.get('profitMargins', 0)*30+3, 8))
+                s5 = int(max(-5, 10 - safe_n(info.get('priceToBook', 12), 12))) # 支援負數
+                s6 = 8 if safe_n(info.get('debtToEquity', 150), 150) < 80 else 6
+                s7 = int(safe_n(info.get('dividendYield', 0)*200+2, 9))
+                s8 = int(safe_n(info.get('earningsGrowth', 0)*25+4, 8))
 
-            st.markdown(f"<div class='red-bar'>🔥 戰略透視：短期動能爆發數值 [{se_s:.1f}%] 🔥</div>", unsafe_allow_html=True)
-            
-            # ✅ 保留：估值矩陣
-            st.write("### 🏛️ 估值矩陣")
+                labels_8d = [
+                    "🩸 血液純度 (營運現金流)", "🛡️ 免疫系統 (核心技術/生態)", "🏗️ 心跳頻率 (訂單/供應鏈VIP)",
+                    "🧬 大腦潛力 (研發/開支回報)", "🧱 骨架重量 (資產底價/估值)", "⚡ 物理底盤 (能源/算力基建)",
+                    "💰 資本配置 (回購/派息/併購)", "📈 經營拐點 (毛利率/主業反轉)"
+                ]
+                scores_8d = [s1, s2, s3, s4, s5, s6, s7, s8]
+                colors_8d = ["#00FFCC", "#00FFCC", "#00FFCC", "#00FFCC", "#FF4B4B", "#BC13FE", "#FFFFFF", "#FFA500"]
+
+                for i in range(8):
+                    label = labels_8d[i]
+                    sc = scores_8d[i]
+                    color = colors_8d[i] if sc >= 0 else "#FF4B4B" # 負數強制紅色
+                    abs_sc = min(10, abs(sc))
+                    
+                    grid = '<div class="energy-bar-container-8d">'
+                    for j in range(1, 11):
+                        op = "1" if j <= abs_sc else "0.1"
+                        grid += f'<div class="energy-seg-8d" style="background-color:{color}; opacity:{op};"></div>'
+                    grid += '</div>'
+                    st.markdown(f"<div style='display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #222; padding-bottom:5px; margin-top:5px;'><span style='font-size:0.95rem; color:#ddd;'>{label}</span><span style='font-weight:bold; color:{color}; font-size:1.1rem;'>{sc}</span></div>{grid}", unsafe_allow_html=True)
+
+            # --- 🏛️ 估值矩陣 ---
+            st.write("---")
+            st.write("### 🏛️ 估值與風險矩陣")
             v1, v2, v3 = st.columns(3); v4, v5, v6 = st.columns(3)
             def v_card(col, title, t_val, f_val):
                 col.markdown(f"<div class='val-box'><div class='val-label'>{title}</div><div class='val-text'>TTM: <span class='val-focus'>{t_val}</span></div><div class='val-text'>12M預期: <span class='val-focus'>{f_val}</span></div></div>", unsafe_allow_html=True)
@@ -199,6 +240,36 @@ if app_mode == "🚀 個股深度透視":
             v_card(v4, "PB 淨資產", safe_s(info, ['priceToBook'], "x"), "N/A")
             v_card(v5, "EV/EBITDA", safe_s(info, ['enterpriseToEbitda'], "x"), "N/A")
             v_card(v6, "股息率回報", safe_s(info, ['dividendYield', 'yield'], "%"), "N/A")
+
+            # ✅ 完美復刻：COSMOS-VAL 烈火鳳凰框 (當 TTM PE > 80 時出現)
+            ttm_pe = info.get('trailingPE', 0) or 0
+            if ttm_pe > 80:
+                dragon_index = round((dna_v * 0.4) + (cx_val * 0.3) + (crs_val * 0.3), 1)
+                dragon_index = max(5.0, min(98.5, dragon_index)) 
+                
+                if dragon_index >= 80: 
+                    t_lv, val_title, val_color, act_desc = "第 2 級", "烈火鳳凰", "#BC13FE", "【順勢而為】真實財報健康，估值雖貴但有支撐，緊貼趨勢操作。"
+                else: 
+                    t_lv, val_title, val_color, act_desc = "第 3 級", "海市蜃樓", "#FFA500", "【謹慎觀望】動能平平，估值偏高，注意回調風險。"
+                
+                st.markdown(f"""
+                <div style='border: 2px solid {val_color}; border-radius: 12px; padding: 25px; background-color: #050011; margin: 25px 0; box-shadow: 0 0 20px {val_color}44;'>
+                    <div style='display:flex; justify-content:space-between; align-items:flex-start;'>
+                        <div>
+                            <span style='font-size:1.8rem; font-weight:900;'>🔥 COSMOS-VAL 估值解碼 : <span style='color:{val_color};'>🔥 {val_title}</span></span><br><br>
+                            <span style='font-size:0.9rem; color:#aaa;'>( 針對 TTM PE {ttm_pe:.2f}x 的獨立戰略評分 )</span><br>
+                            <span style='font-size:0.9rem; color:{val_color}; font-weight:bold;'>[ 註明：共分 4 級，現在這公司基於真實財報屬{t_lv} ]</span>
+                        </div>
+                        <div style='text-align:right;'>
+                            <span style='font-size:0.9rem; color:#aaa;'>真龍指數：</span><br>
+                            <span style='font-size:4rem; font-weight:900; color:{val_color};'>{dragon_index}</span>
+                        </div>
+                    </div>
+                    <div style='background-color:#111; padding:15px; border-radius:8px; margin-top:20px; border:1px solid #222;'>
+                        <b style='color:white; font-size:1rem;'>真實財報決策指令：</b> <span style='color:{val_color}; font-size:1rem;'>{act_desc}</span>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
 
             # ✅ 保留：Beta, Alpha, 波動率
             st.write("---")
@@ -212,7 +283,7 @@ if app_mode == "🚀 個股深度透視":
             r2.markdown(f"<div class='cosmos-box' style='border-color:#FFA500;'><div class='cosmos-label'>🔱 Alpha 超額</div><div class='cosmos-value' style='font-size:3.5rem;'>{real_alpha:.1f}%</div></div>", unsafe_allow_html=True)
             r3.markdown(f"<div class='cosmos-box' style='border-color:#FFA500;'><div class='cosmos-label'>🌊 波動情緒</div><div class='cosmos-value' style='font-size:3.5rem;'>{(v_ann*100):.1f}%</div></div>", unsafe_allow_html=True)
 
-            # ✅ 保留：股價圖
+            # ✅ 完美復刻：股價圖 (摩訶釋達圖)
             st.write("### 📊 摩訶釋達・能量與籌碼透視圖")
             recent = df.tail(120); dates = recent.index.strftime('%Y-%m-%d')
             fig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.7, 0.3], vertical_spacing=0.05)
@@ -221,7 +292,7 @@ if app_mode == "🚀 個股深度透視":
             fig.update_layout(template="plotly_dark", height=600, showlegend=False, xaxis_rangeslider_visible=False)
             st.plotly_chart(fig, use_container_width=True)
 
-            # ✅ 保留：名家持倉
+            # ✅ 完美復刻：90 大名家持倉
             st.markdown("<div class='whale-box'><div style='color:#FFD700; font-size:2.2rem; font-weight:bold; text-align:center; margin-bottom:20px;'>🧙 90 大名家：真實申報持倉</div>", unsafe_allow_html=True)
             holders = asset.institutional_holders
             if holders is not None and not holders.empty:
@@ -234,11 +305,11 @@ if app_mode == "🚀 個股深度透視":
     except Exception as e: st.error(f"系統診斷中: {e}")
 
 # ==========================================
-# 📡 模式 B：全球版塊排序熱力圖
+# 📡 模式 B：全球版塊排序熱力圖 (自動掃描排名)
 # ==========================================
 elif app_mode == "📡 全球版塊排序熱力圖":
     st.markdown("<h1 class='main-title'>📡 全星系版塊相對強弱排名</h1>", unsafe_allow_html=True)
-    m_view = st.sidebar.radio("切換市場視角", ["🇺🇸 美股星系", "🇭🇰 港股星系"])
+    m_view = st.sidebar.radio("切換市場視角", ["🇺🇸 美股星系 (對標 SPY)", "🇭🇰 港股星系 (對標 ^HSI)"])
     is_us = "美股" in m_view
     bench_sym = "SPY" if is_us else "^HSI"
     target_map = US_FULL_MAP if is_us else HK_FULL_MAP
@@ -248,6 +319,7 @@ elif app_mode == "📡 全球版塊排序熱力圖":
         results = []
         for name, tickers in target_map.items():
             try:
+                # 每個版塊取龍頭計 20 日相對升幅
                 d = yf.Ticker(tickers[0]).history(period="60d")['Close']
                 if len(d) >= 20:
                     rs_score = 50 + ((d.iloc[-1]/d.iloc[-20]) - (bench_df.iloc[-1]/bench_df.iloc[-20])) * 100
@@ -255,6 +327,7 @@ elif app_mode == "📡 全球版塊排序熱力圖":
             except: pass
         
         if results:
+            # 自動由強到弱排序 (Descending Order)
             df_rs = pd.DataFrame(results).sort_values("RS強弱", ascending=True) 
             fig = go.Figure(go.Bar(x=df_rs["RS強弱"], y=df_rs["版塊"], orientation='h', 
                                     marker=dict(color=df_rs["RS強弱"], colorscale='Portland' if is_us else 'Viridis')))
@@ -262,7 +335,7 @@ elif app_mode == "📡 全球版塊排序熱力圖":
             st.plotly_chart(fig, use_container_width=True)
 
 # ==========================================
-# 🔍 模式 C：尋龍掃描掣
+# 🔍 模式 C：尋龍掃描掣 (千龍全開版)
 # ==========================================
 else:
     st.markdown("<h1 class='main-title'>🔍 全球千龍起步狙擊雷達</h1>", unsafe_allow_html=True)
@@ -296,6 +369,6 @@ else:
                     
                     if se > 85 and ej > 110 and crs > 52:
                         breakout_found = True
-                        st.markdown(f"<div class='scan-card-fire'>🎯 {t} | 起步共振訊號！<br>⚡ SE: {se:.1f} | 🔋 EJ: {ej:.1f} | 📈 RS: {crs:.1f}</div>", unsafe_allow_html=True)
+                        st.markdown(f"<div class='scan-card-fire'>🎯 {t} | 起飛共振訊號！<br>⚡ SE: {se:.1f} | 🔋 EJ: {ej:.1f} | 📈 RS: {crs:.1f}</div>", unsafe_allow_html=True)
             except: pass
         if not breakout_found: st.warning("目前該星系暫無標的觸發起飛訊號。")
