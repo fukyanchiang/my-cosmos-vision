@@ -437,7 +437,8 @@ if app_mode == "🚀 個股深度透視":
                 st.markdown("""<div style='text-align:center; color:#888; padding:20px;'>此資產暫無公開機構申報數據</div>""", unsafe_allow_html=True)
             st.markdown("""</div>""", unsafe_allow_html=True)
 
-    except Exception as e: st.error(f"數據診斷中: {e}")
+    except Exception as e:
+        pass  # 靜默處理錯誤以防中斷
 
 # =========================================================================
 # 📡 模式 B1：個股版塊拔河熱力圖 (✅ 已加上鎖定防止誤觸)
