@@ -6,7 +6,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 # 1. 基礎設置
-st.set_page_config(page_title="COSMOS 全球旗艦指揮部 V52", layout="wide")
+st.set_page_config(page_title="COSMOS 全球旗艦指揮部 V52.1", layout="wide")
 
 def safe_n(val, alt=50.0):
     try:
@@ -48,7 +48,7 @@ def draw_triad_bar(val, title, color):
         html += "</div>"
     return html + "</div>"
 
-# --- 🛰️ 港股數據庫：22 大星系 (精選核心 800+ 標的) ---
+# --- 🛰️ 港股數據庫：22 大星系 ---
 HK_FULL_MAP = {
     "1. 互聯網平台": ["0700.HK", "9988.HK", "3690.HK", "1810.HK", "9618.HK", "1024.HK", "9888.HK", "0772.HK", "0020.HK", "2400.HK"],
     "2. 半導體與硬件": ["0981.HK", "1347.HK", "0285.HK", "1478.HK", "1833.HK", "0522.HK", "0732.HK", "2382.HK"],
@@ -74,7 +74,7 @@ HK_FULL_MAP = {
     "22. 券商與保險": ["3908.HK", "6030.HK", "6881.HK", "1299.HK", "2628.HK", "2318.HK"]
 }
 
-# --- 🛰️ 美股數據庫：24 大星系 (S&P 1500 核心精華) ---
+# --- 🛰️ 美股數據庫：24 大星系 ---
 US_FULL_MAP = {
     "1. 半導體龍頭": ["NVDA", "TSM", "AVGO", "ASML", "AMD", "QCOM", "TXN", "MU", "INTC", "AMAT", "LRCX", "KLAC"],
     "2. AI與軟體": ["MSFT", "GOOGL", "ORCL", "ADBE", "CRM", "PLTR", "SNOW", "PANW", "FTNT", "NOW", "WDAY"],
@@ -102,7 +102,7 @@ US_FULL_MAP = {
     "24. 中型高增長區": ["SMCI", "DECK", "CELH", "WING", "APP", "ELF", "ANF", "MDB", "DDOG"]
 }
 
-# 2. 視覺裝修 (CSS 保持原封不動)
+# 2. 視覺裝修 (CSS)
 st.markdown("""
     <style>
     .stApp { background-color: #0e1117; color: white; }
@@ -132,107 +132,14 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# 3. 側邊欄控制
+# 3. 側邊欄控制 - ✅ 調整順序，讓「🚀 個股深度透視」排在第一位
 st.sidebar.markdown("## 🛰️ 戰術控制台")
-app_mode = st.sidebar.radio("請選擇操作", ["📡 美股版塊熱力圖", "📡 港股版塊熱力圖", "🔍 版塊內尋龍掃描掣", "🚀 個股深度透視"])
+app_mode = st.sidebar.radio("請選擇操作", ["🚀 個股深度透視", "🔍 版塊內尋龍掃描掣", "📡 美股版塊熱力圖", "📡 港股版塊熱力圖"])
 
 # ==========================================
-# 模式 A1：美股版塊熱力圖 (24 版塊版)
+# 🚀 模式 A：個股深度透視 (預設首頁)
 # ==========================================
-if app_mode == "📡 美股版塊熱力圖":
-    st.markdown("<h1 class='main-title'>🇺🇸 全美星系版塊能量分布</h1>", unsafe_allow_html=True)
-    spy_data = yf.Ticker("SPY").history(period="60d")['Close']
-    results = []
-    with st.spinner('爺爺正在聯絡衛星，掃描美股 24 大版塊...'):
-        for name, tickers in US_FULL_MAP.items():
-            try:
-                # 取版塊前 3 隻計平均 RS
-                d = yf.Ticker(tickers[0]).history(period="60d")['Close']
-                if len(d) >= 20:
-                    rs = 50 + ((d.iloc[-1]/d.iloc[-20]) - (spy_data.iloc[-1]/spy_data.iloc[-20])) * 100
-                    results.append({"版塊": name, "RS強弱": round(rs, 1)})
-            except: pass
-    if results:
-        df_rs = pd.DataFrame(results).sort_values("RS強弱", ascending=False)
-        fig = go.Figure(go.Bar(x=df_rs["RS強弱"], y=df_rs["版塊"], orientation='h', marker=dict(color=df_rs["RS強弱"], colorscale='Portland')))
-        fig.update_layout(template="plotly_dark", height=800, title="版塊相對強度 (RS > 50 代表跑贏 SPY)")
-        st.plotly_chart(fig, use_container_width=True)
-
-# ==========================================
-# 模式 A2：港股版塊熱力圖 (22 版塊版)
-# ==========================================
-elif app_mode == "📡 港股版塊熱力圖":
-    st.markdown("<h1 class='main-title'>🇭🇰 港股 22 星系能量熱力圖</h1>", unsafe_allow_html=True)
-    hsi_data = yf.Ticker("^HSI").history(period="60d")['Close']
-    results = []
-    with st.spinner('計算港股 22 大版塊資金流向中...'):
-        for sector_name, tickers in HK_FULL_MAP.items():
-            try:
-                d = yf.Ticker(tickers[0]).history(period="60d")['Close']
-                if len(d) >= 20 and len(hsi_data) >= 20:
-                    rs = 50 + ((d.iloc[-1]/d.iloc[-20]) - (hsi_data.iloc[-1]/hsi_data.iloc[-20])) * 100
-                    results.append({"版塊": sector_name, "RS強弱": round(rs, 1)})
-            except: pass
-    if results:
-        df_rs = pd.DataFrame(results).sort_values("RS強弱", ascending=False)
-        fig = go.Figure(go.Bar(x=df_rs["RS強弱"], y=df_rs["版塊"], orientation='h', marker=dict(color=df_rs["RS強弱"], colorscale='Viridis')))
-        fig.update_layout(template="plotly_dark", height=700, title="版塊相對強度 (RS > 50 代表跑贏恒生指數)")
-        st.plotly_chart(fig, use_container_width=True)
-
-# ==========================================
-# 模式 B：版塊內尋龍掃描掣 (全港美大聯動)
-# ==========================================
-elif app_mode == "🔍 版塊內尋龍掃描掣":
-    st.markdown("<h1 class='main-title'>🔍 全球星系尋龍起步雷達</h1>", unsafe_allow_html=True)
-    m_choice = st.sidebar.selectbox("1. 選擇市場", ["美股市場 (1200隻)", "港股市場 (800隻)"])
-    target_dict = US_FULL_MAP if "美股" in m_choice else HK_FULL_MAP
-    
-    s_choice = st.sidebar.selectbox("2. 選擇狙擊版塊", ["全部綜合掃描"] + list(target_dict.keys()))
-    scan_btn = st.sidebar.button("📡 啟動全方位雷達！")
-    
-    if scan_btn:
-        bench_sym = "SPY" if "美股" in m_choice else "^HSI"
-        st.info(f"正在深度對焦 {s_choice} 核心標的...")
-        bench_data = yf.Ticker(bench_sym).history(period="2y").dropna(subset=['Close'])
-        
-        # 決定掃描名單
-        if s_choice == "全部綜合掃描":
-            tickers_to_scan = list(set([t for sub in target_dict.values() for t in sub]))
-        else:
-            tickers_to_scan = target_dict[s_choice]
-            
-        breakout_found = False
-        progress_bar = st.progress(0)
-        
-        for idx, t in enumerate(tickers_to_scan):
-            progress_bar.progress((idx + 1) / len(tickers_to_scan))
-            try:
-                asset = yf.Ticker(t); info = asset.info
-                df = asset.history(period="1y").dropna(subset=['Close', 'Volume'])
-                if len(df) > 63:
-                    curr_p = df['Close'].iloc[-1]
-                    crs_val = safe_n(50 + ((curr_p / df['Close'].iloc[-63]) - (bench_data['Close'].iloc[-1] / bench_data['Close'].iloc[-63])) * 100, 50.0)
-                    v21 = df['Volume'].tail(21).mean(); v252 = df['Volume'].tail(252).mean()
-                    cej_s = safe_n((v21 / max(v252, 1)) * 100, 50.0)
-                    se_s = safe_n(50 + (((curr_p / df['Close'].iloc[-5]) - 1) * 1200), 50.0)
-                    real_roe = info.get('returnOnEquity', 0) or 0
-                    dna_v = round(safe_n(real_roe * 350 + 15, 23.6), 1)
-
-                    if se_s > 85 and cej_s > 110 and crs_val > 52:
-                        breakout_found = True
-                        st.markdown(f"""
-                        <div class='scan-card scan-card-fire'>
-                            <h2 style='color:#FFD700; margin:0;'>🎯 {t} | 起步共振訊號！</h2>
-                            <p style='margin:5px 0; color:#ddd;'>🧬 DNA: <b>{dna_v}</b> | ⚡ SE: <b style='color:#FF4B4B;'>{se_s:.1f}</b> | 🔋 EJ: <b style='color:#00FFCC;'>{cej_s:.1f}</b> | 📈 RS: <b>{crs_val:.1f}</b></p>
-                        </div>
-                        """, unsafe_allow_html=True)
-            except: pass
-        if not breakout_found: st.warning("目前該星系暫無標的觸發起飛訊號。")
-
-# ==========================================
-# 模式 C：個股深度透視 (原汁原味，一條毛都冇改)
-# ==========================================
-else:
+if app_mode == "🚀 個股深度透視":
     ticker = st.sidebar.text_input("🚀 輸入資產代號", "NVDA").upper()
     detect_btn = st.sidebar.button("📡 掃描趨勢爆發起點")
     
@@ -278,7 +185,6 @@ else:
                 m8 = {"🩸 流動資金": int(safe_n(cej_s/10,5)), "🛡️ 抗跌系統": int(safe_n(crs_val/10,5)), "🏗️ 動能頻率": int(safe_n(cx_val/10,5)), "🧬 趨勢潛力": int(safe_n(se_s/10,5)), "🧱 規模底盤": 8, "⚡ 波幅控制": 7, "💰 派息防守": 5, "📈 相對轉勢": 6}
             else:
                 dna_v = round(safe_n(real_roe * 350 + 15, 23.6), 1)
-                # 避開「營」字食字 bug，改用業績/銷售
                 m8 = {"🩸 血液純度": int(safe_n(info.get('operatingMargins', 0)*30+3, 5)), "🛡️ 免疫系統": int(safe_n(real_roe*30+3, 7)), "🏗️ 心跳頻率": int(safe_n(info.get('revenueGrowth', 0)*20+4, 6)), "🧬 大腦潛力": int(safe_n(info.get('profitMargins', 0)*30+3, 8)), "🧱 骨架重量": int(max(1, 10 - safe_n(info.get('priceToBook', 5), 5))), "⚡ 物理底盤": 8 if safe_n(info.get('debtToEquity', 150), 150) < 80 else 3, "💰 資本配置": int(safe_n(info.get('dividendYield', 0)*200+2, 5)), "📈 業績拐點": int(safe_n(info.get('earningsGrowth', 0)*25+4, 8))}
             
             dna_v = max(0.0, min(100.0, dna_v)) 
@@ -338,3 +244,94 @@ else:
             st.markdown("</div>", unsafe_allow_html=True)
 
     except Exception as e: st.error(f"系統診斷中: {e}")
+
+# ==========================================
+# 🔍 模式 B：尋龍掃描掣
+# ==========================================
+elif app_mode == "🔍 版塊內尋龍掃描掣":
+    st.markdown("<h1 class='main-title'>🔍 全球星系尋龍起步雷達</h1>", unsafe_allow_html=True)
+    m_choice = st.sidebar.selectbox("1. 選擇市場", ["美股市場 (1200隻)", "港股市場 (800隻)"])
+    target_dict = US_FULL_MAP if "美股" in m_choice else HK_FULL_MAP
+    
+    s_choice = st.sidebar.selectbox("2. 選擇狙擊版塊", ["全部綜合掃描"] + list(target_dict.keys()))
+    scan_btn = st.sidebar.button("📡 啟動全方位雷達！")
+    
+    if scan_btn:
+        bench_sym = "SPY" if "美股" in m_choice else "^HSI"
+        st.info(f"正在深度對焦 {s_choice} 核心標的...")
+        bench_data = yf.Ticker(bench_sym).history(period="2y").dropna(subset=['Close'])
+        
+        if s_choice == "全部綜合掃描":
+            tickers_to_scan = list(set([t for sub in target_dict.values() for t in sub]))
+        else:
+            tickers_to_scan = target_dict[s_choice]
+            
+        breakout_found = False
+        progress_bar = st.progress(0)
+        
+        for idx, t in enumerate(tickers_to_scan):
+            progress_bar.progress((idx + 1) / len(tickers_to_scan))
+            try:
+                asset = yf.Ticker(t); info = asset.info
+                df = asset.history(period="1y").dropna(subset=['Close', 'Volume'])
+                if len(df) > 63:
+                    curr_p = df['Close'].iloc[-1]
+                    crs_val = safe_n(50 + ((curr_p / df['Close'].iloc[-63]) - (bench_data['Close'].iloc[-1] / bench_data['Close'].iloc[-63])) * 100, 50.0)
+                    v21 = df['Volume'].tail(21).mean(); v252 = df['Volume'].tail(252).mean()
+                    cej_s = safe_n((v21 / max(v252, 1)) * 100, 50.0)
+                    se_s = safe_n(50 + (((curr_p / df['Close'].iloc[-5]) - 1) * 1200), 50.0)
+                    real_roe = info.get('returnOnEquity', 0) or 0
+                    dna_v = round(safe_n(real_roe * 350 + 15, 23.6), 1)
+
+                    if se_s > 85 and cej_s > 110 and crs_val > 52:
+                        breakout_found = True
+                        st.markdown(f"""
+                        <div class='scan-card scan-card-fire'>
+                            <h2 style='color:#FFD700; margin:0;'>🎯 {t} | 起步共振訊號！</h2>
+                            <p style='margin:5px 0; color:#ddd;'>🧬 DNA: <b>{dna_v}</b> | ⚡ SE: <b style='color:#FF4B4B;'>{se_s:.1f}</b> | 🔋 EJ: <b style='color:#00FFCC;'>{cej_s:.1f}</b> | 📈 RS: <b>{crs_val:.1f}</b></p>
+                        </div>
+                        """, unsafe_allow_html=True)
+            except: pass
+        if not breakout_found: st.warning("目前該星系暫無標的觸發起飛訊號。")
+
+# ==========================================
+# 模式 C：美股版塊熱力圖
+# ==========================================
+elif app_mode == "📡 美股版塊熱力圖":
+    st.markdown("<h1 class='main-title'>🇺🇸 全美星系版塊能量分布</h1>", unsafe_allow_html=True)
+    spy_data = yf.Ticker("SPY").history(period="60d")['Close']
+    results = []
+    with st.spinner('掃描美股版塊中...'):
+        for name, tickers in US_FULL_MAP.items():
+            try:
+                d = yf.Ticker(tickers[0]).history(period="60d")['Close']
+                if len(d) >= 20:
+                    rs = 50 + ((d.iloc[-1]/d.iloc[-20]) - (spy_data.iloc[-1]/spy_data.iloc[-20])) * 100
+                    results.append({"版塊": name, "RS強弱": round(rs, 1)})
+            except: pass
+    if results:
+        df_rs = pd.DataFrame(results).sort_values("RS強弱", ascending=False)
+        fig = go.Figure(go.Bar(x=df_rs["RS強弱"], y=df_rs["版塊"], orientation='h', marker=dict(color=df_rs["RS強弱"], colorscale='Portland')))
+        fig.update_layout(template="plotly_dark", height=800, title="版塊相對強度 (RS > 50 代表跑贏 SPY)")
+        st.plotly_chart(fig, use_container_width=True)
+
+# ==========================================
+# 模式 D：港股版塊熱力圖
+# ==========================================
+else:
+    st.markdown("<h1 class='main-title'>🇭🇰 港股 22 星系能量熱力圖</h1>", unsafe_allow_html=True)
+    hsi_data = yf.Ticker("^HSI").history(period="60d")['Close']
+    results = []
+    with st.spinner('計算港股版塊資金流向中...'):
+        for sector_name, tickers in HK_FULL_MAP.items():
+            try:
+                d = yf.Ticker(tickers[0]).history(period="60d")['Close']
+                if len(d) >= 20 and len(hsi_data) >= 20:
+                    rs = 50 + ((d.iloc[-1]/d.iloc[-20]) - (hsi_data.iloc[-1]/hsi_data.iloc[-20])) * 100
+                    results.append({"版塊": sector_name, "RS強弱": round(rs, 1)})
+            except: pass
+    if results:
+        df_rs = pd.DataFrame(results).sort_values("RS強弱", ascending=False)
+        fig = go.Figure(go.Bar(x=df_rs["RS強弱"], y=df_rs["版塊"], orientation='h', marker=dict(color=df_rs["RS強弱"], colorscale='Viridis')))
+        fig.update_layout(template="plotly_dark", height=700, title="版塊相對強度 (RS > 50 代表跑贏恒生指數)")
+        st.plotly_chart(fig, use_container_width=True)
