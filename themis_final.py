@@ -645,6 +645,3 @@ elif app_mode == "🛡️ 港/A股 ETF 專屬雷達":
             except: pass
         progress_bar.empty()
         if not breakout_found: st.warning("💤 掃描完畢：目前未有 ETF 觸發起飛訊號。")
-
-except Exception as e:
-    pass
