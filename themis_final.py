@@ -285,7 +285,6 @@ if app_mode == "🚀 個股深度透視":
             else: d_lv, d_desc = "第 10 級", "🪦 宇宙塵埃"
 
             with d_c1:
-                # 🚨 修正 HTML 排版錯誤：移除 Markdown 多餘空格縮排
                 st.markdown(f"""
 <div class='cosmos-box' style='border-color:#FF4B4B; height:380px; display:flex; flex-direction:column; justify-content:center;'>
     <div style='color:#FF4B4B; font-weight:900; font-size:1.8rem;'>🧬 COSMOS-DNA</div>
@@ -376,7 +375,6 @@ if app_mode == "🚀 個股深度透視":
                 if ttm_pe > 80 or fwd_pe > 80:
                     warning_html = "<span style='color:#FF0000; font-size:3.5rem; font-weight:900; margin-left:20px; text-shadow: 2px 2px 4px #000;'>警告</span>"
 
-                # 🚨 修正 HTML 排版錯誤：移除 Markdown 多餘空格縮排
                 st.markdown(f"""
 <div style='border: 4px solid {val_color}; border-radius: 15px; padding: 30px; background-color: #000; box-shadow: 0 0 30px {val_color}66; margin: 25px 0;'>
     <div style='display:flex; justify-content:space-between; align-items:center;'>
@@ -638,5 +636,3 @@ elif app_mode == "🛡️ 港/A股 ETF 專屬雷達":
             except: pass
         progress_bar.empty()
         if not breakout_found: st.warning("💤 掃描完畢：目前未有 ETF 觸發起飛訊號。")
-
-except Exception as e: st.error(f"數據診斷中: {e}")
