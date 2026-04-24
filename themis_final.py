@@ -184,7 +184,7 @@ app_mode = st.sidebar.radio("請選擇操作", [
 ])
 
 # =========================================================================
-# 🚀 模式 A：個股深度透視 (你嘅心血結晶：一條毛都冇改！)
+# 🚀 模式 A：個股深度透視
 # =========================================================================
 if app_mode == "🚀 個股深度透視":
     ticker = st.sidebar.text_input("🚀 輸入資產代號", "6869.HK").upper()
@@ -285,17 +285,17 @@ if app_mode == "🚀 個股深度透視":
             else: d_lv, d_desc = "第 10 級", "🪦 宇宙塵埃"
 
             with d_c1:
+                # 🚨 修正 HTML 排版錯誤：移除 Markdown 多餘空格縮排
                 st.markdown(f"""
-
-                <div class='cosmos-box' style='border-color:#FF4B4B; height:380px; display:flex; flex-direction:column; justify-content:center;'>
-                    <div style='color:#FF4B4B; font-weight:900; font-size:1.8rem;'>🧬 COSMOS-DNA</div>
-                    <div style='font-size:0.9rem; opacity:0.7; margin:5px 0;'>{dna_title} (100分滿分)</div>
-                    <div style='font-size:6rem; font-weight:900;'>{dna_v}</div>
-                    <div style='color:#FFD700; font-size:1rem; font-weight:bold; margin-top:10px;'>
-                        [ 註明：共分 10 級，現屬 {d_lv} ]<br>
-                        <span style='font-size:1.6rem; color:#FFF;'>{d_desc}</span>
-                    </div>
-                </div>""", unsafe_allow_html=True)
+<div class='cosmos-box' style='border-color:#FF4B4B; height:380px; display:flex; flex-direction:column; justify-content:center;'>
+    <div style='color:#FF4B4B; font-weight:900; font-size:1.8rem;'>🧬 COSMOS-DNA</div>
+    <div style='font-size:0.9rem; opacity:0.7; margin:5px 0;'>{dna_title} (100分滿分)</div>
+    <div style='font-size:6rem; font-weight:900;'>{dna_v}</div>
+    <div style='color:#FFD700; font-size:1rem; font-weight:bold; margin-top:10px;'>
+        [ 註明：共分 10 級，現屬 {d_lv} ]<br>
+        <span style='font-size:1.6rem; color:#FFF;'>{d_desc}</span>
+    </div>
+</div>""", unsafe_allow_html=True)
             
             with d_c2:
                 st.markdown(f"""**{ticker} ・ 8D 投行精確透視 BAR**""")
@@ -376,29 +376,24 @@ if app_mode == "🚀 個股深度透視":
                 if ttm_pe > 80 or fwd_pe > 80:
                     warning_html = "<span style='color:#FF0000; font-size:3.5rem; font-weight:900; margin-left:20px; text-shadow: 2px 2px 4px #000;'>警告</span>"
 
+                # 🚨 修正 HTML 排版錯誤：移除 Markdown 多餘空格縮排
                 st.markdown(f"""
-
-                <div style='border: 4px solid {val_color}; border-radius: 15px; padding: 30px; background-color: #000; box-shadow: 0 0 30px {val_color}66; margin: 25px 0;'>
-                    <div style='display:flex; justify-content:space-between; align-items:center;'>
-                        <div>
-
-                            <span style='font-size:2.2rem; font-weight:900;'>COSMOS-VAL 解碼：<span style='color:{val_color};'>{val_title}</span>{warning_html}</span><br>
-
-                            <span style='font-size:1.1rem; opacity:0.8;'>（針對 TTM PE {ttm_pe:.2f}x 獨立戰術評分）</span><br>
-
-                            <span style='font-size:1.2rem; color:#FFD700; font-weight:bold; margin-top:5px; display:inline-block;'>[ 註明：共分 4 級，現在這公司基於真實財報屬 {t_lv} ({t_desc}) ]</span>
-                        </div>
-                        <div style='text-align:right;'>
-                            <span style='font-size:1.6rem;'>真龍指數：</span><br>
-                            <span style='font-size:5rem; font-weight:900; color:{val_color};'>{dragon_index}</span>
-                        </div>
-                    </div>
-
-                    <div style='background-color:#111; padding:20px; border-radius:10px; margin-top:20px; border:1px solid #333;'>
-
-                        <b style='color:white; font-size:1.3rem;'>真實財報決策指令：</b> <span style='color:{val_color}; font-size:1.3rem;'>{act_desc}</span>
-                    </div>
-                </div>""", unsafe_allow_html=True)
+<div style='border: 4px solid {val_color}; border-radius: 15px; padding: 30px; background-color: #000; box-shadow: 0 0 30px {val_color}66; margin: 25px 0;'>
+    <div style='display:flex; justify-content:space-between; align-items:center;'>
+        <div>
+            <span style='font-size:2.2rem; font-weight:900;'>COSMOS-VAL 解碼：<span style='color:{val_color};'>{val_title}</span>{warning_html}</span><br>
+            <span style='font-size:1.1rem; opacity:0.8;'>（針對 TTM PE {ttm_pe:.2f}x 獨立戰術評分）</span><br>
+            <span style='font-size:1.2rem; color:#FFD700; font-weight:bold; margin-top:5px; display:inline-block;'>[ 註明：共分 4 級，現在這公司基於真實財報屬 {t_lv} ({t_desc}) ]</span>
+        </div>
+        <div style='text-align:right;'>
+            <span style='font-size:1.6rem;'>真龍指數：</span><br>
+            <span style='font-size:5rem; font-weight:900; color:{val_color};'>{dragon_index}</span>
+        </div>
+    </div>
+    <div style='background-color:#111; padding:20px; border-radius:10px; margin-top:20px; border:1px solid #333;'>
+        <b style='color:white; font-size:1.3rem;'>真實財報決策指令：</b> <span style='color:{val_color}; font-size:1.3rem;'>{act_desc}</span>
+    </div>
+</div>""", unsafe_allow_html=True)
 
             # Alpha/波動率
             b_val = float(get_beta(info, df, spy))
@@ -426,10 +421,9 @@ if app_mode == "🚀 個股深度透視":
             fig.add_trace(go.Bar(y=(bins[:-1] + bins[1:]) / 2, x=counts, orientation='h', marker_color='rgba(0, 255, 204, 0.4)', name='蟹貨', xaxis='x3', yaxis='y1'))
 
             fig.update_layout(template="plotly_dark", paper_bgcolor='#0e1117', plot_bgcolor='#0e1117', height=750, showlegend=False, xaxis_rangeslider_visible=False, xaxis=dict(type='category', showgrid=False), yaxis=dict(showgrid=True, gridcolor='#333'), yaxis2=dict(showgrid=False), xaxis3=dict(overlaying='x', side='top', range=[0, max(counts)*6], showgrid=False, showticklabels=False))
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, use_container_width=True, theme=None, config={'displayModeBar': False})
 
             # 名家清單
-
             st.markdown("""<div class='whale-box'><div style='color:#FFD700; font-size:2.2rem; font-weight:bold; text-align:center; margin-bottom:20px;'>🧙 90 大名家：真實申報持倉 (自動計算佔比)</div>""", unsafe_allow_html=True)
             total_shares = info.get('sharesOutstanding', 1)
             holders = asset.institutional_holders
@@ -482,8 +476,8 @@ elif app_mode == "📡 個股版塊拔河熱力圖":
                 xaxis=dict(fixedrange=True),
                 yaxis=dict(fixedrange=True)
             )
-            # ✅ 隱藏 ModeBar
-            st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+            # ✅ 隱藏 ModeBar + 強制載入自訂 Theme
+            st.plotly_chart(fig, use_container_width=True, theme=None, config={'displayModeBar': False})
 
 # =========================================================================
 # 📡 模式 B2：ETF 資產拔河熱力圖 (✅ 已加上鎖定防止誤觸)
@@ -520,8 +514,8 @@ elif app_mode == "📡 ETF 資產拔河熱力圖":
                 xaxis=dict(fixedrange=True),
                 yaxis=dict(fixedrange=True)
             )
-            # ✅ 隱藏 ModeBar
-            st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+            # ✅ 隱藏 ModeBar + 強制載入自訂 Theme
+            st.plotly_chart(fig, use_container_width=True, theme=None, config={'displayModeBar': False})
 
 # =========================================================================
 # 🔍 模式 C：千龍起步尋龍雷達 (專注個股)
@@ -644,3 +638,5 @@ elif app_mode == "🛡️ 港/A股 ETF 專屬雷達":
             except: pass
         progress_bar.empty()
         if not breakout_found: st.warning("💤 掃描完畢：目前未有 ETF 觸發起飛訊號。")
+
+except Exception as e: st.error(f"數據診斷中: {e}")
