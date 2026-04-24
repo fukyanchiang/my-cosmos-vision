@@ -443,7 +443,7 @@ if app_mode == "🚀 個股深度透視":
         pass  
 
 # =========================================================================
-# 📡 模式 B1：個股版塊拔河熱力圖 (✅ 鎖定防誤觸 + 強制黑底)
+# 📡 模式 B1：個股版塊拔河熱力圖 
 # =========================================================================
 elif app_mode == "📡 個股版塊拔河熱力圖":
     st.markdown("<h1 class='main-title'>📡 個股版塊相對強弱拔河排名</h1>", unsafe_allow_html=True)
@@ -457,19 +457,22 @@ elif app_mode == "📡 個股版塊拔河熱力圖":
         bench_df = yf.Ticker(bench_sym).history(period="60d")['Close']
         results = []
         for name, tickers in target_map.items():
-            try:
-                d = yf.Ticker(tickers[0]).history(period="60d")['Close']
-                if len(d) >= 20:
-                    rs_score = 50 + ((d.iloc[-1]/d.iloc[-20]) - (bench_df.iloc[-1]/bench_df.iloc[-20])) * 100
-                    results.append({"版塊": name, "RS強弱": round(rs_score, 1)})
-            except: pass
+            # ⬅️ 爺爺特製不死替補系統：第一隻冧咗自動試第二隻！
+            for t in tickers:
+                try:
+                    d = yf.Ticker(t).history(period="60d")['Close']
+                    if len(d) >= 20:
+                        rs_score = 50 + ((d.iloc[-1]/d.iloc[-20]) - (bench_df.iloc[-1]/bench_df.iloc[-20])) * 100
+                        results.append({"版塊": name, "RS強弱": round(rs_score, 1)})
+                        break
+                except:
+                    continue
         
         if results:
             df_rs = pd.DataFrame(results).sort_values("RS強弱", ascending=True) 
             fig = go.Figure(go.Bar(x=df_rs["RS強弱"], y=df_rs["版塊"], orientation='h', 
                                     marker=dict(color=df_rs["RS強弱"], colorscale='Portland' if is_us else 'Viridis')))
             
-            # ✅ 強制黑底 + 鎖定 X/Y 軸防止誤觸縮放
             fig.update_layout(
                 template="plotly_dark", 
                 paper_bgcolor='#0e1117',
@@ -480,11 +483,10 @@ elif app_mode == "📡 個股版塊拔河熱力圖":
                 xaxis=dict(fixedrange=True, showgrid=False),
                 yaxis=dict(fixedrange=True)
             )
-            # ✅ 隱藏 ModeBar + 強制載入自訂 Theme
             st.plotly_chart(fig, use_container_width=True, theme=None, config={'displayModeBar': False})
 
 # =========================================================================
-# 📡 模式 B2：ETF 資產拔河熱力圖 (✅ 鎖定防誤觸 + 強制黑底 + 統一顏色)
+# 📡 模式 B2：ETF 資產拔河熱力圖 
 # =========================================================================
 elif app_mode == "📡 ETF 資產拔河熱力圖":
     st.markdown("<h1 class='main-title'>📡 ETF 資產相對強弱拔河排名</h1>", unsafe_allow_html=True)
@@ -498,19 +500,22 @@ elif app_mode == "📡 ETF 資產拔河熱力圖":
         bench_df = yf.Ticker(bench_sym).history(period="60d")['Close']
         results = []
         for name, tickers in target_map.items():
-            try:
-                d = yf.Ticker(tickers[0]).history(period="60d")['Close']
-                if len(d) >= 20:
-                    rs_score = 50 + ((d.iloc[-1]/d.iloc[-20]) - (bench_df.iloc[-1]/bench_df.iloc[-20])) * 100
-                    results.append({"版塊": name, "RS強弱": round(rs_score, 1)})
-            except: pass
+            # ⬅️ 爺爺特製不死替補系統：第一隻冧咗自動試第二隻！
+            for t in tickers:
+                try:
+                    d = yf.Ticker(t).history(period="60d")['Close']
+                    if len(d) >= 20:
+                        rs_score = 50 + ((d.iloc[-1]/d.iloc[-20]) - (bench_df.iloc[-1]/bench_df.iloc[-20])) * 100
+                        results.append({"版塊": name, "RS強弱": round(rs_score, 1)})
+                        break
+                except:
+                    continue
         
         if results:
             df_rs = pd.DataFrame(results).sort_values("RS強弱", ascending=True) 
             fig = go.Figure(go.Bar(x=df_rs["RS強弱"], y=df_rs["版塊"], orientation='h', 
                                     marker=dict(color=df_rs["RS強弱"], colorscale='Portland' if is_us else 'Viridis')))
             
-            # ✅ 強制黑底 + 鎖定 X/Y 軸防止誤觸縮放
             fig.update_layout(
                 template="plotly_dark", 
                 paper_bgcolor='#0e1117',
@@ -521,7 +526,6 @@ elif app_mode == "📡 ETF 資產拔河熱力圖":
                 xaxis=dict(fixedrange=True, showgrid=False),
                 yaxis=dict(fixedrange=True)
             )
-            # ✅ 隱藏 ModeBar + 強制載入自訂 Theme
             st.plotly_chart(fig, use_container_width=True, theme=None, config={'displayModeBar': False})
 
 # =========================================================================
