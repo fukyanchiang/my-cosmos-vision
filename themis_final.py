@@ -144,7 +144,7 @@ US_ETF_MAP = {
     "E12. 主題與前沿 (Thematic)": "ARKK ARKG ICLN TAN LIT CIBR HACK PBW MOO BOTZ ROBO".split()
 }
 
-# 2. 視覺裝修 (一條毛都冇改)
+# 2. 視覺裝修 
 st.markdown("""
     <style>
     .stApp { background-color: #0e1117; color: white; }
@@ -326,14 +326,12 @@ if app_mode == "🚀 個股深度透視":
                 ("🔋 大資金", f"{cej_s:.0f}"), 
                 ("🎭 情緒", f"{val_emotion:.0f}"), 
                 ("🏆 總分", f"{val_total:.0f}"), 
-                ("🔮 12M目標", val_target_str),   # 已經改名為 12M 目標
+                ("🔮 12M目標", val_target_str),   
                 ("💰 成交比", f"{val_vol_ratio:.1f}x")
             ]
             
             for i in range(4):
-
                 k1[i].markdown(f"""<div class='cosmos-box' style='padding:15px; border-width:2px;'><div style='color:#ccc; font-size:1.2rem;'>{kings[i][0]}</div><div style='color:#FFD700; font-size:2.5rem; font-weight:bold;'>{kings[i][1]}</div></div>""", unsafe_allow_html=True)
-
                 k2[i].markdown(f"""<div class='cosmos-box' style='padding:15px; border-width:2px; border-color:#FFD700;'><div style='color:#ccc; font-size:1.2rem;'>{kings[i+4][0]}</div><div style='color:#FFD700; font-size:2.5rem; font-weight:bold;'>{kings[i+4][1]}</div></div>""", unsafe_allow_html=True)
 
             st.markdown(f"""<div class='red-bar'>🔥 戰略透視：短期動能爆發數值 [{se_s:.1f}%] 🔥</div>""", unsafe_allow_html=True)
@@ -342,7 +340,6 @@ if app_mode == "🚀 個股深度透視":
             st.write("### 🏛️ 估值與風險全方位透視")
             v1, v2, v3 = st.columns(3); v4, v5, v6 = st.columns(3)
             def v_card(col, title, t_val, f_val, desc):
-
                 col.markdown(f"""<div class='val-box'><div class='val-label'>{title}</div><div class='val-text'>TTM: <span class='val-focus'>{t_val}</span></div><div class='val-text'>12M預期: <span class='val-focus'>{f_val}</span></div><div style='color:#FFA500; font-size:0.9rem; margin-top:10px;'>{desc}</div></div>""", unsafe_allow_html=True)
             v_card(v1, "PE 獲利比", safe_s(info, ['trailingPE'], "x"), safe_s(info, ['forwardPE'], "x"), "獲利估值透視")
             v_card(v2, "PEG 增長比", safe_s(info, ['pegRatio']), "N/A", "增長性價比")
@@ -401,9 +398,7 @@ if app_mode == "🚀 個股深度透視":
             r1, r2, r3 = st.columns(3)
 
             r1.markdown(f"""<div class='cosmos-box' style='border-color:#FFA500;'><div class='cosmos-label'>📐 Beta (性格)</div><div class='cosmos-value' style='font-size:3.5rem;'>{b_val:.2f}</div></div>""", unsafe_allow_html=True)
-
             r2.markdown(f"""<div class='cosmos-box' style='border-color:#FFA500;'><div class='cosmos-label'>🔱 Alpha (超額)</div><div class='cosmos-value' style='font-size:3.5rem;'>{real_alpha:.1f}%</div></div>""", unsafe_allow_html=True)
-
             r3.markdown(f"""<div class='cosmos-box' style='border-color:#FFA500;'><div class='cosmos-label'>🌊 波動率 (情緒)</div><div class='cosmos-value' style='font-size:3.5rem;'>{(v_ann*100):.1f}%</div></div>""", unsafe_allow_html=True)
 
             # 📊 股價圖
@@ -412,13 +407,22 @@ if app_mode == "🚀 個股深度透視":
             fig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.7, 0.3], vertical_spacing=0.05)
 
             fig.add_trace(go.Candlestick(x=dates, open=recent['Open'], high=recent['High'], low=recent['Low'], close=recent['Close'], name='股價'), row=1, col=1)
-
             fig.add_trace(go.Bar(x=dates, y=recent['Volume'], marker_color=['#00FF00' if recent['Close'].iloc[i] >= recent['Open'].iloc[i] else '#FF0000' for i in range(len(recent))], name='成交量'), row=2, col=1)
             counts, bins = np.histogram(recent['Close'], bins=20, weights=recent['Volume'])
-
             fig.add_trace(go.Bar(y=(bins[:-1] + bins[1:]) / 2, x=counts, orientation='h', marker_color='rgba(0, 255, 204, 0.4)', name='蟹貨', xaxis='x3', yaxis='y1'))
 
-            fig.update_layout(template="plotly_dark", paper_bgcolor='#0e1117', plot_bgcolor='#0e1117', height=750, showlegend=False, xaxis_rangeslider_visible=False, xaxis=dict(type='category', showgrid=False), yaxis=dict(showgrid=True, gridcolor='#333'), yaxis2=dict(showgrid=False), xaxis3=dict(overlaying='x', side='top', range=[0, max(counts)*6], showgrid=False, showticklabels=False))
+            fig.update_layout(
+                template="plotly_dark", 
+                paper_bgcolor='#0e1117', 
+                plot_bgcolor='#0e1117', 
+                height=750, 
+                showlegend=False, 
+                xaxis_rangeslider_visible=False, 
+                xaxis=dict(type='category', showgrid=False), 
+                yaxis=dict(showgrid=True, gridcolor='#333'), 
+                yaxis2=dict(showgrid=False), 
+                xaxis3=dict(overlaying='x', side='top', range=[0, max(counts)*6], showgrid=False, showticklabels=False)
+            )
             st.plotly_chart(fig, use_container_width=True, theme=None, config={'displayModeBar': False})
 
             # 名家清單
@@ -430,18 +434,16 @@ if app_mode == "🚀 個股深度透視":
                     shares = row.get('Shares', 0)
                     calc_pct = (shares / total_shares) if total_shares > 1 else 0
                     val_m = row.get('Value', 0) / 1e6
-
                     st.markdown(f"""<div class='whale-row'><span class='whale-n'>{row['Holder']}</span><span class='whale-a'>持有 {shares:,.0f} 股 | 佔比 {calc_pct:.2%} | 市值 ${val_m:.1f}M</span></div>""", unsafe_allow_html=True)
             else:
-
                 st.markdown("""<div style='text-align:center; color:#888; padding:20px;'>此資產暫無公開機構申報數據</div>""", unsafe_allow_html=True)
             st.markdown("""</div>""", unsafe_allow_html=True)
 
     except Exception as e:
-        pass  # 靜默處理錯誤以防中斷
+        pass  
 
 # =========================================================================
-# 📡 模式 B1：個股版塊拔河熱力圖 (✅ 已加上鎖定防止誤觸)
+# 📡 模式 B1：個股版塊拔河熱力圖 (✅ 鎖定防誤觸 + 強制黑底)
 # =========================================================================
 elif app_mode == "📡 個股版塊拔河熱力圖":
     st.markdown("<h1 class='main-title'>📡 個股版塊相對強弱拔河排名</h1>", unsafe_allow_html=True)
@@ -467,19 +469,22 @@ elif app_mode == "📡 個股版塊拔河熱力圖":
             fig = go.Figure(go.Bar(x=df_rs["RS強弱"], y=df_rs["版塊"], orientation='h', 
                                     marker=dict(color=df_rs["RS強弱"], colorscale='Portland' if is_us else 'Viridis')))
             
-            # ✅ 鎖定 X/Y 軸防止誤觸縮放
+            # ✅ 強制黑底 + 鎖定 X/Y 軸防止誤觸縮放
             fig.update_layout(
                 template="plotly_dark", 
+                paper_bgcolor='#0e1117',
+                plot_bgcolor='#0e1117',
+                font=dict(color='white'),
                 height=1000 if is_us else 700, 
                 title=f"最強個股吸金版塊：{df_rs.iloc[-1]['版塊']}",
-                xaxis=dict(fixedrange=True),
+                xaxis=dict(fixedrange=True, showgrid=False),
                 yaxis=dict(fixedrange=True)
             )
             # ✅ 隱藏 ModeBar + 強制載入自訂 Theme
             st.plotly_chart(fig, use_container_width=True, theme=None, config={'displayModeBar': False})
 
 # =========================================================================
-# 📡 模式 B2：ETF 資產拔河熱力圖 (✅ 已加上鎖定防止誤觸)
+# 📡 模式 B2：ETF 資產拔河熱力圖 (✅ 鎖定防誤觸 + 強制黑底 + 統一顏色)
 # =========================================================================
 elif app_mode == "📡 ETF 資產拔河熱力圖":
     st.markdown("<h1 class='main-title'>📡 ETF 資產相對強弱拔河排名</h1>", unsafe_allow_html=True)
@@ -503,14 +508,17 @@ elif app_mode == "📡 ETF 資產拔河熱力圖":
         if results:
             df_rs = pd.DataFrame(results).sort_values("RS強弱", ascending=True) 
             fig = go.Figure(go.Bar(x=df_rs["RS強弱"], y=df_rs["版塊"], orientation='h', 
-                                    marker=dict(color=df_rs["RS強弱"], colorscale='Aggrnyl')))
+                                    marker=dict(color=df_rs["RS強弱"], colorscale='Portland' if is_us else 'Viridis')))
             
-            # ✅ 鎖定 X/Y 軸防止誤觸縮放
+            # ✅ 強制黑底 + 鎖定 X/Y 軸防止誤觸縮放
             fig.update_layout(
                 template="plotly_dark", 
+                paper_bgcolor='#0e1117',
+                plot_bgcolor='#0e1117',
+                font=dict(color='white'),
                 height=600, 
                 title=f"最強 ETF 資產：{df_rs.iloc[-1]['版塊']}",
-                xaxis=dict(fixedrange=True),
+                xaxis=dict(fixedrange=True, showgrid=False),
                 yaxis=dict(fixedrange=True)
             )
             # ✅ 隱藏 ModeBar + 強制載入自訂 Theme
@@ -637,3 +645,6 @@ elif app_mode == "🛡️ 港/A股 ETF 專屬雷達":
             except: pass
         progress_bar.empty()
         if not breakout_found: st.warning("💤 掃描完畢：目前未有 ETF 觸發起飛訊號。")
+
+except Exception as e:
+    pass
