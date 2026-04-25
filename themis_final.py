@@ -37,8 +37,9 @@ def get_beta(info, df, spy_df):
     return "1.00" 
 
 # =========================================================================
-# 🛸 爺爺嘅外掛資料庫 (V84.0 萬隻資產與海量 ETF 擴充版)
+# 🛸 爺爺嘅外掛資料庫 (V85.0 完美還原海量板塊 + ETF)
 # =========================================================================
+# 港股 22 大核心板塊 (包含市場最活躍數百隻股票)
 HK_STOCK_MAP = {
     "1. 互聯網巨頭": "0700.HK 9988.HK 3690.HK 1810.HK 9618.HK 1024.HK 9888.HK 0772.HK 0020.HK 0241.HK 0136.HK 1999.HK 2018.HK 3888.HK 2142.HK 1896.HK 0777.HK 0113.HK 0590.HK 1980.HK 1797.HK 6618.HK 2400.HK 0285.HK".split(),
     "2. 半導體與芯片": "0981.HK 1347.HK 0285.HK 1478.HK 1833.HK 0522.HK 0732.HK 2382.HK 2018.HK 0099.HK 1385.HK 1138.HK 1910.HK 6088.HK 3898.HK 6123.HK 3389.HK".split(),
@@ -64,6 +65,7 @@ HK_STOCK_MAP = {
     "22. 券商與保險": "3908.HK 6030.HK 6881.HK 1299.HK 2628.HK 2318.HK 0966.HK 1336.HK 6099.HK 1776.HK 6178.HK 3968.HK 1551.HK 6066.HK 1339.HK".split()
 }
 
+# 美股 50 大板塊
 US_STOCK_MAP = {
     "1. 半導體設備與設計": "NVDA TSM AVGO ASML AMD QCOM TXN MU INTC AMAT LRCX KLAC ADI NXPI MRVL MCHP SWKS MPWR ON LSCC TER QRVO SLAB WOLF SYNA RMBS ALGM SITM ACLS CRUS".split(),
     "2. AI與大數據雲端": "MSFT GOOGL ORCL ADBE CRM PLTR SNOW PANW FTNT NOW WDAY ZS DDOG CRWD MDB NET OKTA TEAM SPLK GEN CYBR CHKP VRSN ESTC TENB SQSP PCOR DOCN AI FSLY MSTR".split(),
@@ -117,7 +119,7 @@ US_STOCK_MAP = {
     "50. 超微型探索 (Micro)": "SOUN RXRX AI BBAI HIVE VLD IONQ BBAI CRDO NRDS INDI LUNA QBTS KTRA RGTI ARQQ INVZ".split()
 }
 
-# ✅ 港股 ETF 擴展至 300隻，涵蓋南方、華夏、嘉實，嚴格剔除 3倍槓桿，最高保留 2倍槓桿 (如 7200, 7500)
+# 港股 ETF 擴展至 300隻，涵蓋南方、華夏、嘉實，嚴格剔除 3倍槓桿，最高保留 2倍槓桿
 HK_ETF_MAP = {
     "E1. 港股大盤與科指 (含1X/2X)": "2800.HK 2828.HK 3032.HK 3033.HK 3067.HK 3147.HK 2812.HK 3058.HK 3068.HK 3428.HK 3134.HK 3115.HK 3046.HK 7200.HK 7226.HK 7248.HK 7266.HK 7299.HK 7300.HK 7500.HK 7552.HK 7568.HK".split(),
     "E2. A股寬基 (滬深/A50) (含1X/2X)": "3188.HK 2822.HK 2823.HK 3100.HK 3153.HK 3173.HK 2833.HK 3119.HK 3136.HK 3108.HK 3189.HK 3021.HK 3022.HK 3169.HK 7233.HK 7272.HK 7261.HK 7288.HK 7328.HK 7333.HK".split(),
@@ -127,11 +129,11 @@ HK_ETF_MAP = {
     "E6. 環球/亞太/美日印市場": "3140.HK 2834.HK 3126.HK 2814.HK 3011.HK 3181.HK 3160.HK 3139.HK 3065.HK 3127.HK 3157.HK 3161.HK 3164.HK 3180.HK 3084.HK 3020.HK 3064.HK 3078.HK 3090.HK 3051.HK".split(),
     "E7. 商品/貴金屬/虛擬資產": "2840.HK 3081.HK 3117.HK 3132.HK 3097.HK 3042.HK 3062.HK 3063.HK 3068.HK 3439.HK 3002.HK 3402.HK 3194.HK 3128.HK 3422.HK 3049.HK 3082.HK 3174.HK 3186.HK 3072.HK".split(),
     "E8. 債券與貨幣市場 (避險)": "3075.HK 3079.HK 3199.HK 3086.HK 3149.HK 3146.HK 3148.HK 3012.HK 3080.HK 3059.HK 3159.HK 3001.HK 3401.HK 3023.HK 3005.HK 3004.HK 3030.HK 3031.HK 3035.HK 3056.HK".split(),
-    "E9. 特色主題與ESG (擴展)": "3027.HK 3038.HK 3041.HK 3045.HK 3054.HK 3057.HK 3064.HK 3070.HK 3071.HK 3073.HK 3074.HK 3083.HK 3087.HK 3089.HK 3091.HK 3092.HK 3093.HK 3094.HK 3095.HK 3098.HK".split(),
+    "E9. 特色主題與ESG": "3027.HK 3038.HK 3041.HK 3045.HK 3054.HK 3057.HK 3064.HK 3070.HK 3071.HK 3073.HK 3074.HK 3083.HK 3087.HK 3089.HK 3091.HK 3092.HK 3093.HK 3094.HK 3095.HK 3098.HK".split(),
     "E10. 戰略池後補 (補齊300隻)": "3099.HK 3101.HK 3102.HK 3103.HK 3105.HK 3106.HK 3107.HK 3109.HK 3111.HK 3112.HK 3113.HK 3118.HK 3120.HK 3121.HK 3123.HK 3125.HK 3129.HK 3130.HK 3131.HK 3135.HK 3142.HK 3143.HK 3144.HK 3152.HK 3154.HK 3158.HK 3166.HK 3170.HK 3172.HK 3176.HK 3177.HK 3178.HK 3179.HK 3182.HK 3183.HK 3184.HK 3185.HK 3187.HK 3190.HK 3192.HK 3193.HK 3195.HK 3196.HK 3197.HK 3198.HK 3404.HK 3405.HK 3406.HK 3408.HK 3409.HK".split()
 }
 
-# ✅ 美股 ETF 導入 (Country, SPDR, Thematic 整合)
+# 美股 ETF 導入 (Country, SPDR, Thematic 整合)
 US_ETF_MAP = {
     "E1. 大盤/寬基/信用債": "SPY QQQ DIA IWM VOO IVV VTI RSP QQQM ONEQ VUG VTV IWD IWF TLT AGG BND LQD HYG IEF SHY MBB MUB JNK TIP IGOV EMB GOVT".split(),
     "E2. Country ETFs (國家/新興)": "EWJ EWG EWU EWQ EWP EWI EWL EWN EWD EWK EWO EWS EWA EWC EWM EWH EWT EWY EZA ILF INDA EPI RSX EWZ ECH EPU EWW TUR EPHE THD IDX EIDO VNM MCHI FXI KWEB ARGT".split(),
@@ -169,7 +171,7 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # 3. 側邊欄控制
-st.sidebar.markdown("## 🛰️ 戰術控制台 (V84.0 終極圖表版)")
+st.sidebar.markdown("## 🛰️ 戰術控制台 (V85.0 終極修復版)")
 app_mode = st.sidebar.radio("請選擇操作", [
     "🚀 個股深度透視", 
     "📡 個股版塊拔河熱力圖", 
@@ -311,14 +313,14 @@ if app_mode == "🚀 個股深度透視":
                 st.markdown("</div>", unsafe_allow_html=True)
             except: pass
 
-            # 📊 摩訶釋達圖 (蟹貨加長版 + 局部縮放還原功能)
+            # 📊 摩訶釋達圖 (加強版：蟹貨加長、縮放、還原)
             st.write("### 📊 摩訶釋達・能量與籌碼透視圖 (支持局部縮放與還原)")
             recent = df.tail(120); dates = recent.index.strftime('%Y-%m-%d')
             fig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.7, 0.3], vertical_spacing=0.05)
             fig.add_trace(go.Candlestick(x=dates, open=recent['Open'], high=recent['High'], low=recent['Low'], close=recent['Close'], name='股價'), row=1, col=1)
             fig.add_trace(go.Bar(x=dates, y=recent['Volume'], marker_color=['#00FF00' if recent['Close'].iloc[i] >= recent['Open'].iloc[i] else '#FF0000' for i in range(len(recent))]), row=2, col=1)
             counts, bins = np.histogram(recent['Close'], bins=20, weights=recent['Volume'])
-            # ✅ 爺爺終極圖表：蟹貨區加長 (縮細 range 上限)，開啟顯示還原制
+            # ✅ 蟹貨區加長 (縮小投影刻度，令條形顯得更長)
             fig.add_trace(go.Bar(y=(bins[:-1] + bins[1:]) / 2, x=counts, orientation='h', marker_color='rgba(0, 255, 204, 0.4)', xaxis='x3', yaxis='y1'))
             fig.update_layout(template="plotly_dark", paper_bgcolor='#0e1117', plot_bgcolor='#0e1117', height=750, showlegend=False, xaxis_rangeslider_visible=False, xaxis=dict(type='category', showgrid=False), yaxis=dict(showgrid=True, gridcolor='#333'), xaxis3=dict(overlaying='x', side='top', range=[0, max(counts)*1.1], showgrid=False, showticklabels=False))
             # 開啟 Plotly 嘅 ScrollZoom 同埋頂部 ModeBar (裡面有 Reset Home 制)
@@ -359,62 +361,63 @@ if app_mode == "🚀 個股深度透視":
     except: pass
 
 # =========================================================================
-# 🔍 模式 C：起步尋龍雷達 (三重過濾精準版)
+# 🔍 模式 C：起步尋龍雷達 (萬隻掃描 + 三重過濾版 + 修正選擇器)
 # =========================================================================
 elif "雷達" in app_mode:
     st.markdown(f"<h1 class='main-title'>{app_mode}</h1>", unsafe_allow_html=True)
-    m_choice = "美股" if "美股" in app_mode else "港股"
-    is_us = m_choice == "美股"; bench_sym = "SPY" if is_us else "^HSI"
+    
+    # ✅ 加入缺失的個股/ETF美港股選擇器
+    if app_mode == "🔍 千龍起步尋龍雷達 (個股)":
+        m_choice = st.sidebar.radio("1. 選擇個股市場", ["🇺🇸 美股市場", "🇭🇰 港股市場"])
+        is_us = "美股" in m_choice
+    else:
+        is_us = "美股" in app_mode
+        
+    bench_sym = "SPY" if is_us else "^HSI"
     target_dict = (US_ETF_MAP if "ETF" in app_mode else US_STOCK_MAP) if is_us else (HK_ETF_MAP if "ETF" in app_mode else HK_STOCK_MAP)
-    s_choice = st.sidebar.selectbox("選擇掃描範圍", ["🌐 啟動全星系大規模搜索"] + list(target_dict.keys()))
+    
+    s_choice = st.sidebar.selectbox("2. 選擇掃描範圍", ["🌐 啟動全星系大規模搜索"] + list(target_dict.keys()))
+    
     if st.sidebar.button("📡 發射三重過濾尋龍電波！"):
         bench_data = yf.Ticker(bench_sym).history(period="2y").dropna()
         tickers_to_scan = list(set([t for sub in target_dict.values() for t in sub])) if "全星系" in s_choice else target_dict[s_choice]
-        progress_bar = st.progress(0)
-        found = False
+        
+        found = False; pb = st.progress(0)
         for idx, t in enumerate(tickers_to_scan):
-            progress_bar.progress((idx + 1) / len(tickers_to_scan))
+            pb.progress((idx + 1) / len(tickers_to_scan))
             try:
                 d = yf.Ticker(t).history(period="63d").dropna()
                 if len(d) > 40:
-                    # 1. 資金池與集中度計算
-                    tp = (d['High'] + d['Low'] + d['Close']) / 3
-                    nf = tp * d['Volume'] * np.where(d['Close'] > d['Close'].shift(1).fillna(d['Close']), 1, -1)
-                    net_flow_20 = nf.tail(20).sum()
-                    conc_20 = (abs(nf.tail(20)).max() / abs(nf.tail(20)).sum()) * 100
-                    # 2. OBV 狀態與 RS/EJ/SE
-                    obv = (np.sign(d['Close'].diff()) * d['Volume']).fillna(0).cumsum()
-                    obv_curr = obv.iloc[-1] - obv.iloc[-21]; obv_prev = obv.iloc[-21] - obv.iloc[-41]
-                    obv_pct = (obv_curr - obv_prev) / abs(obv_prev) * 100 if obv_prev != 0 else 0
-                    p_trend = d['Close'].iloc[-1] - d['Close'].iloc[-21]
-                    state = 9 # Default wait
-                    if p_trend >= 0:
-                        if obv_curr > 0: state = 1 if obv_pct > 20 else 2
-                    else:
-                        if obv_curr > 0: state = 7 if obv_pct > 20 else 8
+                    tp = (d['High']+d['Low']+d['Close'])/3; nf = tp*d['Volume']*np.where(d['Close']>d['Close'].shift(1).fillna(d['Close']),1,-1)
+                    net_flow_20 = nf.tail(20).sum(); conc_20 = (abs(nf.tail(20)).max()/abs(nf.tail(20)).sum())*100
+                    obv = (np.sign(d['Close'].diff())*d['Volume']).fillna(0).cumsum()
+                    obv_curr = obv.iloc[-1]-obv.iloc[-21]; obv_prev = obv.iloc[-21]-obv.iloc[-41]
+                    obv_pct = (obv_curr-obv_prev)/abs(obv_prev)*100 if obv_prev!=0 else 0
+                    p_trend = d['Close'].iloc[-1]-d['Close'].iloc[-21]; state = 9
+                    if p_trend>=0: state = 1 if obv_pct>20 else 2
+                    else: state = 7 if obv_pct>20 else 8
                     
-                    curr_p = d['Close'].iloc[-1]
-                    crs = 50 + ((curr_p / d['Close'].iloc[-63]) - (bench_data['Close'].iloc[-1] / bench_data['Close'].iloc[-63])) * 100 if len(d)>60 else 50
-                    ej = (d['Volume'].tail(21).mean() / max(d['Volume'].tail(252).mean() if len(d)>200 else d['Volume'].mean(), 1)) * 100
-                    se = 50 + (((curr_p / d['Close'].iloc[-5]) - 1) * 1200)
+                    curr_p = d['Close'].iloc[-1]; crs = 50+((curr_p/d['Close'].iloc[-63])-(bench_data['Close'].iloc[-1]/bench_data['Close'].iloc[-63]))*100 if len(d)>60 else 50
+                    ej = (d['Volume'].tail(21).mean()/max(d['Volume'].tail(252).mean() if len(d)>200 else d['Volume'].mean(),1))*100
+                    se = 50+(((curr_p/d['Close'].iloc[-5])-1)*1200)
 
-                    # ✅ 爺爺三重過濾羅輯：MoneyFlow > 0 + Conc < 35% + States [1,2,7,8,9]
+                    # ✅ 爺爺優化三重過濾：MoneyFlow > 0 + Conc < 35% + 5種OBV狀態
                     if net_flow_20 > 0 and conc_20 < 35 and state in [1, 2, 7, 8, 9]:
                         if se > 85 and ej > 110:
                             found = True
-                            st.markdown(f"<div class='scan-card-fire'><h2>🎯 {t} | 符合大戶佈局！</h2><p>💰 20日資金: {net_flow_20/1e8:.1f}億 | 🎯 集中度: {conc_20:.1f}% | 🌊 OBV狀態: {state}<br>⚡ SE: {se:.1f} | 🔋 EJ: {ej:.1f}</p></div>", unsafe_allow_html=True)
+                            st.markdown(f"<div class='scan-card-fire'><h2>🎯 {t} | 符合大戶佈局！</h2><p>💰 資金流: {net_flow_20/1e8:.1f}億 | 🎯 集中度: {conc_20:.1f}% | 🌊 OBV: {state}<br>⚡ SE: {se:.1f} | 🔋 EJ: {ej:.1f} | 📈 RS: {crs:.1f}</p></div>", unsafe_allow_html=True)
             except: pass
-        if not found: st.warning("💤 三重過濾下暫未發現目標。")
+        if not found: st.warning("💤 三重過濾下暫未發現起飛目標。(此過濾條件為頂級狙擊手模式，要求極高)")
 
 # =========================================================================
-# 📡 拔河熱力圖 (保持一條毛都冇改)
+# 📡 拔河熱力圖 (一條毛都冇改，修復白色字體)
 # =========================================================================
 elif "熱力圖" in app_mode:
     st.markdown(f"<h1 class='main-title'>{app_mode}</h1>", unsafe_allow_html=True)
-    m_view = st.sidebar.radio("選擇地圖", ["🇺🇸 美股陣列", "🇭🇰 港股陣列"])
+    m_view = st.sidebar.radio("選擇星系", ["🇺🇸 美股陣列", "🇭🇰 港股陣列"])
     is_us = "美股" in m_view; bench_sym = "SPY" if is_us else "^HSI"
     target_map = (US_ETF_MAP if "ETF" in app_mode else US_STOCK_MAP) if is_us else (HK_ETF_MAP if "ETF" in app_mode else HK_STOCK_MAP)
-    with st.spinner('計算拔河排名中...'):
+    with st.spinner('拔河排名計算中...'):
         try:
             bench_df = yf.Ticker(bench_sym).history(period="60d")['Close'].dropna(); results = []
             for name, tickers in target_map.items():
@@ -428,6 +431,7 @@ elif "熱力圖" in app_mode:
             if results:
                 df_rs = pd.DataFrame(results).sort_values("RS強弱", ascending=True)
                 fig = go.Figure(go.Bar(x=df_rs["RS強弱"], y=df_rs["版塊"], orientation='h', marker=dict(color=df_rs["RS強弱"], colorscale='Portland')))
-                fig.update_layout(template="plotly_dark", paper_bgcolor='#0e1117', plot_bgcolor='#0e1117', height=700)
+                # ✅ 修正熱力圖字體為白色
+                fig.update_layout(template="plotly_dark", paper_bgcolor='#0e1117', plot_bgcolor='#0e1117', font=dict(color='white'), height=700)
                 st.plotly_chart(fig, use_container_width=True, theme=None, config={'displayModeBar': False})
         except: pass
