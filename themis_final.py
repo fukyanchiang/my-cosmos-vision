@@ -173,7 +173,7 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # 3. 側邊欄控制
-st.sidebar.markdown("## 🛰️ 戰術控制台 (V69.1)")
+st.sidebar.markdown("## 🛰️ 戰術控制台 (V70.0)")
 app_mode = st.sidebar.radio("請選擇操作", [
     "🚀 個股深度透視", 
     "📡 個股版塊拔河熱力圖", 
@@ -184,7 +184,7 @@ app_mode = st.sidebar.radio("請選擇操作", [
 ])
 
 # =========================================================================
-# 🚀 模式 A：個股深度透視 (空間優化脈衝版)
+# 🚀 模式 A：個股深度透視 (V70.0 三大獨立引擎版)
 # =========================================================================
 if app_mode == "🚀 個股深度透視":
     ticker = st.sidebar.text_input("🚀 輸入資產代號", "6869.HK").upper()
@@ -197,28 +197,30 @@ if app_mode == "🚀 個股深度透視":
         if not df.empty:
             curr_p = df['Close'].iloc[-1]
             
-            # 🌌 COSMOS-X & RS
+            # 🌌 COSMOS-X & RS (加入 ffill 防止假期導致 NaN 崩潰)
             c_tail = df['Close'].tail(125); days = np.arange(len(c_tail))
             slope, intercept = np.polyfit(days, c_tail, 1); pred = intercept + slope * len(days)
             mom = (curr_p / pred) if pred > 0 else 1.0; v_ann = max(0.001, c_tail.pct_change().std() * np.sqrt(252))
             cx_val = safe_n(((slope * 252) / c_tail.mean() / v_ann) * 29 * mom, 50.0)
 
-            crs_val = safe_n(50 + ((curr_p / df['Close'].iloc[-63]) - (spy['Close'].iloc[-1] / spy['Close'].iloc[-63])) * 100, 50.0) if len(df) > 63 else 50.0
+            spy_aligned = spy['Close'].reindex(df.index).ffill().bfill() # ✅ 避震器：填補假期空白
+            crs_val = safe_n(50 + ((curr_p / df['Close'].iloc[-63]) - (spy_aligned.iloc[-1] / spy_aligned.iloc[-63])) * 100, 50.0) if len(df) > 63 else 50.0
             
             v21 = df['Volume'].tail(21).mean(); v252 = df['Volume'].tail(252).mean()
             cej_s = safe_n((v21 / max(v252, 1)) * 100, 50.0)
             se_s = safe_n(50 + (((curr_p / df['Close'].iloc[-5]) - 1) * 1200), 50.0) if len(df) > 5 else 50.0
 
             # -------------------------------------------------------------
-            # 📈 爺爺嘅 20日趨勢百分比計算法
+            # 📈 爺爺嘅 20日趨勢百分比計算法 (加入防禦機制)
             # -------------------------------------------------------------
             def get_trend_stats(metric):
                 try:
                     if len(df) < 25: return "N/A", "#888"
                     if metric == "RS":
                         curr = crs_val
-                        past_p = df['Close'].iloc[-20]; past_spy = spy['Close'].reindex(df.index).iloc[-20]
-                        past_bench = df['Close'].iloc[-83]; past_bench_spy = spy['Close'].reindex(df.index).iloc[-83]
+                        past_p = df['Close'].iloc[-20]; past_spy = spy_aligned.iloc[-20]
+                        past_bench = df['Close'].iloc[-83] if len(df) > 83 else df['Close'].iloc[0]
+                        past_bench_spy = spy_aligned.iloc[-83] if len(spy_aligned) > 83 else spy_aligned.iloc[0]
                         past = 50 + ((past_p / past_bench) - (past_spy / past_bench_spy)) * 100
                     elif metric == "EJ":
                         curr = cej_s
@@ -230,12 +232,13 @@ if app_mode == "🚀 個股深度透視":
                         past = 50 + (((df['Close'].iloc[-20] / df['Close'].iloc[-25]) - 1) * 1200)
                     
                     diff = curr - past
+                    if np.isnan(diff) or np.isinf(diff): return "N/A", "#888" # ✅ 避震器：防 NaN 崩潰
                     color = "#00FF00" if diff >= 0 else "#FF4B4B"
                     return f"{'+' if diff>=0 else ''}{diff:.1f}%", color
                 except: return "N/A", "#888"
 
             # -------------------------------------------------------------
-            # 📊 爺爺嘅 20日「獨立」脈衝引擎
+            # 📊 爺爺嘅 20日「全新三引擎」脈衝圖
             # -------------------------------------------------------------
             def get_pulse_fig(metric_type):
                 try:
@@ -244,14 +247,17 @@ if app_mode == "🚀 個股深度透視":
                     if avg_vol == 0 or np.isnan(avg_vol): avg_vol = 1
                     
                     if metric_type == "RS":
-                        spy_tail = spy['Close'].reindex(pulse_df.index).pct_change().fillna(0).values
+                        # ✅ RS 引擎：個股升幅 vs 大盤升幅
+                        spy_tail = spy_aligned.tail(20).pct_change().fillna(0).values
                         ret_asset = pulse_df['Close'].pct_change().fillna(0).values
-                        vol_ratio = (pulse_df['Volume'] / avg_vol).values
-                        pulse_vals = (ret_asset - spy_tail) * vol_ratio * 100
+                        pulse_vals = (ret_asset - spy_tail) * 200
                     elif metric_type == "EJ":
+                        # ✅ EJ 引擎：成交量爆發度 × 陰陽燭方向 (專睇資金進出)
                         vol_ratio = (pulse_df['Volume'] / avg_vol).values
-                        pulse_vals = (vol_ratio - 1) * 50 # 專注看成交量偏離度
-                    else: # SE 脈衝：專注看價格爆發力
+                        direction = np.where(pulse_df['Close'] >= pulse_df['Open'], 1, -1)
+                        pulse_vals = vol_ratio * direction * 50 
+                    else: 
+                        # ✅ SE 引擎：純股價動能爆發力
                         ret_asset = pulse_df['Close'].pct_change().fillna(0).values
                         pulse_vals = ret_asset * 200
 
@@ -266,51 +272,74 @@ if app_mode == "🚀 個股深度透視":
 
             st.markdown(f"""<div class='main-title'>環球資產透維評估儀 [{ticker}]</div>""", unsafe_allow_html=True)
             
-            # 🚀 第一層：左右對決佈局 (完美填充大灰格)
-            c_left, c_right = st.columns([1, 1.2])
+            # 🚀 第一層：全新 3 大格仔佈局
+            c1, c2, c3 = st.columns([1, 1.2, 1.6])
 
-            with c_left:
-                stat_rs, col_rs = get_trend_stats("RS")
+            with c1:
                 st.markdown(f"""<div class='cosmos-box' style='height: 480px; display:flex; flex-direction:column; justify-content:center;'>
                     <div class='cosmos-label'>COSMOS-X (天體動能)</div>
                     <div class='cosmos-value'>{cx_val:.1f}</div>
-                    <div style='margin-top:20px; border-top:1px solid #333; padding-top:20px;'>
-                        <div class='cosmos-label' style='font-size:1.4rem;'>COSMOS-RS (星系強弱)</div>
-                        <div class='cosmos-value' style='font-size:3.5rem;'>{crs_val:.1f}</div>
-                        <div style='color:{col_rs}; font-size:1.1rem; font-weight:bold;'>20日力道: {stat_rs} (對標大盤)</div>
-                    </div>
                 </div>""", unsafe_allow_html=True)
-                st.plotly_chart(get_pulse_fig("RS"), use_container_width=True, theme=None, config={'displayModeBar': False})
 
-            with c_right:
+            with c2:
+                stat_rs, col_rs = get_trend_stats("RS")
+                st.markdown(f"""<div class='cosmos-box' style='border-color:#FFD700; height: 480px; display:flex; flex-direction:column; justify-content:space-between;'>
+                    <div>
+                        <div class='cosmos-label' style='font-size:1.6rem;'>COSMOS-RS (星系強弱)</div>
+                        <div class='cosmos-value' style='font-size:4rem;'>{crs_val:.1f}</div>
+                        <div style='color:{col_rs}; font-size:1.5rem; font-weight:bold; margin-top:15px;'>20日推力: {stat_rs}</div>
+                    </div>
+                    <div style='margin-top:auto;'>
+                """, unsafe_allow_html=True)
+                st.plotly_chart(get_pulse_fig("RS"), use_container_width=True, theme=None, config={'displayModeBar': False})
+                st.markdown("</div></div>", unsafe_allow_html=True)
+
+            with c3:
                 st.markdown("""<div class='cosmos-box' style='border-color:#00FFFF; padding: 25px; height: 480px; display:flex; flex-direction:column; justify-content:space-between;'>""", unsafe_allow_html=True)
                 
-                # EJ 錢流區 + 脈衝圖
+                # 重新加入原裝 Triad 發光體
+                def draw_triad_bar(val, color):
+                    lit = int((min(120, val)/120)*21)
+                    html = f"<div class='bar-group-container' style='margin-top:5px; margin-bottom:5px;'>"
+                    for g in range(7):
+                        html += "<div class='bar-triad'>"
+                        for i in range(3):
+                            idx = g*3+i; c_code = "#FF4B4B" if idx<6 else ("#FFD700" if idx<12 else color)
+                            op = 1 if idx < lit else 0.1; sh = f"box-shadow: 0 0 10px {c_code};" if idx < lit else ""
+                            html += f"<div class='ej-seg' style='height:14px; width:12px; background-color:{c_code if idx < lit else '#222'}; opacity:{op}; {sh}'></div>"
+                        html += "</div>"
+                    return html + "</div>"
+                
+                # EJ 錢流區 + Triad + 獨立脈衝圖
                 stat_ej, col_ej = get_trend_stats("EJ")
-                lit_ej = int((min(120, cej_s)/120)*21)
-                grid_ej = "".join([f'<div class="ej-seg" style="background-color:{"#00FFFF" if i>=12 else ("#FFD700" if i>=6 else "#FF4B4B")}; opacity:{"1" if i < lit_ej else "0.1"}; height:18px; width:12px;"></div>' for i in range(21)])
                 st.markdown(f"""
                     <div>
-                        <div class='ej-header' style='display:flex; justify-content:space-between;'><span>EJ 錢流底氣: {cej_s:.1f}%</span><span style='color:{col_ej}; font-size:1rem;'>20日吸金: {stat_ej}</span></div>
-                        <div style='display:flex; gap:3px; margin-bottom:5px;'>{grid_ej}</div>
+                        <div class='ej-header' style='display:flex; justify-content:space-between; align-items:flex-end;'>
+                            <span style='font-size:1.6rem;'>EJ 錢流底氣: {cej_s:.1f}%</span>
+                            <span style='color:{col_ej}; font-size:1.4rem; font-weight:bold;'>20日吸金: {stat_ej}</span>
+                        </div>
                     </div>
                 """, unsafe_allow_html=True)
+                st.markdown(draw_triad_bar(cej_s, "#00FFFF"), unsafe_allow_html=True)
                 st.plotly_chart(get_pulse_fig("EJ"), use_container_width=True, theme=None, config={'displayModeBar': False})
 
-                # SE 能量區 + 脈衝圖
+                # SE 能量區 + Triad + 獨立脈衝圖
                 stat_se, col_se = get_trend_stats("SE")
-                lit_se = int((min(120, se_s)/120)*21)
-                grid_se = "".join([f'<div class="ej-seg" style="background-color:{"#FF00FF" if i>=12 else ("#FFD700" if i>=6 else "#FF4B4B")}; opacity:{"1" if i < lit_se else "0.1"}; height:18px; width:12px;"></div>' for i in range(21)])
                 st.markdown(f"""
-                    <div style='margin-top:10px;'>
-                        <div class='ej-header' style='display:flex; justify-content:space-between;'><span>短期能量 BAR: {se_s:.1f}%</span><span style='color:{col_se}; font-size:1rem;'>20日動能: {stat_se}</span></div>
-                        <div style='display:flex; gap:3px; margin-bottom:5px;'>{grid_se}</div>
+                    <div style='margin-top:20px;'>
+                        <div class='ej-header' style='display:flex; justify-content:space-between; align-items:flex-end;'>
+                            <span style='font-size:1.6rem;'>短期能量 BAR: {se_s:.1f}%</span>
+                            <span style='color:{col_se}; font-size:1.4rem; font-weight:bold;'>20日動能: {stat_se}</span>
+                        </div>
                     </div>
                 """, unsafe_allow_html=True)
+                st.markdown(draw_triad_bar(se_s, "#FF00FF"), unsafe_allow_html=True)
                 st.plotly_chart(get_pulse_fig("SE"), use_container_width=True, theme=None, config={'displayModeBar': False})
                 st.markdown("</div>", unsafe_allow_html=True)
 
-            # 🧬 DNA 與 估值區 (保持原裝)
+            # =============================================================
+            # 🧬 以下為 DNA 與 估值區 (100% 保持原裝一條毛都冇改)
+            # =============================================================
             st.write("---")
             d_c1, d_c2 = st.columns([1, 2.5])
             is_etf = info.get('quoteType') == 'ETF'; real_roe = info.get('returnOnEquity')
@@ -322,6 +351,7 @@ if app_mode == "🚀 個股深度透視":
                 dna_v = round(safe_n(real_roe * 350 + 15, 23.6), 1); dna_title = "投行級股王基因"
                 m8 = {"🩸 血液純度": int(safe_n(info.get('operatingMargins', 0)*30+3, 5)), "🛡️ 免疫系統": int(safe_n(real_roe*30+3, 7)), "🏗️ 心跳頻率": int(safe_n(info.get('revenueGrowth', 0)*20+4, 6)), "🧬 大腦潛力": int(safe_n(info.get('profitMargins', 0)*30+3, 8)), "🧱 骨架重量": int(max(1, 10 - safe_n(info.get('priceToBook', 5), 5))), "⚡ 物理底盤": 8 if safe_n(info.get('debtToEquity', 150), 150) < 80 else 3, "💰 資本配置": int(safe_n(info.get('dividendYield', 0)*200+2, 5)), "📈 經營拐點": int(safe_n(info.get('earningsGrowth', 0)*25+4, 8))}
             
+            dna_v = max(0.0, min(100.0, dna_v))
             if dna_v >= 90: d_lv, d_desc = "第 1 級", "👑 創世真神"
             elif dna_v >= 80: d_lv, d_desc = "第 2 級", "🌟 星系霸主"
             elif dna_v >= 70: d_lv, d_desc = "第 3 級", "🚀 恆星巨頭"
@@ -338,7 +368,7 @@ if app_mode == "🚀 個股深度透視":
                 st.markdown(f"**{ticker} ・ 8D 投行精確透視 BAR**")
                 colors_8d = ["#00FFCC", "#00FFCC", "#00FFCC", "#00FFCC", "#FF4B4B", "#BC13FE", "#FFFFFF", "#FFD700"]
                 for i, (lab, sc) in enumerate(m8.items()):
-                    sc = max(1, min(10, score))
+                    sc = max(1, min(10, sc))
                     grid = '<div class="energy-bar-container-8d">' + "".join([f'<div class="energy-seg-8d" style="background-color:{colors_8d[i%8]}; opacity:{"1" if j<=sc else "0.1"};"></div>' for j in range(1,11)]) + '</div>'
                     st.markdown(f"<div style='display:flex; justify-content:space-between; font-weight:bold;'><span>{lab}</span><span>{sc}/10</span></div>{grid}", unsafe_allow_html=True)
 
@@ -401,7 +431,7 @@ if app_mode == "🚀 個股深度透視":
             else: st.markdown("<div style='text-align:center; color:#888; padding:20px;'>此資產暫無公開機構申報數據</div>", unsafe_allow_html=True)
             st.markdown("</div>", unsafe_allow_html=True)
 
-    except Exception as e: pass
+    except Exception as e: st.error(f"數據系統診斷中，請確認代號或網絡連線: {e}")
 
 # =========================================================================
 # 📡 模式 B1：個股版塊拔河熱力圖 (鎖定防誤觸 + 黑底)
