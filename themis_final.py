@@ -209,6 +209,32 @@ if app_mode == "🚀 個股深度透視":
             cej_s = safe_n((v21 / max(v252, 1)) * 100, 50.0)
             se_s = safe_n(50 + (((curr_p / df['Close'].iloc[-5]) - 1) * 1200), 50.0) if len(df) > 5 else 50.0
 
+            # ✅ 爺爺嘅時光機：計算 15 日前趨勢
+            trend_rs_html = "<span style='color:#888;'>無數據</span>"
+            trend_ej_html = "<span style='color:#888;'>無數據</span>"
+            trend_se_html = "<span style='color:#888;'>無數據</span>"
+            
+            if len(df) > 80 and len(spy) > 80:
+                try:
+                    past_rs = safe_n(50 + ((df['Close'].iloc[-15] / df['Close'].iloc[-78]) - (spy['Close'].iloc[-15] / spy['Close'].iloc[-78])) * 100, 50.0)
+                    if crs_val > past_rs: trend_rs_html = "<span style='color:#00FF00;'>📈 向上</span>"
+                    elif crs_val < past_rs: trend_rs_html = "<span style='color:#FF4B4B;'>📉 向下</span>"
+                    else: trend_rs_html = "<span style='color:#FFD700;'>➖ 持平</span>"
+
+                    past_v21 = df['Volume'].iloc[-36:-15].mean()
+                    past_v252 = df['Volume'].iloc[-267:-15].mean() if len(df) > 270 else df['Volume'].iloc[:-15].mean()
+                    past_ej = safe_n((past_v21 / max(past_v252, 1)) * 100, 50.0)
+                    if cej_s > past_ej: trend_ej_html = "<span style='color:#00FF00;'>📈 向上</span>"
+                    elif cej_s < past_ej: trend_ej_html = "<span style='color:#FF4B4B;'>📉 向下</span>"
+                    else: trend_ej_html = "<span style='color:#FFD700;'>➖ 持平</span>"
+
+                    past_se = safe_n(50 + (((df['Close'].iloc[-15] / df['Close'].iloc[-20]) - 1) * 1200), 50.0)
+                    if se_s > past_se: trend_se_html = "<span style='color:#00FF00;'>📈 向上</span>"
+                    elif se_s < past_se: trend_se_html = "<span style='color:#FF4B4B;'>📉 向下</span>"
+                    else: trend_se_html = "<span style='color:#FFD700;'>➖ 持平</span>"
+                except:
+                    pass
+
             st.markdown(f"""<div class='main-title'>環球資產透維評估儀 [{ticker}]</div>""", unsafe_allow_html=True)
             
             # 第一層看板
@@ -216,13 +242,15 @@ if app_mode == "🚀 個股深度透視":
 
             c1.markdown(f"""<div class='cosmos-box'><div class='cosmos-label'>COSMOS-X (天體動能)</div><div class='cosmos-value'>{cx_val:.1f}</div></div>""", unsafe_allow_html=True)
 
-            c2.markdown(f"""<div class='cosmos-box' style='border-color:#FFD700;'><div class='cosmos-label'>COSMOS-RS (星系強弱)</div><div class='cosmos-value'>{crs_val:.1f}</div></div>""", unsafe_allow_html=True)
+            # ✅ 加入 15日趨勢顯示
+            c2.markdown(f"""<div class='cosmos-box' style='border-color:#FFD700;'><div class='cosmos-label'>COSMOS-RS (星系強弱)</div><div class='cosmos-value'>{crs_val:.1f}</div><div style='color:#aaa; font-size:1rem; margin-top:5px;'>15日趨勢: {trend_rs_html}</div></div>""", unsafe_allow_html=True)
             with c3:
 
                 st.markdown("""<div class='cosmos-box' style='border-color:#00FFFF; padding: 20px;'>""", unsafe_allow_html=True)
-                def draw_triad_bar(val, title, color):
+                def draw_triad_bar(val, title, color, trend_html=""):
                     lit = int((min(120, val)/120)*21)
-                    html = f"<div class='ej-header'>{title}: {val:.1f}%</div><div class='bar-group-container'>"
+                    trend_display = f"<span style='font-size:1rem; margin-left:15px; color:#aaa; font-weight:normal;'>15日趨勢: {trend_html}</span>" if trend_html else ""
+                    html = f"<div class='ej-header'>{title}: {val:.1f}%{trend_display}</div><div class='bar-group-container'>"
                     for g in range(7):
                         html += "<div class='bar-triad'>"
                         for i in range(3):
@@ -232,8 +260,10 @@ if app_mode == "🚀 個股深度透視":
                             html += f"<div class='ej-seg' style='background-color:{c_code if idx < lit else '#222'}; opacity:{op}; {sh}'></div>"
                         html += "</div>"
                     return html + "</div>"
-                st.markdown(draw_triad_bar(cej_s, "EJ 錢流底氣", "#00FFFF"), unsafe_allow_html=True)
-                st.markdown(draw_triad_bar(se_s, "短期能量 BAR", "#FF00FF"), unsafe_allow_html=True)
+                
+                # ✅ 傳入趨勢變數
+                st.markdown(draw_triad_bar(cej_s, "EJ 錢流底氣", "#00FFFF", trend_ej_html), unsafe_allow_html=True)
+                st.markdown(draw_triad_bar(se_s, "短期能量 BAR", "#FF00FF", trend_se_html), unsafe_allow_html=True)
                 st.markdown("""</div>""", unsafe_allow_html=True)
 
             # 🧬 [DNA 自動切換 ETF / 個股]
@@ -455,16 +485,14 @@ elif app_mode == "📡 個股版塊拔河熱力圖":
     
     with st.spinner(f'正在進行個股版塊拔河對比 ({bench_sym})...'):
         try:
-            # ✅ 超級過濾機：只攞有真實交易嘅收市價
             bench_df = yf.Ticker(bench_sym).history(period="60d")['Close'].dropna()
             results = []
             for name, tickers in target_map.items():
                 for t in tickers:
                     try:
-                        d = yf.Ticker(t).history(period="60d")['Close'].dropna() # ✅ 踢走 NaN 數據
+                        d = yf.Ticker(t).history(period="60d")['Close'].dropna()
                         if len(d) >= 20:
                             rs_score = 50 + ((d.iloc[-1]/d.iloc[-20]) - (bench_df.iloc[-1]/bench_df.iloc[-20])) * 100
-                            # ✅ 數學安全網：確保計出嚟嘅唔係垃圾亂碼
                             if not np.isnan(rs_score) and not np.isinf(rs_score):
                                 results.append({"版塊": name, "RS強弱": round(rs_score, 1)})
                                 break
@@ -503,16 +531,14 @@ elif app_mode == "📡 ETF 資產拔河熱力圖":
     
     with st.spinner(f'正在進行 ETF 大類資產拔河對比 ({bench_sym})...'):
         try:
-            # ✅ 超級過濾機：只攞有真實交易嘅收市價
             bench_df = yf.Ticker(bench_sym).history(period="60d")['Close'].dropna()
             results = []
             for name, tickers in target_map.items():
                 for t in tickers:
                     try:
-                        d = yf.Ticker(t).history(period="60d")['Close'].dropna() # ✅ 踢走 NaN 數據
+                        d = yf.Ticker(t).history(period="60d")['Close'].dropna()
                         if len(d) >= 20:
                             rs_score = 50 + ((d.iloc[-1]/d.iloc[-20]) - (bench_df.iloc[-1]/bench_df.iloc[-20])) * 100
-                            # ✅ 數學安全網：確保計出嚟嘅唔係垃圾亂碼
                             if not np.isnan(rs_score) and not np.isinf(rs_score):
                                 results.append({"版塊": name, "RS強弱": round(rs_score, 1)})
                                 break
