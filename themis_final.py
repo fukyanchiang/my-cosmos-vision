@@ -173,7 +173,7 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # 3. 側邊欄控制
-st.sidebar.markdown("## 🛰️ 戰術控制台 (V78.0 終極圖表版)")
+st.sidebar.markdown("## 🛰️ 戰術控制台 (V79.0 集中度神髓版)")
 app_mode = st.sidebar.radio("請選擇操作", [
     "🚀 個股深度透視", 
     "📡 個股版塊拔河熱力圖", 
@@ -324,10 +324,9 @@ if app_mode == "🚀 個股深度透視":
                 st.plotly_chart(get_pulse_fig(se_pulse_vals), use_container_width=True, theme=None, config={'displayModeBar': False}, key="pulse_se_chart")
 
             # -------------------------------------------------------------
-            # 🌊 爺爺終極武器：主力資金池 (全圖表化)
+            # 🌊 爺爺終極武器：主力資金池 (全圖表化 + 集中度)
             # -------------------------------------------------------------
             try:
-                # 準備 41 日數據以計算 % 變化
                 mf_df = df.tail(41).copy()
                 mf_df['Typical_Price'] = (mf_df['High'] + mf_df['Low'] + mf_df['Close']) / 3
                 mf_df['Raw_Money_Flow'] = mf_df['Typical_Price'] * mf_df['Volume']
@@ -338,7 +337,6 @@ if app_mode == "🚀 個股深度透視":
                 mf_df['OBV_Daily'] = (np.sign(mf_df['Close'].diff()) * mf_df['Volume']).fillna(0)
                 mf_df['OBV'] = mf_df['OBV_Daily'].cumsum()
 
-                # 計算 資金總數 (Money Flow)
                 curr_20d_flow = mf_df['Net_Flow'].tail(20).sum()
                 prev_20d_flow = mf_df['Net_Flow'].iloc[-40:-20].sum()
                 if abs(curr_20d_flow) >= 1e8: flow_str = f"{'+' if curr_20d_flow>0 else ''}${curr_20d_flow/1e8:.1f} 億"
@@ -351,22 +349,72 @@ if app_mode == "🚀 個股深度透視":
                 mf_pct_str = f"{'+' if mf_pct>=0 else ''}{mf_pct:.1f}%"
                 mf_pct_color = "#00FF00" if mf_pct >= 0 else "#FF4B4B"
 
-                # 計算 OBV 軌跡
+                # === 9 大 OBV 軌跡邏輯 ===
                 obv_curr_val = mf_df['OBV'].iloc[-1] - mf_df['OBV'].iloc[-21]
                 obv_prev_val = mf_df['OBV'].iloc[-21] - mf_df['OBV'].iloc[-41] if len(mf_df) > 40 else 1
-                trend_str = "大戶持續吸籌 (流入)" if obv_curr_val > 0 else "大戶持續派發 (流出)"
-                trend_color = "#00FF00" if obv_curr_val > 0 else "#FF4B4B"
+                price_trend = mf_df['Close'].iloc[-1] - mf_df['Close'].iloc[-21]
                 
                 obv_pct = 0
                 if obv_prev_val != 0: obv_pct = (obv_curr_val - obv_prev_val) / abs(obv_prev_val) * 100
                 obv_pct_str = f"{'+' if obv_pct>=0 else ''}{obv_pct:.1f}%"
+
+                obv_total_vol = mf_df['Volume'].tail(20).sum()
+                if obv_total_vol == 0 or abs(obv_curr_val) / obv_total_vol < 0.02:
+                    trend_str = "9. 🧊 資金膠著盤整 (觀望)"
+                    trend_color = "#888888"
+                else:
+                    if price_trend >= 0:
+                        if obv_curr_val > 0:
+                            if obv_pct > 20: trend_str, trend_color = "1. 👑 強烈流入", "#00FF00"
+                            else: trend_str, trend_color = "2. 📈 流入", "#00FF00"
+                        else:
+                            if obv_pct < -20: trend_str, trend_color = "5. 💣 資金高位撤離 (量價強烈背離 - 大兇兆)", "#FF4B4B"
+                            else: trend_str, trend_color = "6. ⚠️ 資金高位撤離 (量價背離 - 兇兆)", "#FF4B4B"
+                    else:
+                        if obv_curr_val < 0:
+                            if obv_pct < -20: trend_str, trend_color = "3. 💀 大戶持續派發 (強烈流出)", "#FF4B4B"
+                            else: trend_str, trend_color = "4. 📉 大戶持續派發 (流出)", "#FF4B4B"
+                        else:
+                            if obv_pct > 20: trend_str, trend_color = "7. 🐉 底部分歧掃貨 (量價強烈背離 - 大吉兆)", "#00FFCC"
+                            else: trend_str, trend_color = "8. 🐲 底部分歧掃貨 (量價背離 - 吉兆)", "#00FFCC"
+
                 obv_pct_color = "#00FF00" if obv_pct >= 0 else "#FF4B4B"
 
+                # === 集中度邏輯 ===
+                daily_abs_flow = abs(mf_df['Net_Flow'].tail(20))
+                total_abs_flow = daily_abs_flow.sum()
+                conc_pct = (daily_abs_flow.max() / total_abs_flow) * 100 if total_abs_flow > 0 else 0
+
+                if conc_pct > 35:
+                    conc_level, conc_color = "⚡ 高度集中", "#FF4B4B"
+                    conc_desc = "突發消息一棍掃貨/掟貨" if curr_20d_flow > 0 else "突發一棍洗盤/撤資"
+                elif conc_pct > 15:
+                    conc_level, conc_color = "🌿 正常分佈", "#FFD700"
+                    conc_desc = "波段節奏合理推進"
+                else:
+                    conc_level, conc_color = "💎 穩定分散", "#00FFCC"
+                    conc_desc = "長線大戶極度隱蔽吸籌" if curr_20d_flow > 0 else "陰跌無量派發"
+
+                conc_bar_html = f"""
+                <div style='margin-top: 20px; padding-top: 15px; border-top: 1px dashed #444;'>
+                    <div style='display:flex; justify-content:space-between; margin-bottom:8px;'>
+                        <span style='color:#FFF; font-weight:bold; font-size:1.1rem;'>🎯 資金部署集中度：<span style='color:{conc_color};'>{conc_level} ({conc_desc})</span></span>
+                        <span style='color:#ccc; font-size:1rem;'>極值佔比: {conc_pct:.1f}%</span>
+                    </div>
+                    <div style='width:100%; background-color:#222; border-radius:10px; height:12px; overflow:hidden; border: 1px solid #444;'>
+                        <div style='width:{conc_pct}%; background-color:{conc_color}; height:100%; box-shadow: 0 0 10px {conc_color};'></div>
+                    </div>
+                </div>
+                """
+
+                # === 繪製 UI ===
                 st.write("")
                 st.markdown("<h3 style='color:#FFF; margin-bottom:10px;'>🌊 獨家解密：20日主力資金池淨額 (Money Flow & OBV)</h3>", unsafe_allow_html=True)
                 
-                mc1, mc2 = st.columns(2)
+                # 外層大黑框
+                st.markdown("<div style='background-color:#000; border-radius:15px; padding:20px; border: 2px solid #333;'>", unsafe_allow_html=True)
                 
+                mc1, mc2 = st.columns(2)
                 with mc1:
                     st.markdown(f"""<div class='cosmos-box' style='border-color:{flow_color}; padding: 15px; height: 120px; display:flex; flex-direction:column; justify-content:center;'>
                         <div style='display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:5px;'>
@@ -386,6 +434,9 @@ if app_mode == "🚀 個股深度透視":
                     </div>""", unsafe_allow_html=True)
                     obv_pulse_vals = mf_df['OBV_Daily'].tail(20).values
                     st.plotly_chart(get_pulse_fig(obv_pulse_vals), use_container_width=True, theme=None, config={'displayModeBar': False}, key="pulse_obv_chart")
+
+                st.markdown(conc_bar_html, unsafe_allow_html=True)
+                st.markdown("</div>", unsafe_allow_html=True)
 
             except Exception as e:
                 pass
