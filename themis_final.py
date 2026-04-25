@@ -173,7 +173,7 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # 3. 側邊欄控制
-st.sidebar.markdown("## 🛰️ 戰術控制台 (V69.0)")
+st.sidebar.markdown("## 🛰️ 戰術控制台 (V69.1)")
 app_mode = st.sidebar.radio("請選擇操作", [
     "🚀 個股深度透視", 
     "📡 個股版塊拔河熱力圖", 
@@ -250,13 +250,12 @@ if app_mode == "🚀 個股深度透視":
                         pulse_vals = (ret_asset - spy_tail) * vol_ratio * 100
                     elif metric_type == "EJ":
                         vol_ratio = (pulse_df['Volume'] / avg_vol).values
-                        pulse_vals = (vol_ratio - 1) * 50
-                    else: # SE
+                        pulse_vals = (vol_ratio - 1) * 50 # 專注看成交量偏離度
+                    else: # SE 脈衝：專注看價格爆發力
                         ret_asset = pulse_df['Close'].pct_change().fillna(0).values
                         pulse_vals = ret_asset * 200
 
                     colors = ['#00FFCC' if v >= 0 else '#FF4B4B' for v in pulse_vals]
-                    
                     fig = go.Figure(go.Bar(x=list(range(len(pulse_vals))), y=pulse_vals, marker_color=colors, hoverinfo='skip'))
                     fig.update_layout(height=130, margin=dict(l=0,r=0,t=5,b=0), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', xaxis=dict(visible=False, fixedrange=True), yaxis=dict(visible=False, fixedrange=True), showlegend=False)
                     return fig
@@ -339,7 +338,7 @@ if app_mode == "🚀 個股深度透視":
                 st.markdown(f"**{ticker} ・ 8D 投行精確透視 BAR**")
                 colors_8d = ["#00FFCC", "#00FFCC", "#00FFCC", "#00FFCC", "#FF4B4B", "#BC13FE", "#FFFFFF", "#FFD700"]
                 for i, (lab, sc) in enumerate(m8.items()):
-                    sc = max(1, min(10, sc))
+                    sc = max(1, min(10, score))
                     grid = '<div class="energy-bar-container-8d">' + "".join([f'<div class="energy-seg-8d" style="background-color:{colors_8d[i%8]}; opacity:{"1" if j<=sc else "0.1"};"></div>' for j in range(1,11)]) + '</div>'
                     st.markdown(f"<div style='display:flex; justify-content:space-between; font-weight:bold;'><span>{lab}</span><span>{sc}/10</span></div>{grid}", unsafe_allow_html=True)
 
@@ -387,9 +386,9 @@ if app_mode == "🚀 個股深度透視":
             recent = df.tail(120); dates = recent.index.strftime('%Y-%m-%d')
             fig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.7, 0.3], vertical_spacing=0.05)
             fig.add_trace(go.Candlestick(x=dates, open=recent['Open'], high=recent['High'], low=recent['Low'], close=recent['Close'], name='股價'), row=1, col=1)
-            fig.add_trace(go.Bar(x=dates, y=recent['Volume'], marker_color=['#00FF00' if recent['Close'].iloc[i] >= recent['Open'].iloc[i] else '#FF0000' for i in range(len(recent))], name='成交量'), row=2, col=1)
-            counts, bins = np.histogram(recent['Close'], bins=20, weights=recent['Volume']); fig.add_trace(go.Bar(y=(bins[:-1] + bins[1:]) / 2, x=counts, orientation='h', marker_color='rgba(0, 255, 204, 0.4)', name='蟹貨', xaxis='x3', yaxis='y1'))
-            fig.update_layout(template="plotly_dark", paper_bgcolor='#0e1117', plot_bgcolor='#0e1117', height=750, showlegend=False, xaxis_rangeslider_visible=False, xaxis=dict(type='category', showgrid=False), yaxis=dict(showgrid=True, gridcolor='#333'), yaxis2=dict(showgrid=False), xaxis3=dict(overlaying='x', side='top', range=[0, max(counts)*6], showgrid=False, showticklabels=False))
+            fig.add_trace(go.Bar(x=dates, y=recent['Volume'], marker_color=['#00FF00' if recent['Close'].iloc[i] >= recent['Open'].iloc[i] else '#FF0000' for i in range(len(recent))]), row=2, col=1)
+            counts, bins = np.histogram(recent['Close'], bins=20, weights=recent['Volume']); fig.add_trace(go.Bar(y=(bins[:-1] + bins[1:]) / 2, x=counts, orientation='h', marker_color='rgba(0, 255, 204, 0.4)', xaxis='x3', yaxis='y1'))
+            fig.update_layout(template="plotly_dark", paper_bgcolor='#0e1117', plot_bgcolor='#0e1117', height=750, showlegend=False, xaxis_rangeslider_visible=False, xaxis3=dict(overlaying='x', side='top', range=[0, max(counts)*6], visible=False))
             st.plotly_chart(fig, use_container_width=True, theme=None, config={'displayModeBar': False})
 
             # 名家持倉
@@ -509,5 +508,3 @@ elif app_mode in ["🛡️ 美股 ETF 專屬雷達", "🛡️ 港/A股 ETF 專�
             except: pass
         progress_bar.empty()
         if not breakout_found: st.warning("💤 掃描完畢：目前未有 ETF 觸發起飛訊號。")
-
-except Exception as e: pass
