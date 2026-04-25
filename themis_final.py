@@ -37,7 +37,7 @@ def get_beta(info, df, spy_df):
     return "1.00" 
 
 # =========================================================================
-# 🛸 爺爺嘅外掛資料庫 (V88.0 完美還原海量板塊 + ETF)
+# 🛸 爺爺嘅外掛資料庫 (V89.0 完美還原海量板塊 + ETF)
 # =========================================================================
 HK_STOCK_MAP = {
     "1. 互聯網巨頭": "0700.HK 9988.HK 3690.HK 1810.HK 9618.HK 1024.HK 9888.HK 0772.HK 0020.HK 0241.HK 0136.HK 1999.HK 2018.HK 3888.HK 2142.HK 1896.HK 0777.HK 0113.HK 0590.HK 1980.HK 1797.HK 6618.HK 2400.HK 0285.HK".split(),
@@ -168,7 +168,7 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # 3. 側邊欄控制
-st.sidebar.markdown("## 🛰️ 戰術控制台 (V88.0 真龍歸位版)")
+st.sidebar.markdown("## 🛰️ 戰術控制台 (V89.0 終極軍規版)")
 app_mode = st.sidebar.radio("請選擇操作", [
     "🚀 個股深度透視", 
     "📡 個股版塊拔河熱力圖", 
@@ -179,11 +179,10 @@ app_mode = st.sidebar.radio("請選擇操作", [
 ])
 
 # =========================================================================
-# 🚀 模式 A：個股深度透視 (修復 PE 紅色大警告、加強載入動畫)
+# 🚀 模式 A：個股深度透視 (加入軍規級潛伏方程式提醒)
 # =========================================================================
 if app_mode == "🚀 個股深度透視":
     ticker = st.sidebar.text_input("🚀 輸入資產代號", "6869.HK").upper()
-    # ✅ 加強載入動畫文字，等乖孫有心理準備
     with st.spinner(f"⏳ 系統正在切換引擎，重新為您下載海量數據及繪製摩訶圖... 由於運算龐大，請乖孫耐心等候數秒 ☕🚀"):
         try:
             asset = yf.Ticker(ticker); info = asset.info
@@ -236,7 +235,10 @@ if app_mode == "🚀 個股深度透視":
 
                 asset_name = info.get('shortName', info.get('longName', ''))
                 name_html = f"<span style='font-size: 1.8rem; color: #AAAAAA; font-weight: 500; margin-left: 15px;'>{asset_name}</span>" if asset_name else ""
-                st.markdown(f"""<div class='main-title'>環球資產透維評估儀 [{ticker}]{name_html}</div>""", unsafe_allow_html=True)
+                
+                # ✅ 爺爺優化：標題與終極定心丸提示框
+                st.markdown(f"""<div class='main-title' style='margin-bottom:10px;'>環球資產透維評估儀 [{ticker}]{name_html}</div>""", unsafe_allow_html=True)
+                st.markdown(f"""<div style='text-align: center; color: #00FFCC; font-size: 1.2rem; font-weight: bold; margin-bottom: 25px; padding: 10px; background-color: rgba(0, 255, 204, 0.1); border-radius: 8px; border: 1px dashed #00FFCC;'>🛡️ 必勝潛伏方程式：COSMOS-RS (星系強弱) > 52, EJ 錢流底氣 > 85, 短期能量 > 75, 最近 20 日主力資金池淨額是正數買入，OBV 大戶籌碼流入或觀望，資金部署集中度是分散</div>""", unsafe_allow_html=True)
                 
                 c1, c2, c3 = st.columns([1, 1.2, 1.6])
                 with c1: st.markdown(f"""<div class='cosmos-box' style='height: 460px; display:flex; flex-direction:column; justify-content:center;'><div class='cosmos-label'>COSMOS-X (天體動能)</div><div class='cosmos-value'>{cx_val:.1f}</div></div>""", unsafe_allow_html=True)
@@ -348,7 +350,6 @@ if app_mode == "🚀 個股深度透視":
                 v_card(v5, "EV/EBITDA", safe_s(info, ['enterpriseToEbitda'], "x"), "N/A", "企業估值")
                 v_card(v6, "股息率", safe_s(info, ['dividendYield', 'yield'], "%"), "N/A", "回報率")
 
-                # ✅ 爺爺完美修復：烈火鳳凰 PE 大警告 (一條毛都冇少)
                 ttm_pe = info.get('trailingPE', 0) or 0
                 fwd_pe = info.get('forwardPE', 0) or 0
                 if not is_etf:
