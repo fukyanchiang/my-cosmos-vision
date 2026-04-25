@@ -144,7 +144,7 @@ US_ETF_MAP = {
     "E12. 主題與前沿 (Thematic)": "ARKK ARKG ICLN TAN LIT CIBR HACK PBW MOO BOTZ ROBO".split()
 }
 
-# 2. 視覺裝修 
+# 2. 視覺裝修 (保留原裝顏色)
 st.markdown("""
     <style>
     .stApp { background-color: #0e1117; color: white; }
@@ -173,7 +173,7 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # 3. 側邊欄控制
-st.sidebar.markdown("## 🛰️ 戰術控制台 (V71.1)")
+st.sidebar.markdown("## 🛰️ 戰術控制台 (V72.0)")
 app_mode = st.sidebar.radio("請選擇操作", [
     "🚀 個股深度透視", 
     "📡 個股版塊拔河熱力圖", 
@@ -184,7 +184,7 @@ app_mode = st.sidebar.radio("請選擇操作", [
 ])
 
 # =========================================================================
-# 🚀 模式 A：個股深度透視
+# 🚀 模式 A：個股深度透視 
 # =========================================================================
 if app_mode == "🚀 個股深度透視":
     ticker = st.sidebar.text_input("🚀 輸入資產代號", "6869.HK").upper()
@@ -195,15 +195,20 @@ if app_mode == "🚀 個股深度透視":
         spy = yf.Ticker("SPY").history(period="2y").dropna(subset=['Close'])
         
         if not df.empty:
+            # ✅ 爺爺時區破解術：剝走香港/美國嘅時區差異，等佢哋可以完美對齊！
+            if df.index.tz is not None: df.index = df.index.tz_localize(None)
+            df.index = df.index.normalize()
+            if spy.index.tz is not None: spy.index = spy.index.tz_localize(None)
+            spy.index = spy.index.normalize()
+
             curr_p = df['Close'].iloc[-1]
             
-            # 🌌 COSMOS-X & RS (防假期 NaN 崩潰)
+            # 🌌 COSMOS-X & RS
             c_tail = df['Close'].tail(125); days = np.arange(len(c_tail))
             slope, intercept = np.polyfit(days, c_tail, 1); pred = intercept + slope * len(days)
             mom = (curr_p / pred) if pred > 0 else 1.0; v_ann = max(0.001, c_tail.pct_change().std() * np.sqrt(252))
             cx_val = safe_n(((slope * 252) / c_tail.mean() / v_ann) * 29 * mom, 50.0)
 
-            # ✅ 避震器：填補假期空白
             spy_aligned = spy['Close'].reindex(df.index).ffill().bfill() 
             crs_val = safe_n(50 + ((curr_p / df['Close'].iloc[-63]) - (spy_aligned.iloc[-1] / spy_aligned.iloc[-63])) * 100, 50.0) if len(df) > 63 else 50.0
             
@@ -404,6 +409,7 @@ if app_mode == "🚀 個股深度透視":
             val_emotion = safe_n(crs_val * 0.9, 50.0)
             val_total = (cx_val + crs_val + se_s) / 3
             val_vol_ratio = v21 / max(v252, 1)
+
             target_p_raw = info.get('targetMeanPrice')
             val_target_str = f"${target_p_raw:.2f}" if target_p_raw else "N/A"
 
@@ -435,6 +441,7 @@ if app_mode == "🚀 個股深度透視":
             v_card(v5, "EV/EBITDA", safe_s(info, ['enterpriseToEbitda'], "x"), "N/A", "企業估值")
             v_card(v6, "股息率", safe_s(info, ['dividendYield', 'yield'], "%"), "N/A", "現金流回報")
 
+            # 烈火鳳凰
             ttm_pe = info.get('trailingPE', 0) or 0
             fwd_pe = info.get('forwardPE', 0) or 0
             if not is_etf:
