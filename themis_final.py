@@ -37,7 +37,7 @@ def get_beta(info, df, spy_df):
     return "1.00" 
 
 # =========================================================================
-# 🛸 爺爺嘅外掛資料庫 (V87.0 完美還原海量板塊 + ETF)
+# 🛸 爺爺嘅外掛資料庫 (V88.0 完美還原海量板塊 + ETF)
 # =========================================================================
 HK_STOCK_MAP = {
     "1. 互聯網巨頭": "0700.HK 9988.HK 3690.HK 1810.HK 9618.HK 1024.HK 9888.HK 0772.HK 0020.HK 0241.HK 0136.HK 1999.HK 2018.HK 3888.HK 2142.HK 1896.HK 0777.HK 0113.HK 0590.HK 1980.HK 1797.HK 6618.HK 2400.HK 0285.HK".split(),
@@ -131,7 +131,6 @@ HK_ETF_MAP = {
     "E10. 戰略池後補 (補齊300隻)": "3099.HK 3101.HK 3102.HK 3103.HK 3105.HK 3106.HK 3107.HK 3109.HK 3111.HK 3112.HK 3113.HK 3118.HK 3120.HK 3121.HK 3123.HK 3125.HK 3129.HK 3130.HK 3131.HK 3135.HK 3142.HK 3143.HK 3144.HK 3152.HK 3154.HK 3158.HK 3166.HK 3170.HK 3172.HK 3176.HK 3177.HK 3178.HK 3179.HK 3182.HK 3183.HK 3184.HK 3185.HK 3187.HK 3190.HK 3192.HK 3193.HK 3195.HK 3196.HK 3197.HK 3198.HK 3404.HK 3405.HK 3406.HK 3408.HK 3409.HK".split()
 }
 
-# 美股 ETF 導入 (Country, SPDR, Thematic 整合)
 US_ETF_MAP = {
     "E1. 大盤/寬基/信用債": "SPY QQQ DIA IWM VOO IVV VTI RSP QQQM ONEQ VUG VTV IWD IWF TLT AGG BND LQD HYG IEF SHY MBB MUB JNK TIP IGOV EMB GOVT".split(),
     "E2. Country ETFs (國家/新興)": "EWJ EWG EWU EWQ EWP EWI EWL EWN EWD EWK EWO EWS EWA EWC EWM EWH EWT EWY EZA ILF INDA EPI RSX EWZ ECH EPU EWW TUR EPHE THD IDX EIDO VNM MCHI FXI KWEB ARGT".split(),
@@ -169,7 +168,7 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # 3. 側邊欄控制
-st.sidebar.markdown("## 🛰️ 戰術控制台 (V87.0 潛龍必勝版)")
+st.sidebar.markdown("## 🛰️ 戰術控制台 (V88.0 真龍歸位版)")
 app_mode = st.sidebar.radio("請選擇操作", [
     "🚀 個股深度透視", 
     "📡 個股版塊拔河熱力圖", 
@@ -180,11 +179,12 @@ app_mode = st.sidebar.radio("請選擇操作", [
 ])
 
 # =========================================================================
-# 🚀 模式 A：個股深度透視 
+# 🚀 模式 A：個股深度透視 (修復 PE 紅色大警告、加強載入動畫)
 # =========================================================================
 if app_mode == "🚀 個股深度透視":
     ticker = st.sidebar.text_input("🚀 輸入資產代號", "6869.HK").upper()
-    with st.spinner(f"📡 正在接駁衛星獲取 {ticker} 深度數據，請稍候..."):
+    # ✅ 加強載入動畫文字，等乖孫有心理準備
+    with st.spinner(f"⏳ 系統正在切換引擎，重新為您下載海量數據及繪製摩訶圖... 由於運算龐大，請乖孫耐心等候數秒 ☕🚀"):
         try:
             asset = yf.Ticker(ticker); info = asset.info
             df = asset.history(period="2y").dropna(subset=['Close', 'Volume'])
@@ -323,7 +323,7 @@ if app_mode == "🚀 個股深度透視":
                 fig.update_layout(template="plotly_dark", paper_bgcolor='#0e1117', plot_bgcolor='#0e1117', height=750, showlegend=False, xaxis_rangeslider_visible=False, xaxis=dict(type='category', showgrid=False), yaxis=dict(showgrid=True, gridcolor='#333'), xaxis3=dict(overlaying='x', side='top', range=[0, max(counts)*1.1], showgrid=False, showticklabels=False))
                 st.plotly_chart(fig, use_container_width=True, theme=None, config={'scrollZoom': True, 'displayModeBar': True, 'displaylogo': False, 'modeBarButtonsToAdd':['drawline','drawrect','eraseshape']})
 
-                # DNA/估值/持倉
+                # DNA/估值/持倉 
                 st.write("---"); d_c1, d_c2 = st.columns([1, 2.5]); is_etf = info.get('quoteType') == 'ETF'; real_roe = info.get('returnOnEquity')
                 if is_etf or real_roe is None or real_roe == 0:
                     dna_v = round(safe_n((cx_val * 0.5) + (crs_val * 0.5), 50.0), 1); dna_title = "ETF 綜合質量基因"
@@ -348,6 +348,48 @@ if app_mode == "🚀 個股深度透視":
                 v_card(v5, "EV/EBITDA", safe_s(info, ['enterpriseToEbitda'], "x"), "N/A", "企業估值")
                 v_card(v6, "股息率", safe_s(info, ['dividendYield', 'yield'], "%"), "N/A", "回報率")
 
+                # ✅ 爺爺完美修復：烈火鳳凰 PE 大警告 (一條毛都冇少)
+                ttm_pe = info.get('trailingPE', 0) or 0
+                fwd_pe = info.get('forwardPE', 0) or 0
+                if not is_etf:
+                    dragon_index = round((dna_v * 0.4) + (cx_val * 0.3) + (crs_val * 0.3), 1)
+                    dragon_index = max(5.0, min(98.5, dragon_index)) 
+                    
+                    if dragon_index >= 80:
+                        t_lv, t_desc, val_title, val_color = "第 1 級", "極致真龍", "🔥 烈火鳳凰", "#BC13FE"
+                        act_desc = "【順勢而為】真實財報極度健康，估值雖貴但有強大動能支撐，緊貼趨勢操作。"
+                    elif dragon_index >= 65:
+                        t_lv, t_desc, val_title, val_color = "第 2 級", "潛力金龍", "🌟 潛龍伏躍", "#00FFCC"
+                        act_desc = "【價值防守】財報穩健，動能醞釀中，適合分批建倉或持有觀望。"
+                    elif dragon_index >= 40:
+                        t_lv, t_desc, val_title, val_color = "第 3 級", "中庸凡骨", "⚠️ 海市蜃樓", "#FFA500"
+                        act_desc = "【謹慎觀望】動能與財報表現平平，估值偏高，注意回調風險。"
+                    else:
+                        t_lv, t_desc, val_title, val_color = "第 4 級", "高危泥鰍", "☠️ 末路狂花", "#FF4B4B"
+                        act_desc = "【規避風險】財報轉弱且動能破位，估值存在泡沫，建議嚴格止損。"
+                    
+                    warning_html = ""
+                    if ttm_pe > 80 or fwd_pe > 80:
+                        warning_html = "<span style='color:#FF0000; font-size:3.5rem; font-weight:900; margin-left:20px; text-shadow: 2px 2px 4px #000;'>警告</span>"
+
+                    st.markdown(f"""
+<div style='border: 4px solid {val_color}; border-radius: 15px; padding: 30px; background-color: #000; box-shadow: 0 0 30px {val_color}66; margin: 25px 0;'>
+    <div style='display:flex; justify-content:space-between; align-items:center;'>
+        <div>
+            <span style='font-size:2.2rem; font-weight:900;'>COSMOS-VAL 解碼：<span style='color:{val_color};'>{val_title}</span>{warning_html}</span><br>
+            <span style='font-size:1.1rem; opacity:0.8;'>（針對 TTM PE {ttm_pe:.2f}x 獨立戰術評分）</span><br>
+            <span style='font-size:1.2rem; color:#FFD700; font-weight:bold; margin-top:5px; display:inline-block;'>[ 註明：共分 4 級，現在這公司基於真實財報屬 {t_lv} ({t_desc}) ]</span>
+        </div>
+        <div style='text-align:right;'>
+            <span style='font-size:1.6rem;'>真龍指數：</span><br>
+            <span style='font-size:5rem; font-weight:900; color:{val_color};'>{dragon_index}</span>
+        </div>
+    </div>
+    <div style='background-color:#111; padding:20px; border-radius:10px; margin-top:20px; border:1px solid #333;'>
+        <b style='color:white; font-size:1.3rem;'>真實財報決策指令：</b> <span style='color:{val_color}; font-size:1.3rem;'>{act_desc}</span>
+    </div>
+</div>""", unsafe_allow_html=True)
+
                 st.markdown("<div class='whale-box'><div style='color:#FFD700; font-size:2.2rem; font-weight:bold; text-align:center;'>🧙 90 大名家：真實申報持倉</div>", unsafe_allow_html=True)
                 total_shares = info.get('sharesOutstanding', 1); holders = asset.institutional_holders
                 if holders is not None and not holders.empty and 'Holder' in holders.columns:
@@ -358,7 +400,7 @@ if app_mode == "🚀 個股深度透視":
         except: pass
 
 # =========================================================================
-# 🔍 模式 C：起步尋龍雷達 (必勝潛龍羅輯 V87.0)
+# 🔍 模式 C：起步尋龍雷達 (必勝潛龍羅輯 V87.0 撒網版)
 # =========================================================================
 elif "雷達" in app_mode:
     st.markdown(f"<h1 class='main-title'>{app_mode}</h1>", unsafe_allow_html=True)
@@ -374,7 +416,7 @@ elif "雷達" in app_mode:
     
     s_choice = st.sidebar.selectbox("2. 選擇掃描範圍", ["🌐 啟動全星系大規模搜索"] + list(target_dict.keys()))
     
-    if st.sidebar.button("📡 發射潛龍尋找電波！"):
+    if st.sidebar.button("📡 發射撒網尋龍電波！"):
         bench_data = yf.Ticker(bench_sym).history(period="2y").dropna()
         tickers_to_scan = list(set([t for sub in target_dict.values() for t in sub])) if "全星系" in s_choice else target_dict[s_choice]
         
@@ -397,7 +439,7 @@ elif "雷達" in app_mode:
                     ej = (d['Volume'].tail(21).mean()/max(d['Volume'].tail(252).mean() if len(d)>200 else d['Volume'].mean(),1))*100
                     se = 50+(((curr_p/d['Close'].iloc[-5])-1)*1200)
 
-                    # ✅ 爺爺優化三重過濾 (V87潛龍必勝版)：MoneyFlow > 0 + Conc < 50% + 5種OBV狀態 + 動能放寬 + RS>52強勢
+                    # ✅ 爺爺優化三重過濾 (放寬版)：MoneyFlow > 0 + Conc < 50% + 5種OBV狀態 + 動能放寬 + RS>52強勢
                     if net_flow_20 > 0 and conc_20 < 50 and state in [1, 2, 7, 8, 9]:
                         if se > 75 and ej > 85 and crs > 52:
                             found = True
@@ -406,7 +448,7 @@ elif "雷達" in app_mode:
         if not found: st.warning("💤 雷達掃描完畢，目前未有起飛目標。(此過濾條件為潛龍必勝模式，要求大戶真實佈局)")
 
 # =========================================================================
-# 📡 拔河熱力圖 
+# 📡 拔河熱力圖 (修復白色字體)
 # =========================================================================
 elif "熱力圖" in app_mode:
     st.markdown(f"<h1 class='main-title'>{app_mode}</h1>", unsafe_allow_html=True)
@@ -427,6 +469,7 @@ elif "熱力圖" in app_mode:
             if results:
                 df_rs = pd.DataFrame(results).sort_values("RS強弱", ascending=True)
                 fig = go.Figure(go.Bar(x=df_rs["RS強弱"], y=df_rs["版塊"], orientation='h', marker=dict(color=df_rs["RS強弱"], colorscale='Portland')))
+                # ✅ 修正熱力圖字體為白色
                 fig.update_layout(template="plotly_dark", paper_bgcolor='#0e1117', plot_bgcolor='#0e1117', font=dict(color='white'), height=700)
                 st.plotly_chart(fig, use_container_width=True, theme=None, config={'displayModeBar': False})
         except: pass
