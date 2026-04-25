@@ -144,6 +144,9 @@ US_ETF_MAP = {
     "E12. 主題與前沿 (Thematic)": "ARKK ARKG ICLN TAN LIT CIBR HACK PBW MOO BOTZ ROBO".split()
 }
 
+HK_FULL_MAP = {**HK_STOCK_MAP, **HK_ETF_MAP}
+US_FULL_MAP = {**US_STOCK_MAP, **US_ETF_MAP}
+
 # 2. 視覺裝修 
 st.markdown("""
     <style>
@@ -177,14 +180,14 @@ st.sidebar.markdown("## 🛰️ 戰術控制台 (六大引擎版)")
 app_mode = st.sidebar.radio("請選擇操作", [
     "🚀 個股深度透視", 
     "📡 個股版塊拔河熱力圖", 
-    "📡 ETF 資產拔河熱力圖", 
+    "📡 ETF 資Asset拔河熱力圖", 
     "🔍 千龍起步尋龍雷達 (個股)",
     "🛡️ 美股 ETF 專屬雷達",
     "🛡️ 港/A股 ETF 專屬雷達"
 ])
 
 # =========================================================================
-# 🚀 模式 A：個股深度透視
+# 🚀 模式 A：個股深度透視 (加入 20日大戶資金脈衝圖)
 # =========================================================================
 if app_mode == "🚀 個股深度透視":
     ticker = st.sidebar.text_input("🚀 輸入資產代號", "6869.HK").upper()
@@ -209,61 +212,89 @@ if app_mode == "🚀 個股深度透視":
             cej_s = safe_n((v21 / max(v252, 1)) * 100, 50.0)
             se_s = safe_n(50 + (((curr_p / df['Close'].iloc[-5]) - 1) * 1200), 50.0) if len(df) > 5 else 50.0
 
-            # ✅ 爺爺嘅時光機：計算 15 日前趨勢
-            trend_rs_html = "<span style='color:#888;'>無數據</span>"
-            trend_ej_html = "<span style='color:#888;'>無數據</span>"
-            trend_se_html = "<span style='color:#888;'>無數據</span>"
-            
-            if len(df) > 80 and len(spy) > 80:
+            # -------------------------------------------------------------
+            # 📊 爺爺嘅 20日「量價共振」脈衝引擎
+            # -------------------------------------------------------------
+            def get_pulse_fig(metric_type):
                 try:
-                    past_rs = safe_n(50 + ((df['Close'].iloc[-15] / df['Close'].iloc[-78]) - (spy['Close'].iloc[-15] / spy['Close'].iloc[-78])) * 100, 50.0)
-                    if crs_val > past_rs: trend_rs_html = "<span style='color:#00FF00;'>📈 向上</span>"
-                    elif crs_val < past_rs: trend_rs_html = "<span style='color:#FF4B4B;'>📉 向下</span>"
-                    else: trend_rs_html = "<span style='color:#FFD700;'>➖ 持平</span>"
+                    pulse_df = df.tail(20).copy()
+                    avg_vol = df['Volume'].tail(252).mean()
+                    if avg_vol == 0 or np.isnan(avg_vol): avg_vol = 1
+                    
+                    if metric_type == "RS":
+                        df_aligned, spy_aligned = pulse_df.align(spy.tail(30), join='inner', axis=0)
+                        df_aligned = df_aligned.tail(20)
+                        spy_aligned = spy_aligned.tail(20)
+                        ret_asset = df_aligned['Close'].pct_change().fillna(0).values
+                        ret_spy = spy_aligned['Close'].pct_change().fillna(0).values
+                        vol_ratio = (df_aligned['Volume'] / avg_vol).values
+                        pulse_vals = (ret_asset - ret_spy) * vol_ratio * 100
+                    elif metric_type == "EJ":
+                        ret_asset = pulse_df['Close'].pct_change().fillna(0).values
+                        vol_ratio = (pulse_df['Volume'] / avg_vol).values
+                        pulse_vals = ret_asset * vol_ratio * 100
+                    else: # SE
+                        ret_asset = pulse_df['Close'].pct_change().fillna(0).values
+                        vol_ratio = (pulse_df['Volume'] / avg_vol).values
+                        pulse_vals = ret_asset * vol_ratio * 150
 
-                    past_v21 = df['Volume'].iloc[-36:-15].mean()
-                    past_v252 = df['Volume'].iloc[-267:-15].mean() if len(df) > 270 else df['Volume'].iloc[:-15].mean()
-                    past_ej = safe_n((past_v21 / max(past_v252, 1)) * 100, 50.0)
-                    if cej_s > past_ej: trend_ej_html = "<span style='color:#00FF00;'>📈 向上</span>"
-                    elif cej_s < past_ej: trend_ej_html = "<span style='color:#FF4B4B;'>📉 向下</span>"
-                    else: trend_ej_html = "<span style='color:#FFD700;'>➖ 持平</span>"
-
-                    past_se = safe_n(50 + (((df['Close'].iloc[-15] / df['Close'].iloc[-20]) - 1) * 1200), 50.0)
-                    if se_s > past_se: trend_se_html = "<span style='color:#00FF00;'>📈 向上</span>"
-                    elif se_s < past_se: trend_se_html = "<span style='color:#FF4B4B;'>📉 向下</span>"
-                    else: trend_se_html = "<span style='color:#FFD700;'>➖ 持平</span>"
+                    colors = ['#00FFCC' if v >= 0 else '#FF4B4B' for v in pulse_vals]
+                    
+                    fig = go.Figure(go.Bar(
+                        x=list(range(len(pulse_vals))), y=pulse_vals,
+                        marker_color=colors, hoverinfo='skip'
+                    ))
+                    fig.update_layout(
+                        height=150, margin=dict(l=0,r=0,t=10,b=0),
+                        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                        xaxis=dict(visible=False, fixedrange=True),
+                        yaxis=dict(visible=False, fixedrange=True),
+                        showlegend=False
+                    )
+                    return fig
                 except:
-                    pass
+                    fig = go.Figure()
+                    fig.update_layout(height=150, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', xaxis=dict(visible=False), yaxis=dict(visible=False))
+                    return fig
 
             st.markdown(f"""<div class='main-title'>環球資產透維評估儀 [{ticker}]</div>""", unsafe_allow_html=True)
             
-            # 第一層看板
-            c1, c2, c3 = st.columns(3)
+            # 第一層看板 (加大佈局，容納脈衝圖)
+            c1, c2, c3 = st.columns([1, 1.2, 1.5])
 
-            c1.markdown(f"""<div class='cosmos-box'><div class='cosmos-label'>COSMOS-X (天體動能)</div><div class='cosmos-value'>{cx_val:.1f}</div></div>""", unsafe_allow_html=True)
+            with c1:
+                st.markdown(f"""<div class='cosmos-box' style='height: 380px; display:flex; flex-direction:column; justify-content:center;'><div class='cosmos-label'>COSMOS-X (天體動能)</div><div class='cosmos-value'>{cx_val:.1f}</div></div>""", unsafe_allow_html=True)
 
-            # ✅ 加入 15日趨勢顯示
-            c2.markdown(f"""<div class='cosmos-box' style='border-color:#FFD700;'><div class='cosmos-label'>COSMOS-RS (星系強弱)</div><div class='cosmos-value'>{crs_val:.1f}</div><div style='color:#aaa; font-size:1rem; margin-top:5px;'>15日趨勢: {trend_rs_html}</div></div>""", unsafe_allow_html=True)
+            with c2:
+                st.markdown(f"""<div class='cosmos-box' style='border-color:#FFD700; height: 380px;'>
+                    <div class='cosmos-label'>COSMOS-RS (星系強弱)</div>
+                    <div class='cosmos-value'>{crs_val:.1f}</div>
+                    <div style='color:#aaa; font-size:1rem; margin-top:5px; text-align:left;'>📊 20日大戶資金脈衝</div>
+                """, unsafe_allow_html=True)
+                st.plotly_chart(get_pulse_fig("RS"), use_container_width=True, theme=None, config={'displayModeBar': False})
+                st.markdown("</div>", unsafe_allow_html=True)
+
             with c3:
-
-                st.markdown("""<div class='cosmos-box' style='border-color:#00FFFF; padding: 20px;'>""", unsafe_allow_html=True)
-                def draw_triad_bar(val, title, color, trend_html=""):
+                st.markdown("""<div class='cosmos-box' style='border-color:#00FFFF; padding: 20px; height: 380px;'>""", unsafe_allow_html=True)
+                def draw_triad_bar(val, title, color):
                     lit = int((min(120, val)/120)*21)
-                    trend_display = f"<span style='font-size:1rem; margin-left:15px; color:#aaa; font-weight:normal;'>15日趨勢: {trend_html}</span>" if trend_html else ""
-                    html = f"<div class='ej-header'>{title}: {val:.1f}%{trend_display}</div><div class='bar-group-container'>"
+                    html = f"<div class='ej-header' style='margin-bottom:2px;'>{title}: {val:.1f}%</div><div class='bar-group-container' style='margin-bottom:0;'>"
                     for g in range(7):
                         html += "<div class='bar-triad'>"
                         for i in range(3):
                             idx = g*3+i; c_code = "#FF4B4B" if idx<6 else ("#FFD700" if idx<12 else color)
                             op = 1 if idx < lit else 0.1; sh = f"box-shadow: 0 0 10px {c_code};" if idx < lit else ""
-
-                            html += f"<div class='ej-seg' style='background-color:{c_code if idx < lit else '#222'}; opacity:{op}; {sh}'></div>"
+                            html += f"<div class='ej-seg' style='height:20px; background-color:{c_code if idx < lit else '#222'}; opacity:{op}; {sh}'></div>"
                         html += "</div>"
                     return html + "</div>"
                 
-                # ✅ 傳入趨勢變數
-                st.markdown(draw_triad_bar(cej_s, "EJ 錢流底氣", "#00FFFF", trend_ej_html), unsafe_allow_html=True)
-                st.markdown(draw_triad_bar(se_s, "短期能量 BAR", "#FF00FF", trend_se_html), unsafe_allow_html=True)
+                # EJ 區塊 + 脈衝圖
+                st.markdown(draw_triad_bar(cej_s, "EJ 錢流底氣", "#00FFFF"), unsafe_allow_html=True)
+                st.plotly_chart(get_pulse_fig("EJ"), use_container_width=True, theme=None, config={'displayModeBar': False})
+                
+                # SE 區塊 + 脈衝圖
+                st.markdown(draw_triad_bar(se_s, "短期能量 BAR", "#FF00FF"), unsafe_allow_html=True)
+                st.plotly_chart(get_pulse_fig("SE"), use_container_width=True, theme=None, config={'displayModeBar': False})
                 st.markdown("""</div>""", unsafe_allow_html=True)
 
             # 🧬 [DNA 自動切換 ETF / 個股]
@@ -345,7 +376,7 @@ if app_mode == "🚀 個股深度透視":
             val_total = (cx_val + crs_val + se_s) / 3
             val_vol_ratio = v21 / max(v252, 1)
 
-            # 讀取分析師大行 12 個月目標價，搵唔到就 N/A，絕不老作
+            # 讀取分析師大行 12 個月目標價
             target_p_raw = info.get('targetMeanPrice')
             val_target_str = f"${target_p_raw:.2f}" if target_p_raw else "N/A"
 
@@ -366,7 +397,7 @@ if app_mode == "🚀 個股深度透視":
 
             st.markdown(f"""<div class='red-bar'>🔥 戰略透視：短期動能爆發數值 [{se_s:.1f}%] 🔥</div>""", unsafe_allow_html=True)
 
-            # 估值矩陣 (正名為 12M預期)
+            # 估值矩陣
             st.write("### 🏛️ 估值與風險全方位透視")
             v1, v2, v3 = st.columns(3); v4, v5, v6 = st.columns(3)
             def v_card(col, title, t_val, f_val, desc):
@@ -378,7 +409,7 @@ if app_mode == "🚀 個股深度透視":
             v_card(v5, "EV/EBITDA", safe_s(info, ['enterpriseToEbitda'], "x"), "N/A", "企業估值")
             v_card(v6, "股息率", safe_s(info, ['dividendYield', 'yield'], "%"), "N/A", "現金流回報")
 
-            # 烈火鳳凰 (常駐所有股票顯示，並增加 PE > 80 紅色警告)
+            # 烈火鳳凰警告
             ttm_pe = info.get('trailingPE', 0) or 0
             fwd_pe = info.get('forwardPE', 0) or 0
             if not is_etf:
