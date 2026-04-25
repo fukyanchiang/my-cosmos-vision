@@ -37,7 +37,7 @@ def get_beta(info, df, spy_df):
     return "1.00" 
 
 # =========================================================================
-# 🛸 爺爺嘅外掛資料庫：已將【個股】與【ETF】完美拆分獨立
+# 🛸 爺爺嘅外掛資料庫 (全資產覆蓋)
 # =========================================================================
 HK_STOCK_MAP = {
     "1. 互聯網巨頭": "0700.HK 9988.HK 3690.HK 1810.HK 9618.HK 1024.HK 9888.HK 0772.HK 0020.HK 0241.HK 0136.HK 1999.HK 2018.HK 3888.HK 2142.HK 1896.HK 0777.HK 0113.HK 0590.HK 1980.HK 1797.HK 6618.HK 2400.HK 0285.HK".split(),
@@ -184,7 +184,7 @@ app_mode = st.sidebar.radio("請選擇操作", [
 ])
 
 # =========================================================================
-# 🚀 模式 A：個股深度透視 
+# 🚀 模式 A：個股深度透視
 # =========================================================================
 if app_mode == "🚀 個股深度透視":
     ticker = st.sidebar.text_input("🚀 輸入資產代號", "6869.HK").upper()
@@ -195,6 +195,7 @@ if app_mode == "🚀 個股深度透視":
         spy = yf.Ticker("SPY").history(period="2y").dropna(subset=['Close'])
         
         if not df.empty:
+            
             # ✅ 爺爺時區破解術：剝走香港/美國嘅時區差異，等佢哋可以完美對齊！
             if df.index.tz is not None: df.index = df.index.tz_localize(None)
             df.index = df.index.normalize()
@@ -203,12 +204,13 @@ if app_mode == "🚀 個股深度透視":
 
             curr_p = df['Close'].iloc[-1]
             
-            # 🌌 COSMOS-X & RS
+            # 🌌 COSMOS-X & RS (防假期 NaN 崩潰)
             c_tail = df['Close'].tail(125); days = np.arange(len(c_tail))
             slope, intercept = np.polyfit(days, c_tail, 1); pred = intercept + slope * len(days)
             mom = (curr_p / pred) if pred > 0 else 1.0; v_ann = max(0.001, c_tail.pct_change().std() * np.sqrt(252))
             cx_val = safe_n(((slope * 252) / c_tail.mean() / v_ann) * 29 * mom, 50.0)
 
+            # ✅ 避震器：填補假期空白
             spy_aligned = spy['Close'].reindex(df.index).ffill().bfill() 
             crs_val = safe_n(50 + ((curr_p / df['Close'].iloc[-63]) - (spy_aligned.iloc[-1] / spy_aligned.iloc[-63])) * 100, 50.0) if len(df) > 63 else 50.0
             
@@ -274,34 +276,28 @@ if app_mode == "🚀 個股深度透視":
 
             st.markdown(f"""<div class='main-title'>環球資產透維評估儀 [{ticker}]</div>""", unsafe_allow_html=True)
             
-            # 🚀 第一層：全新 3 大格仔佈局
+            # 🚀 第一層：全新 3 大格仔佈局 (黃金比例切割)
             c1, c2, c3 = st.columns([1, 1.2, 1.6])
 
             with c1:
-                st.markdown(f"""<div class='cosmos-box' style='height: 480px; display:flex; flex-direction:column; justify-content:center;'>
+                st.markdown(f"""<div class='cosmos-box' style='height: 460px; display:flex; flex-direction:column; justify-content:center;'>
                     <div class='cosmos-label'>COSMOS-X (天體動能)</div>
                     <div class='cosmos-value'>{cx_val:.1f}</div>
                 </div>""", unsafe_allow_html=True)
 
             with c2:
                 stat_rs, col_rs = get_trend_stats("RS")
-                st.markdown(f"""<div class='cosmos-box' style='border-color:#FFD700; height: 480px; display:flex; flex-direction:column; justify-content:space-between;'>
-                    <div>
-                        <div class='cosmos-label' style='font-size:1.6rem;'>COSMOS-RS (星系強弱)</div>
-                        <div class='cosmos-value' style='font-size:4rem;'>{crs_val:.1f}</div>
-                        <div style='color:{col_rs}; font-size:1.5rem; font-weight:bold; margin-top:15px;'>20日推力: {stat_rs}</div>
-                    </div>
-                    <div style='margin-top:auto;'>
-                """, unsafe_allow_html=True)
+                st.markdown(f"""<div class='cosmos-box' style='border-color:#FFD700; height: 330px; display:flex; flex-direction:column; justify-content:center;'>
+                    <div class='cosmos-label' style='font-size:1.6rem;'>COSMOS-RS (星系強弱)</div>
+                    <div class='cosmos-value' style='font-size:4rem;'>{crs_val:.1f}</div>
+                    <div style='color:{col_rs}; font-size:1.5rem; font-weight:bold; margin-top:15px;'>20日推力: {stat_rs}</div>
+                </div>""", unsafe_allow_html=True)
                 st.plotly_chart(get_pulse_fig("RS"), use_container_width=True, theme=None, config={'displayModeBar': False}, key="pulse_rs")
-                st.markdown("</div></div>", unsafe_allow_html=True)
 
             with c3:
-                st.markdown("""<div class='cosmos-box' style='border-color:#00FFFF; padding: 25px; height: 480px; display:flex; flex-direction:column; justify-content:space-between;'>""", unsafe_allow_html=True)
-                
                 def draw_triad_bar(val, color):
                     lit = int((min(120, val)/120)*21)
-                    html = f"<div class='bar-group-container' style='margin-top:5px; margin-bottom:5px;'>"
+                    html = f"<div class='bar-group-container' style='margin:0;'>"
                     for g in range(7):
                         html += "<div class='bar-triad'>"
                         for i in range(3):
@@ -312,29 +308,24 @@ if app_mode == "🚀 個股深度透視":
                     return html + "</div>"
                 
                 stat_ej, col_ej = get_trend_stats("EJ")
-                st.markdown(f"""
-                    <div>
-                        <div class='ej-header' style='display:flex; justify-content:space-between; align-items:flex-end;'>
-                            <span style='font-size:1.6rem;'>EJ 錢流底氣: {cej_s:.1f}%</span>
-                            <span style='color:{col_ej}; font-size:1.4rem; font-weight:bold;'>20日吸金: {stat_ej}</span>
-                        </div>
+                st.markdown(f"""<div class='cosmos-box' style='border-color:#00FFFF; padding: 15px; height: 100px; display:flex; flex-direction:column; justify-content:center;'>
+                    <div style='display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:5px;'>
+                        <span style='color:#00FFFF; font-size:1.4rem; font-weight:bold;'>EJ 錢流底氣: {cej_s:.1f}%</span>
+                        <span style='color:{col_ej}; font-size:1.2rem; font-weight:bold;'>20日吸金: {stat_ej}</span>
                     </div>
-                """, unsafe_allow_html=True)
-                st.markdown(draw_triad_bar(cej_s, "#00FFFF"), unsafe_allow_html=True)
+                    {draw_triad_bar(cej_s, "#00FFFF")}
+                </div>""", unsafe_allow_html=True)
                 st.plotly_chart(get_pulse_fig("EJ"), use_container_width=True, theme=None, config={'displayModeBar': False}, key="pulse_ej")
 
                 stat_se, col_se = get_trend_stats("SE")
-                st.markdown(f"""
-                    <div style='margin-top:20px;'>
-                        <div class='ej-header' style='display:flex; justify-content:space-between; align-items:flex-end;'>
-                            <span style='font-size:1.6rem;'>短期能量 BAR: {se_s:.1f}%</span>
-                            <span style='color:{col_se}; font-size:1.4rem; font-weight:bold;'>20日動能: {stat_se}</span>
-                        </div>
+                st.markdown(f"""<div class='cosmos-box' style='border-color:#FF00FF; padding: 15px; height: 100px; display:flex; flex-direction:column; justify-content:center; margin-top:0px;'>
+                    <div style='display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:5px;'>
+                        <span style='color:#FF00FF; font-size:1.4rem; font-weight:bold;'>短期能量 BAR: {se_s:.1f}%</span>
+                        <span style='color:{col_se}; font-size:1.2rem; font-weight:bold;'>20日動能: {stat_se}</span>
                     </div>
-                """, unsafe_allow_html=True)
-                st.markdown(draw_triad_bar(se_s, "#FF00FF"), unsafe_allow_html=True)
+                    {draw_triad_bar(se_s, "#FF00FF")}
+                </div>""", unsafe_allow_html=True)
                 st.plotly_chart(get_pulse_fig("SE"), use_container_width=True, theme=None, config={'displayModeBar': False}, key="pulse_se")
-                st.markdown("</div>", unsafe_allow_html=True)
 
             # =============================================================
             # 🧬 以下為 DNA 與 估值區 
