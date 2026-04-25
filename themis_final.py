@@ -37,12 +37,12 @@ def get_beta(info, df, spy_df):
     return "1.00" 
 
 # =========================================================================
-# 🛸 爺爺嘅外掛資料庫 (全資產覆蓋)
+# 🛸 爺爺嘅外掛資料庫：已將【個股】與【ETF】完美拆分獨立
 # =========================================================================
 HK_STOCK_MAP = {
     "1. 互聯網巨頭": "0700.HK 9988.HK 3690.HK 1810.HK 9618.HK 1024.HK 9888.HK 0772.HK 0020.HK 0241.HK 0136.HK 1999.HK 2018.HK 3888.HK 2142.HK 1896.HK 0777.HK 0113.HK 0590.HK 1980.HK 1797.HK 6618.HK 2400.HK 0285.HK".split(),
     "2. 半導體與芯片": "0981.HK 1347.HK 0285.HK 1478.HK 1833.HK 0522.HK 0732.HK 2382.HK 2018.HK 0099.HK 1385.HK 1138.HK 1910.HK 6088.HK 3898.HK 6123.HK 3389.HK".split(),
-    "3. 新新能源車與整車": "1211.HK 2015.HK 9866.HK 9868.HK 0175.HK 2333.HK 1114.HK 0489.HK 3606.HK 0867.HK 1316.HK 1958.HK 1585.HK 0315.HK 1274.HK 2150.HK 1122.HK 3808.HK 9863.HK".split(),
+    "3. 新能源車與整車": "1211.HK 2015.HK 9866.HK 9868.HK 0175.HK 2333.HK 1114.HK 0489.HK 3606.HK 0867.HK 1316.HK 1958.HK 1585.HK 0315.HK 1274.HK 2150.HK 1122.HK 3808.HK 9863.HK".split(),
     "4. 重型工業與機械": "1133.HK 1072.HK 1888.HK 1286.HK 3399.HK 1157.HK 2727.HK 1727.HK 6030.HK 0598.HK 0165.HK 0350.HK 1071.HK 1839.HK 1866.HK 0316.HK 0148.HK 1651.HK 1829.HK 1044.HK".split(),
     "5. 國有大行與金融": "0005.HK 0939.HK 1398.HK 3988.HK 2318.HK 2388.HK 0011.HK 3968.HK 3328.HK 0998.HK 0023.HK 2016.HK 1658.HK 6198.HK 0410.HK 6066.HK 1551.HK 1963.HK 1988.HK 3866.HK".split(),
     "6. 基礎化工與材料": "0148.HK 1651.HK 1378.HK 3360.HK 1963.HK 0860.HK 1282.HK 1387.HK 0386.HK 1812.HK 2128.HK 1126.HK 0268.HK 0338.HK 2009.HK 3389.HK 1008.HK 1898.HK 3993.HK 0868.HK".split(),
@@ -122,7 +122,7 @@ HK_ETF_MAP = {
     "E2. 國央企與高息紅利": "3110.HK 3115.HK 3046.HK 3141.HK 3432.HK 2836.HK 3010.HK".split(),
     "E3. A股寬基 (滬深/A50)": "3188.HK 2822.HK 2823.HK 3100.HK 3010.HK 3153.HK 3173.HK 83188.HK 2833.HK".split(),
     "E4. 大中華科技與新經濟": "3134.HK 3124.HK 3136.HK 2843.HK 3191.HK".split(),
-    "E5. 新新能源與半導體 (A股)": "2806.HK 2809.HK 3122.HK 3069.HK 3088.HK 3132.HK".split(),
+    "E5. 新能源與半導體 (A股)": "2806.HK 2809.HK 3122.HK 3069.HK 3088.HK 3132.HK".split(),
     "E6. 醫藥與消費 (A股)": "2826.HK 3133.HK 3145.HK 3061.HK".split(),
     "E7. 商品與貴金屬 (黃金/石油)": "2840.HK 3081.HK 3117.HK 3132.HK".split(),
     "E8. 環球市場 (美/日/印)": "3140.HK 2834.HK 3126.HK 3155.HK 2814.HK".split(),
@@ -173,7 +173,7 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # 3. 側邊欄控制
-st.sidebar.markdown("## 🛰️ 戰術控制台 (V72.0)")
+st.sidebar.markdown("## 🛰️ 戰術控制台 (V73.0)")
 app_mode = st.sidebar.radio("請選擇操作", [
     "🚀 個股深度透視", 
     "📡 個股版塊拔河熱力圖", 
@@ -249,22 +249,23 @@ if app_mode == "🚀 個股深度透視":
             # -------------------------------------------------------------
             def get_pulse_fig(metric_type):
                 try:
-                    pulse_df = df.tail(20).copy() # ✅ 避震器：填補假期空白
-                    avg_vol = df['Volume'].tail(252).mean() # ✅ 成交量大底
-                    if avg_vol == 0 or np.isnan(avg_vol): avg_vol = 1 # 防除零
+                    pulse_df = df.tail(20).copy()
+                    avg_vol = df['Volume'].tail(252).mean()
+                    if avg_vol == 0 or np.isnan(avg_vol): avg_vol = 1
                     
                     if metric_type == "RS":
-                        # ✅ 爺爺修正術：修正 RS 脈衝，使其反映【相對強弱線】本身的脈衝
-                        pulse_df['RS_Line'] = pulse_df['Close'] / spy_aligned.tail(20) # 計算 20 日 RS Line
-                        rs_line_ret = pulse_df['RS_Line'].pct_change().fillna(0).values # 計算 RS Line 的回報
-                        pulse_vals = rs_line_ret * 500 # 將 RS Line 的回報脈衝可視化 (系數 500)
+                        # ✅ 爺爺終極修正：每日 20 天滾動 RS 分數變化 (徹底分離 SE)
+                        df_20d_ret = df['Close'] / df['Close'].shift(20)
+                        spy_20d_ret = spy_aligned / spy_aligned.shift(20)
+                        daily_rs_score = 50 + (df_20d_ret - spy_20d_ret) * 100
+                        pulse_vals = daily_rs_score.diff().tail(20).fillna(0).values * 15 # x15 放大視覺
                     elif metric_type == "EJ":
-                        vol_ratio = (pulse_df['Volume'] / avg_vol).values # ✅ EJ 核心：成交量比
-                        direction = np.where(pulse_df['Close'] >= pulse_df['Open'], 1, -1) # ✅EJ 方向：升紅跌綠
-                        pulse_vals = vol_ratio * direction * 50 # ✅ 將成交量比脈衝可視化 (系數 50)
+                        vol_ratio = (pulse_df['Volume'] / avg_vol).values
+                        direction = np.where(pulse_df['Close'] >= pulse_df['Open'], 1, -1)
+                        pulse_vals = vol_ratio * direction * 50 
                     else: 
-                        ret_asset = pulse_df['Close'].pct_change().fillna(0).values # ✅ SE 核心：個股自身回報
-                        pulse_vals = ret_asset * 200 # ✅ 將回報脈衝可視化 (系數 200)
+                        ret_asset = pulse_df['Close'].pct_change().fillna(0).values
+                        pulse_vals = ret_asset * 200
 
                     colors = ['#00FFCC' if v >= 0 else '#FF4B4B' for v in pulse_vals]
                     fig = go.Figure(go.Bar(x=list(range(len(pulse_vals))), y=pulse_vals, marker_color=colors, hoverinfo='skip'))
