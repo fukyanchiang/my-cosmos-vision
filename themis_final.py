@@ -173,7 +173,7 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # 3. 側邊欄控制
-st.sidebar.markdown("## 🛰️ 戰術控制台 (V79.0 集中度神髓版)")
+st.sidebar.markdown("## 🛰️ 戰術控制台 (V80.0 終極版)")
 app_mode = st.sidebar.radio("請選擇操作", [
     "🚀 個股深度透視", 
     "📡 個股版塊拔河熱力圖", 
@@ -324,7 +324,7 @@ if app_mode == "🚀 個股深度透視":
                 st.plotly_chart(get_pulse_fig(se_pulse_vals), use_container_width=True, theme=None, config={'displayModeBar': False}, key="pulse_se_chart")
 
             # -------------------------------------------------------------
-            # 🌊 爺爺終極武器：主力資金池 (全圖表化 + 集中度)
+            # 🌊 爺爺終極武器：主力資金池 (全圖表化 + 集中度白話文版)
             # -------------------------------------------------------------
             try:
                 mf_df = df.tail(41).copy()
@@ -380,7 +380,7 @@ if app_mode == "🚀 個股深度透視":
 
                 obv_pct_color = "#00FF00" if obv_pct >= 0 else "#FF4B4B"
 
-                # === 集中度邏輯 ===
+                # === 集中度邏輯 (V80.0 白話文解碼) ===
                 daily_abs_flow = abs(mf_df['Net_Flow'].tail(20))
                 total_abs_flow = daily_abs_flow.sum()
                 conc_pct = (daily_abs_flow.max() / total_abs_flow) * 100 if total_abs_flow > 0 else 0
@@ -388,18 +388,21 @@ if app_mode == "🚀 個股深度透視":
                 if conc_pct > 35:
                     conc_level, conc_color = "⚡ 高度集中", "#FF4B4B"
                     conc_desc = "突發消息一棍掃貨/掟貨" if curr_20d_flow > 0 else "突發一棍洗盤/撤資"
+                    conc_note = "（高度集中 / 突發一棍買入，可能是想令散戶跟風）" if curr_20d_flow > 0 else "（高度集中 / 突發一棍掟貨，可能是想引發恐慌散水）"
                 elif conc_pct > 15:
                     conc_level, conc_color = "🌿 正常分佈", "#FFD700"
                     conc_desc = "波段節奏合理推進"
+                    conc_note = "（沒有特別想偷偷買，就是公開正常買入）" if curr_20d_flow > 0 else "（沒有特別想偷偷賣，就是公開正常沽出）"
                 else:
                     conc_level, conc_color = "💎 穩定分散", "#00FFCC"
                     conc_desc = "長線大戶極度隱蔽吸籌" if curr_20d_flow > 0 else "陰跌無量派發"
+                    conc_note = "（不想被人知道偷偷買入）" if curr_20d_flow > 0 else "（不想被人知道偷偷派發）"
 
                 conc_bar_html = f"""
                 <div style='margin-top: 20px; padding-top: 15px; border-top: 1px dashed #444;'>
                     <div style='display:flex; justify-content:space-between; margin-bottom:8px;'>
                         <span style='color:#FFF; font-weight:bold; font-size:1.1rem;'>🎯 資金部署集中度：<span style='color:{conc_color};'>{conc_level} ({conc_desc})</span></span>
-                        <span style='color:#ccc; font-size:1rem;'>極值佔比: {conc_pct:.1f}%</span>
+                        <span style='color:#ccc; font-size:1rem;'>極值佔比: {conc_pct:.1f}% <span style='color:{conc_color}; font-weight:bold;'>{conc_note}</span></span>
                     </div>
                     <div style='width:100%; background-color:#222; border-radius:10px; height:12px; overflow:hidden; border: 1px solid #444;'>
                         <div style='width:{conc_pct}%; background-color:{conc_color}; height:100%; box-shadow: 0 0 10px {conc_color};'></div>
