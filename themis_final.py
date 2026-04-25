@@ -173,7 +173,7 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # 3. 側邊欄控制
-st.sidebar.markdown("## 🛰️ 戰術控制台 (V80.0 終極版)")
+st.sidebar.markdown("## 🛰️ 戰術控制台 (V81.0 完美冠名版)")
 app_mode = st.sidebar.radio("請選擇操作", [
     "🚀 個股深度透視", 
     "📡 個股版塊拔河熱力圖", 
@@ -257,7 +257,10 @@ if app_mode == "🚀 個股深度透視":
                     fig.update_layout(height=130, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', xaxis=dict(visible=False), yaxis=dict(visible=False))
                     return fig
 
-            st.markdown(f"""<div class='main-title'>環球資產透維評估儀 [{ticker}]</div>""", unsafe_allow_html=True)
+            # ⚡ 爺爺微創手術：加入公司名稱
+            asset_name = info.get('shortName', info.get('longName', ''))
+            name_html = f"<span style='font-size: 1.8rem; color: #AAAAAA; font-weight: 500; margin-left: 15px;'>{asset_name}</span>" if asset_name else ""
+            st.markdown(f"""<div class='main-title'>環球資產透維評估儀 [{ticker}]{name_html}</div>""", unsafe_allow_html=True)
             
             # 🚀 第一層：全新 3 大格仔佈局 (黃金比例切割)
             c1, c2, c3 = st.columns([1, 1.2, 1.6])
