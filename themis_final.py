@@ -37,7 +37,7 @@ def get_beta(info, df, spy_df):
     return "1.00" 
 
 # =========================================================================
-# 🛸 爺爺嘅外掛資料庫 (V91.0 完美還原海量板塊 + ETF)
+# 🛸 爺爺嘅外掛資料庫 (V92.0 完美還原海量板塊 + ETF)
 # =========================================================================
 HK_STOCK_MAP = {
     "1. 互聯網巨頭": "0700.HK 9988.HK 3690.HK 1810.HK 9618.HK 1024.HK 9888.HK 0772.HK 0020.HK 0241.HK 0136.HK 1999.HK 2018.HK 3888.HK 2142.HK 1896.HK 0777.HK 0113.HK 0590.HK 1980.HK 1797.HK 6618.HK 2400.HK 0285.HK".split(),
@@ -168,7 +168,7 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # 3. 側邊欄控制
-st.sidebar.markdown("## 🛰️ 戰術控制台 (V91.0 完美市寬版)")
+st.sidebar.markdown("## 🛰️ 戰術控制台 (V92.0 系統復活版)")
 app_mode = st.sidebar.radio("請選擇操作", [
     "🚀 個股深度透視", 
     "📡 個股版塊拔河熱力圖", 
@@ -179,7 +179,7 @@ app_mode = st.sidebar.radio("請選擇操作", [
 ])
 
 # =========================================================================
-# 🚀 模式 A：個股深度透視 (加入軍規級潛伏方程式提醒 + 市寬/MA開關)
+# 🚀 模式 A：個股深度透視 
 # =========================================================================
 if app_mode == "🚀 個股深度透視":
     ticker = st.sidebar.text_input("🚀 輸入資產代號", "6869.HK").upper()
@@ -313,7 +313,7 @@ if app_mode == "🚀 個股深度透視":
                     st.markdown("</div>", unsafe_allow_html=True)
                 except: pass
 
-                # ✅ 爺爺終極修復：加返大盤市寬線與平均線開關掣！
+                # ✅ 爺爺終極修復 Bug：加入市寬/平均線開關，並確保對齊不出錯！
                 st.write("### 📊 摩訶釋達・能量與籌碼透視圖 (支持局部縮放與還原)")
                 
                 c_btn1, c_btn2 = st.columns(2)
@@ -329,14 +329,24 @@ if app_mode == "🚀 個股深度透視":
                 if show_ma:
                     fig.add_trace(go.Scatter(x=dates, y=recent['Close'].rolling(20).mean(), mode='lines', name='20MA', line=dict(color='#FFD700', width=1.5)), row=1, col=1)
                     fig.add_trace(go.Scatter(x=dates, y=recent['Close'].rolling(50).mean(), mode='lines', name='50MA', line=dict(color='#BC13FE', width=1.5)), row=1, col=1)
-                    
+                
+                # 🚀 爺爺無敵抗 Crash 技術
                 if show_breadth:
                     bench_sym_c = "^HSI" if ".HK" in ticker else "SPY"
                     try:
-                        bench_df_c = yf.Ticker(bench_sym_c).history(period="1y")['Close'].reindex(recent.index).ffill().bfill()
-                        norm_factor = recent['Close'].iloc[0] / bench_df_c.iloc[0] if len(recent)>0 and len(bench_df_c)>0 and bench_df_c.iloc[0]!=0 else 1
-                        breadth_line = bench_df_c * norm_factor
-                        fig.add_trace(go.Scatter(x=dates, y=breadth_line, mode='lines', name=f'{bench_sym_c} 基準線', line=dict(color='#00FFFF', width=2, dash='dot')), row=1, col=1)
+                        bench_df_c = yf.Ticker(bench_sym_c).history(period="1y")
+                        if not bench_df_c.empty:
+                            if bench_df_c.index.tz is not None: bench_df_c.index = bench_df_c.index.tz_localize(None)
+                            bench_df_c.index = bench_df_c.index.normalize()
+                            
+                            temp_df = pd.DataFrame(index=recent.index)
+                            temp_df['bench'] = bench_df_c['Close']
+                            temp_df['bench'] = temp_df['bench'].ffill().bfill()
+                            
+                            if len(temp_df) > 0 and not pd.isna(temp_df['bench'].iloc[0]) and temp_df['bench'].iloc[0] != 0:
+                                norm_factor = recent['Close'].iloc[0] / temp_df['bench'].iloc[0]
+                                breadth_line = temp_df['bench'] * norm_factor
+                                fig.add_trace(go.Scatter(x=dates, y=breadth_line.values, mode='lines', name=f'{bench_sym_c} 市寬基準', line=dict(color='#00FFFF', width=2, dash='dot')), row=1, col=1)
                     except: pass
 
                 fig.add_trace(go.Bar(x=dates, y=recent['Volume'], marker_color=['#00FF00' if recent['Close'].iloc[i] >= recent['Open'].iloc[i] else '#FF0000' for i in range(len(recent))]), row=2, col=1)
