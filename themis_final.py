@@ -22,7 +22,6 @@ def safe_s(info, keys, suffix="", alt="N/A"):
             except: pass 
     return alt 
 
-# 🚀 爺爺補完：Beta 引擎
 def get_beta(info, df, spy_df): 
     b = info.get('beta') 
     if b is not None and str(b).lower() not in ['nan', 'none', '']: return f"{float(b):.2f}" 
@@ -202,7 +201,7 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # 3. 側邊欄控制
-st.sidebar.markdown("## 🛰️ 戰術控制台 (V116.0 滿血版)")
+st.sidebar.markdown("## 🛰️ 戰術控制台 (V117.0 滿血加強版)")
 app_mode = st.sidebar.radio("請選擇操作", [
     "🚀 個股深度透視", 
     "🛡️ 環球市底大師指揮塔", 
@@ -346,7 +345,7 @@ elif app_mode == "🚀 個股深度透視":
             df = asset.history(period="2y").dropna(subset=['Close', 'Volume'])
             spy = yf.Ticker("SPY").history(period="2y").dropna(subset=['Close'])
             
-            b_sym_plot = "2800.HK" if ".HK" in ticker else "SPY"
+            b_sym_plot = "^HSI" if ".HK" in ticker else "SPY"
             b_df_plot = yf.Ticker(b_sym_plot).history(period="2y").dropna()
             if not b_df_plot.empty:
                 b_df_plot['20MA'] = b_df_plot['Close'].rolling(20).mean().bfill()
