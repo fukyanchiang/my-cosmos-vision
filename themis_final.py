@@ -37,7 +37,7 @@ def get_beta(info, df, spy_df):
     return "1.00" 
 
 # =========================================================================
-# 🛸 爺爺嘅外掛資料庫 (V93.0 完美還原海量板塊 + ETF)
+# 🛸 爺爺嘅外掛資料庫 (V94.0 完美還原海量板塊 + ETF)
 # =========================================================================
 HK_STOCK_MAP = {
     "1. 互聯網巨頭": "0700.HK 9988.HK 3690.HK 1810.HK 9618.HK 1024.HK 9888.HK 0772.HK 0020.HK 0241.HK 0136.HK 1999.HK 2018.HK 3888.HK 2142.HK 1896.HK 0777.HK 0113.HK 0590.HK 1980.HK 1797.HK 6618.HK 2400.HK 0285.HK".split(),
@@ -168,7 +168,7 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # 3. 側邊欄控制
-st.sidebar.markdown("## 🛰️ 戰術控制台 (V93.0 防彈市寬版)")
+st.sidebar.markdown("## 🛰️ 戰術控制台 (V94.0 防彈市寬版)")
 app_mode = st.sidebar.radio("請選擇操作", [
     "🚀 個股深度透視", 
     "📡 個股版塊拔河熱力圖", 
@@ -313,7 +313,7 @@ if app_mode == "🚀 個股深度透視":
                     st.markdown("</div>", unsafe_allow_html=True)
                 except: pass
 
-                # ✅ 爺爺 V93.0 防彈玻璃罩：確保圖表點崩潰都唔會影響成個系統！
+                # 🚀 爺爺無敵防彈裝甲：杜絕一切 Plotly / 數據陣列 Crash！
                 st.write("### 📊 摩訶釋達・能量與籌碼透視圖 (支持局部縮放與還原)")
                 try:
                     c_btn1, c_btn2 = st.columns(2)
@@ -322,31 +322,45 @@ if app_mode == "🚀 個股深度透視":
                     with c_btn2:
                         show_ma = st.checkbox("📈 顯示移動平均線 (20日, 50日) (預設關閉)", value=False)
                         
-                    recent = df.tail(120).copy(); dates = recent.index.strftime('%Y-%m-%d')
-                    fig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.7, 0.3], vertical_spacing=0.05)
-                    fig.add_trace(go.Candlestick(x=dates, open=recent['Open'], high=recent['High'], low=recent['Low'], close=recent['Close'], name='股價'), row=1, col=1)
-                    
-                    if show_ma:
-                        ma20 = recent['Close'].rolling(20).mean().bfill()
-                        ma50 = recent['Close'].rolling(50).mean().bfill()
-                        fig.add_trace(go.Scatter(x=dates, y=ma20, mode='lines', name='20MA', line=dict(color='#FFD700', width=1.5)), row=1, col=1)
-                        fig.add_trace(go.Scatter(x=dates, y=ma50, mode='lines', name='50MA', line=dict(color='#BC13FE', width=1.5)), row=1, col=1)
-                    
-                    if show_breadth:
-                        # 🚀 直接借用最頂層對齊好嘅數據，杜絕網絡下載導致嘅崩潰！
-                        recent_spy = spy_aligned.tail(120)
-                        if len(recent_spy) > 0 and recent_spy.iloc[0] != 0:
-                            norm_factor = recent['Close'].iloc[0] / recent_spy.iloc[0]
-                            breadth_line = recent_spy * norm_factor
-                            fig.add_trace(go.Scatter(x=dates, y=breadth_line.values, mode='lines', name='大盤基準線', line=dict(color='#00FFFF', width=2, dash='dot')), row=1, col=1)
+                    recent = df.tail(120).copy()
+                    if not recent.empty:
+                        dates = recent.index.strftime('%Y-%m-%d')
+                        fig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.7, 0.3], vertical_spacing=0.05)
+                        
+                        o_col = recent['Open'].values if 'Open' in recent.columns else recent['Close'].values
+                        c_col = recent['Close'].values
+                        h_col = recent['High'].values if 'High' in recent.columns else c_col
+                        l_col = recent['Low'].values if 'Low' in recent.columns else c_col
+                        v_col = recent['Volume'].values if 'Volume' in recent.columns else np.zeros(len(recent))
+                        
+                        fig.add_trace(go.Candlestick(x=dates, open=o_col, high=h_col, low=l_col, close=c_col, name='股價'), row=1, col=1)
+                        
+                        if show_ma:
+                            ma20 = recent['Close'].rolling(20).mean().bfill()
+                            ma50 = recent['Close'].rolling(50).mean().bfill()
+                            fig.add_trace(go.Scatter(x=dates, y=ma20, mode='lines', name='20MA', line=dict(color='#FFD700', width=1.5)), row=1, col=1)
+                            fig.add_trace(go.Scatter(x=dates, y=ma50, mode='lines', name='50MA', line=dict(color='#BC13FE', width=1.5)), row=1, col=1)
+                        
+                        if show_breadth:
+                            recent_spy = spy_aligned.tail(len(recent))
+                            if len(recent_spy) > 0 and recent_spy.iloc[0] != 0 and c_col[0] != 0:
+                                norm_factor = c_col[0] / recent_spy.iloc[0]
+                                breadth_line = recent_spy * norm_factor
+                                fig.add_trace(go.Scatter(x=dates, y=breadth_line.values, mode='lines', name='大盤基準線', line=dict(color='#00FFFF', width=2, dash='dot')), row=1, col=1)
 
-                    fig.add_trace(go.Bar(x=dates, y=recent['Volume'], marker_color=['#00FF00' if recent['Close'].iloc[i] >= recent['Open'].iloc[i] else '#FF0000' for i in range(len(recent))]), row=2, col=1)
-                    counts, bins = np.histogram(recent['Close'], bins=20, weights=recent['Volume'])
-                    fig.add_trace(go.Bar(y=(bins[:-1] + bins[1:]) / 2, x=counts, orientation='h', marker_color='rgba(0, 255, 204, 0.4)', xaxis='x3', yaxis='y1'))
-                    fig.update_layout(template="plotly_dark", paper_bgcolor='#0e1117', plot_bgcolor='#0e1117', height=750, showlegend=False, xaxis_rangeslider_visible=False, xaxis=dict(type='category', showgrid=False), yaxis=dict(showgrid=True, gridcolor='#333'), xaxis3=dict(overlaying='x', side='top', range=[0, max(counts)*1.1], showgrid=False, showticklabels=False))
-                    st.plotly_chart(fig, use_container_width=True, theme=None, config={'scrollZoom': True, 'displayModeBar': True, 'displaylogo': False, 'modeBarButtonsToAdd':['drawline','drawrect','eraseshape']})
+                        colors = ['#00FF00' if c_col[i] >= o_col[i] else '#FF0000' for i in range(len(recent))]
+                        fig.add_trace(go.Bar(x=dates, y=v_col, marker_color=colors), row=2, col=1)
+                        
+                        counts, bins = np.histogram(c_col[~np.isnan(c_col)], bins=20, weights=v_col[~np.isnan(v_col)])
+                        max_c = max(counts) if len(counts) > 0 and max(counts) > 0 else 1
+                        
+                        fig.add_trace(go.Bar(y=(bins[:-1] + bins[1:]) / 2, x=counts, orientation='h', marker_color='rgba(0, 255, 204, 0.4)', xaxis='x3', yaxis='y1'))
+                        
+                        fig.update_layout(template="plotly_dark", paper_bgcolor='#0e1117', plot_bgcolor='#0e1117', height=750, showlegend=False, xaxis_rangeslider_visible=False, xaxis=dict(type='category', showgrid=False), yaxis=dict(showgrid=True, gridcolor='#333'), xaxis3=dict(overlaying='x', side='top', range=[0, max_c*1.1], showgrid=False, showticklabels=False))
+                        
+                        st.plotly_chart(fig, use_container_width=True, theme=None, config={'scrollZoom': True, 'displayModeBar': True, 'displaylogo': False, 'modeBarButtonsToAdd':['drawline','drawrect','eraseshape']})
                 except Exception as e:
-                    st.error(f"⚠️ 圖表系統載入發生異常，請重試或檢查資產代號。({e})")
+                    st.error(f"⚠️ 摩訶釋達圖表防彈系統啟動：攔截到錯誤 ({e})。請確認該資產有足夠歷史數據。")
 
                 # DNA/估值/持倉 
                 st.write("---"); d_c1, d_c2 = st.columns([1, 2.5]); is_etf = info.get('quoteType') == 'ETF'; real_roe = info.get('returnOnEquity')
