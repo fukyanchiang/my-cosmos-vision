@@ -26,7 +26,6 @@ def get_beta(info, df, spy_df):
     b = info.get('beta') 
     if b is not None and str(b).lower() not in ['nan', 'none', '']: return f"{float(b):.2f}" 
     try: 
-        if spy_df is None or spy_df.empty or 'Close' not in spy_df.columns: return "1.00"
         df_aligned, spy_aligned = df['Close'].align(spy_df['Close'], join='inner') 
         asset_ret = df_aligned.pct_change().dropna().tail(252) 
         spy_ret = spy_aligned.pct_change().dropna().tail(252) 
@@ -169,7 +168,7 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # 3. 側邊欄控制
-st.sidebar.markdown("## 🛰️ 戰術控制台 (V91.0 終極防彈版)")
+st.sidebar.markdown("## 🛰️ 戰術控制台 (V91.0 完美市寬版)")
 app_mode = st.sidebar.radio("請選擇操作", [
     "🚀 個股深度透視", 
     "📡 個股版塊拔河熱力圖", 
@@ -180,38 +179,29 @@ app_mode = st.sidebar.radio("請選擇操作", [
 ])
 
 # =========================================================================
-# 🚀 模式 A：個股深度透視 (加裝防彈 SPY 引擎，絕不崩潰)
+# 🚀 模式 A：個股深度透視 (加入軍規級潛伏方程式提醒 + 市寬/MA開關)
 # =========================================================================
 if app_mode == "🚀 個股深度透視":
     ticker = st.sidebar.text_input("🚀 輸入資產代號", "6869.HK").upper()
     with st.spinner(f"⏳ 系統正在切換引擎，重新為您下載海量數據及繪製摩訶圖... 由於運算龐大，請乖孫耐心等候數秒 ☕🚀"):
         try:
             asset = yf.Ticker(ticker); info = asset.info
-            df = asset.history(period="2y")
+            df = asset.history(period="2y").dropna(subset=['Close', 'Volume'])
+            spy = yf.Ticker("SPY").history(period="2y").dropna(subset=['Close'])
             
-            if not df.empty and 'Close' in df.columns and 'Volume' in df.columns:
-                df = df.dropna(subset=['Close', 'Volume'])
+            if not df.empty:
                 if df.index.tz is not None: df.index = df.index.tz_localize(None)
                 df.index = df.index.normalize()
+                if spy.index.tz is not None: spy.index = spy.index.tz_localize(None)
+                spy.index = spy.index.normalize()
                 curr_p = df['Close'].iloc[-1]
-                
-                # 🛡️ 爺爺嘅「防彈裝甲」：確保 SPY 就算斷線都絕對唔會 NoneType 崩潰！
-                spy_aligned = pd.Series(1.0, index=df.index) 
-                try:
-                    spy = yf.Ticker("SPY").history(period="2y")
-                    if not spy.empty and 'Close' in spy.columns:
-                        if spy.index.tz is not None: spy.index = spy.index.tz_localize(None)
-                        spy.index = spy.index.normalize()
-                        temp_spy = spy['Close'].reindex(df.index)
-                        if hasattr(temp_spy, 'ffill'): temp_spy = temp_spy.ffill().bfill()
-                        if temp_spy is not None: spy_aligned = temp_spy.fillna(1.0)
-                except: pass
                 
                 c_tail = df['Close'].tail(125); days = np.arange(len(c_tail))
                 slope, intercept = np.polyfit(days, c_tail, 1); pred = intercept + slope * len(days)
                 mom = (curr_p / pred) if pred > 0 else 1.0; v_ann = max(0.001, c_tail.pct_change().std() * np.sqrt(252))
                 cx_val = safe_n(((slope * 252) / c_tail.mean() / v_ann) * 29 * mom, 50.0)
 
+                spy_aligned = spy['Close'].reindex(df.index).ffill().bfill() 
                 crs_val = safe_n(50 + ((curr_p / df['Close'].iloc[-63]) - (spy_aligned.iloc[-1] / spy_aligned.iloc[-63])) * 100, 50.0) if len(df) > 63 else 50.0
                 v21 = df['Volume'].tail(21).mean(); v252 = df['Volume'].tail(252).mean(); cej_s = safe_n((v21 / max(v252, 1)) * 100, 50.0)
                 se_s = safe_n(50 + (((curr_p / df['Close'].iloc[-5]) - 1) * 1200), 50.0) if len(df) > 5 else 50.0
@@ -343,15 +333,10 @@ if app_mode == "🚀 個股深度透視":
                 if show_breadth:
                     bench_sym_c = "^HSI" if ".HK" in ticker else "SPY"
                     try:
-                        bench_df_c = yf.Ticker(bench_sym_c).history(period="1y")
-                        if not bench_df_c.empty and 'Close' in bench_df_c.columns:
-                            b_line_raw = bench_df_c['Close'].reindex(recent.index)
-                            if hasattr(b_line_raw, 'ffill'): b_line_raw = b_line_raw.ffill().bfill()
-                            if b_line_raw is not None:
-                                b_line_raw = b_line_raw.fillna(1.0)
-                                norm_factor = recent['Close'].iloc[0] / b_line_raw.iloc[0] if len(recent)>0 and b_line_raw.iloc[0]!=0 else 1
-                                breadth_line = b_line_raw * norm_factor
-                                fig.add_trace(go.Scatter(x=dates, y=breadth_line, mode='lines', name=f'{bench_sym_c} 基準線', line=dict(color='#00FFFF', width=2, dash='dot')), row=1, col=1)
+                        bench_df_c = yf.Ticker(bench_sym_c).history(period="1y")['Close'].reindex(recent.index).ffill().bfill()
+                        norm_factor = recent['Close'].iloc[0] / bench_df_c.iloc[0] if len(recent)>0 and len(bench_df_c)>0 and bench_df_c.iloc[0]!=0 else 1
+                        breadth_line = bench_df_c * norm_factor
+                        fig.add_trace(go.Scatter(x=dates, y=breadth_line, mode='lines', name=f'{bench_sym_c} 基準線', line=dict(color='#00FFFF', width=2, dash='dot')), row=1, col=1)
                     except: pass
 
                 fig.add_trace(go.Bar(x=dates, y=recent['Volume'], marker_color=['#00FF00' if recent['Close'].iloc[i] >= recent['Open'].iloc[i] else '#FF0000' for i in range(len(recent))]), row=2, col=1)
@@ -453,13 +438,7 @@ elif "雷達" in app_mode:
     s_choice = st.sidebar.selectbox("2. 選擇掃描範圍", ["🌐 啟動全星系大規模搜索"] + list(target_dict.keys()))
     
     if st.sidebar.button("📡 發射撒網尋龍電波！"):
-        bench_df_fallback = pd.DataFrame({'Close': [1.0]*500})
-        try:
-            temp_bench = yf.Ticker(bench_sym).history(period="2y").dropna()
-            if not temp_bench.empty and 'Close' in temp_bench.columns: bench_data = temp_bench
-            else: bench_data = bench_df_fallback
-        except: bench_data = bench_df_fallback
-        
+        bench_data = yf.Ticker(bench_sym).history(period="2y").dropna()
         tickers_to_scan = list(set([t for sub in target_dict.values() for t in sub])) if "全星系" in s_choice else target_dict[s_choice]
         
         found = False; pb = st.progress(0)
@@ -477,13 +456,7 @@ elif "雷達" in app_mode:
                     if p_trend>=0: state = 1 if obv_pct>20 else 2
                     else: state = 7 if obv_pct>20 else 8
                     
-                    curr_p = d['Close'].iloc[-1]
-                    # 防彈 RS 計算
-                    crs = 50.0
-                    if len(bench_data) > 63 and len(d) > 60:
-                        try: crs = 50+((curr_p/d['Close'].iloc[-63])-(bench_data['Close'].iloc[-1]/bench_data['Close'].iloc[-63]))*100
-                        except: pass
-                        
+                    curr_p = d['Close'].iloc[-1]; crs = 50+((curr_p/d['Close'].iloc[-63])-(bench_data['Close'].iloc[-1]/bench_data['Close'].iloc[-63]))*100 if len(d)>60 else 50
                     ej = (d['Volume'].tail(21).mean()/max(d['Volume'].tail(252).mean() if len(d)>200 else d['Volume'].mean(),1))*100
                     se = 50+(((curr_p/d['Close'].iloc[-5])-1)*1200)
 
@@ -495,7 +468,7 @@ elif "雷達" in app_mode:
         if not found: st.warning("💤 雷達掃描完畢，目前未有起飛目標。(此過濾條件為潛龍必勝模式，要求大戶真實佈局)")
 
 # =========================================================================
-# 📡 拔河熱力圖 (修復白色字體)
+# 📡 拔河熱力圖 
 # =========================================================================
 elif "熱力圖" in app_mode:
     st.markdown(f"<h1 class='main-title'>{app_mode}</h1>", unsafe_allow_html=True)
@@ -516,7 +489,6 @@ elif "熱力圖" in app_mode:
             if results:
                 df_rs = pd.DataFrame(results).sort_values("RS強弱", ascending=True)
                 fig = go.Figure(go.Bar(x=df_rs["RS強弱"], y=df_rs["版塊"], orientation='h', marker=dict(color=df_rs["RS強弱"], colorscale='Portland')))
-                # ✅ 修正熱力圖字體為白色
                 fig.update_layout(template="plotly_dark", paper_bgcolor='#0e1117', plot_bgcolor='#0e1117', font=dict(color='white'), height=700)
                 st.plotly_chart(fig, use_container_width=True, theme=None, config={'displayModeBar': False})
         except: pass
