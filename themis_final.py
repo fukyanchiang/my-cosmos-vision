@@ -37,7 +37,7 @@ def get_beta(info, df, spy_df):
     return "1.00" 
 
 # =========================================================================
-# 🛸 爺爺嘅外掛資料庫 (包含市寬系統專用股票池)
+# 🛸 爺爺嘅外掛資料庫 
 # =========================================================================
 HK_STOCK_MAP = {
     "1. 互聯網巨頭": "0700.HK 9988.HK 3690.HK 1810.HK 9618.HK 1024.HK 9888.HK 0772.HK 0020.HK 0241.HK 0136.HK 1999.HK 2018.HK 3888.HK 2142.HK 1896.HK 0777.HK 0113.HK 0590.HK 1980.HK 1797.HK 6618.HK 2400.HK 0285.HK".split(),
@@ -127,13 +127,18 @@ US_ETF_MAP = {
     "E2. Country ETFs (國家/新興)": "EWJ EWG EWU EWQ EWP EWI EWL EWN EWD EWK EWO EWS EWA EWC EWM EWH EWT EWY EZA ILF INDA EPI RSX EWZ ECH EPU EWW TUR EPHE THD IDX EIDO VNM MCHI FXI KWEB ARGT".split()
 }
 
-# 🚀 爺爺防彈市寬計算引擎 (100% 解決計 1 隻 Bug)
+# 🚀 爺爺防彈市寬計算引擎 (V110.0 破解 0.0% Bug 引擎)
 @st.cache_data(ttl=3600)
 def get_breadth_data(tickers):
-    if not tickers: return {}
+    if not tickers: return {'20MA':0, '50MA':0, '150MA':0, '200MA':0, 'valid':1, 'above_50_list': []}
     try:
+        # 強制擷取正確 Close 數據，無視 MultiIndex 改變
         data = yf.download(tickers, period="1y", threads=True, show_errors=False)
-        closes = data['Close'] if 'Close' in data else pd.DataFrame()
+        if isinstance(data.columns, pd.MultiIndex):
+            closes = data.xs('Close', level=0, axis=1) if 'Close' in data.columns.levels[0] else pd.DataFrame()
+        else:
+            closes = pd.DataFrame({tickers[0]: data['Close']}) if 'Close' in data.columns else data
+            
         stats = {'20MA':0, '50MA':0, '150MA':0, '200MA':0, 'valid':0, 'above_50_list': []}
         
         for t in tickers:
@@ -148,16 +153,21 @@ def get_breadth_data(tickers):
                 if len(c) >= 150 and curr > c.tail(150).mean(): stats['150MA'] += 1
                 if len(c) >= 200 and curr > c.tail(200).mean(): stats['200MA'] += 1
                 stats['valid'] += 1
-        stats['valid'] = max(1, stats['valid'])
+                
+        stats['valid'] = max(1, stats['valid']) # 最少為1防報錯
         return stats
-    except: return {'20MA':0, '50MA':0, '150MA':0, '200MA':0, 'valid':1, 'above_50_list': []}
+    except Exception as e: 
+        return {'20MA':0, '50MA':0, '150MA':0, '200MA':0, 'valid':1, 'above_50_list': []}
 
-# 2. 視覺裝修 (🚀 爺爺 V109.0 修復灰色字體 Bug，強制轉白色！)
+# 2. 視覺裝修 (🚀 爺爺 V110.0 終極 CSS：強制字體變白！)
 st.markdown("""
     <style>
     .stApp { background-color: #0e1117; color: white; }
-    /* 強制所有選項標籤變白色 */
+    /* 強制所有選項標籤及數據字體變純白色 */
     .stRadio label, .stCheckbox label, .stSelectbox label { color: white !important; font-weight: 500; }
+    div[data-testid="stMetricValue"] > div { color: #FFFFFF !important; font-size: 3rem !important; font-weight: 900 !important; }
+    div[data-testid="stMetricLabel"] > div { color: #00FFCC !important; font-size: 1.2rem !important; font-weight: bold !important; }
+    
     .main-title { text-align: center; color: #FFD700 !important; font-size: 3.5rem; font-weight: 900; margin-bottom: 25px; }
     .cosmos-box { background-color: #000 !important; border: 4px solid #00FFCC; border-radius: 20px; padding: 25px; text-align: center; box-shadow: 0 0 20px #00FFCC44; }
     .cosmos-label { color: #00FFCC !important; font-size: 1.8rem; font-weight: bold; margin-bottom: 10px; }
@@ -184,7 +194,7 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # 3. 側邊欄控制
-st.sidebar.markdown("## 🛰️ 戰術控制台 (V109.0 終極市寬版)")
+st.sidebar.markdown("## 🛰️ 戰術控制台 (V110.0 真白字復活版)")
 app_mode = st.sidebar.radio("請選擇操作", [
     "🚀 個股深度透視", 
     "🛡️ 環球市底大師指揮塔", 
@@ -213,7 +223,7 @@ if app_mode == "🚀 個股深度透視":
     show_b_ma200 = st.sidebar.checkbox("200市寬線", value=True)
 
 # =========================================================================
-# 🛡️ 模式 B：環球市底大師指揮塔 (爺爺全新無敵排版)
+# 🛡️ 模式 B：環球市底大師指揮塔 
 # =========================================================================
 if app_mode == "🛡️ 環球市底大師指揮塔":
     st.markdown("<h1 class='main-title'>🛡️ 環球市底大師指揮塔</h1>", unsafe_allow_html=True)
@@ -228,10 +238,10 @@ if app_mode == "🛡️ 環球市底大師指揮塔":
 
     st.write("---")
     
-    # 決定成份股與代理 ETF (保證出到成交量)
+    # 決定成份股與代理 ETF (防 Timeout 完美調配)
     if "恒指" in idx_choice: 
         ticker_sym = "2800.HK"
-        b_tickers = list(set([t for sub in HK_STOCK_MAP.values() for t in sub])) 
+        b_tickers = list(set([t for sub in HK_STOCK_MAP.values() for t in sub]))[:300] 
     elif "科指" in idx_choice: 
         ticker_sym = "3032.HK"
         b_tickers = HK_STOCK_MAP["1. 互聯網巨頭"] + HK_STOCK_MAP["2. 半導體與芯片"] + HK_STOCK_MAP["12. 消費電子硬件"] 
@@ -240,7 +250,7 @@ if app_mode == "🛡️ 環球市底大師指揮塔":
         b_tickers = "AAPL MSFT UNH JNJ XOM JPM V PG HD CVX MRK KO ABBV BAC AVGO PEP TMO COST CSCO MCD CRM DIS LIN ABT ACN AMD WFC NFLX INTC CAT".split()
     elif "標指" in idx_choice: 
         ticker_sym = "SPY"
-        b_tickers = list(set([t for sub in US_STOCK_MAP.values() for t in sub])) 
+        b_tickers = list(set([t for sub in US_STOCK_MAP.values() for t in sub]))[:350]
     elif "納市" in idx_choice: 
         ticker_sym = "QQQ"
         b_tickers = US_STOCK_MAP["2. AI與大數據雲端"] + US_STOCK_MAP["3. 基礎軟件與 SaaS"] + US_STOCK_MAP["1. 半導體設備與設計"] 
@@ -270,12 +280,12 @@ if app_mode == "🛡️ 環球市底大師指揮塔":
                     if curr_50 < curr_150 and curr_150 < past_150:
                         st.markdown("<div class='bear-warning'>🚨 警告：已進入熊市 (10周線跌穿30周線，且30周線向下) 🚨</div>", unsafe_allow_html=True)
                 
-                # 🌊 市寬百份比計算
+                # 🌊 市寬百份比計算 (極速防彈引擎)
                 b_stats = get_breadth_data(b_tickers)
                 v_count = b_stats['valid']
                 
                 st.markdown(f"### 🌊 {idx_choice.split(' ')[0]} - 內部成份股市寬健康度")
-                st.write(f"（系統共掃描 {v_count} 隻核心成份股）")
+                st.markdown(f"<div style='color:white; font-size:1.1rem; margin-bottom:15px;'>（系統真實成功掃描：<b style='color:#00FFCC;'>{v_count}</b> 隻核心代表成份股）</div>", unsafe_allow_html=True)
                 c1, c2, c3, c4 = st.columns(4)
                 c1.metric("20市寬線之上", f"{(b_stats['20MA']/v_count)*100:.1f}%")
                 c2.metric("50市寬線之上", f"{(b_stats['50MA']/v_count)*100:.1f}%")
@@ -293,7 +303,7 @@ if app_mode == "🛡️ 環球市底大師指揮塔":
 
                 fig.add_trace(go.Candlestick(x=dates, open=o_col, high=h_col, low=l_col, close=c_col, name=f'{ticker_sym} 指數'), row=1, col=1)
                 
-                # 均線區
+                # 均線區 (作為大盤基準，長開)
                 fig.add_trace(go.Scatter(x=dates, y=clean_recent['20MA'], mode='lines', name='20日線', line=dict(color='white', width=1.5)), row=1, col=1)
                 fig.add_trace(go.Scatter(x=dates, y=clean_recent['50MA'], mode='lines', name='50日線', line=dict(color='yellow', width=1.5)), row=1, col=1)
                 
@@ -470,9 +480,9 @@ elif app_mode == "🚀 個股深度透視":
                 except: pass
 
                 # =======================================================
-                # 📊 摩訶釋達圖表 (爺爺 V107.0 神級市寬重疊系統)
+                # 📊 摩訶釋達圖表 (爺爺 9大開關圖表完美重疊)
                 # =======================================================
-                st.write("### 📊 摩訶釋達・能量與籌碼透視圖 (個股均線 vs 大盤市寬重疊)")
+                st.write("### 📊 摩訶釋達・能量與籌碼透視圖 (個股均線 vs 大盤市寬疊加)")
                 try:
                     df['20MA'] = df['Close'].rolling(20).mean().bfill()
                     df['50MA'] = df['Close'].rolling(50).mean().bfill()
@@ -481,43 +491,31 @@ elif app_mode == "🚀 個股深度透視":
                     
                     recent = df.tail(120); dates = recent.index.strftime('%Y-%m-%d')
                     fig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.7, 0.3], vertical_spacing=0.05)
-                    fig.add_trace(go.Candlestick(x=dates, open=recent['Open'], high=recent['High'], low=recent['Low'], close=recent['Close'], name='個股'), row=1, col=1)
+                    fig.add_trace(go.Candlestick(x=dates, open=recent['Open'], high=recent['High'], low=recent['Low'], close=recent['Close'], name='個股股價'), row=1, col=1)
                     
-                    # 個股均線 (預設OFF)
-                    if show_s_ma20: fig.add_trace(go.Scatter(x=dates, y=recent['20MA'], mode='lines', name='個股20MA', line=dict(color='rgba(255,255,255,0.5)', width=1.5)), row=1, col=1)
-                    if show_s_ma50: fig.add_trace(go.Scatter(x=dates, y=recent['50MA'], mode='lines', name='個股50MA', line=dict(color='rgba(255,215,0,0.5)', width=1.5)), row=1, col=1)
-                    if show_s_ma150: fig.add_trace(go.Scatter(x=dates, y=recent['150MA'], mode='lines', name='個股150MA', line=dict(color='rgba(0,255,255,0.5)', width=1.5)), row=1, col=1)
-                    if show_s_ma200: fig.add_trace(go.Scatter(x=dates, y=recent['200MA'], mode='lines', name='個股200MA', line=dict(color='rgba(255,0,255,0.5)', width=1.5)), row=1, col=1)
+                    # 📈 個股均線 (預設OFF)
+                    if show_s_ma20: fig.add_trace(go.Scatter(x=dates, y=recent['20MA'], mode='lines', name='個股20日線', line=dict(color='#FFFFFF', width=1.5)), row=1, col=1)
+                    if show_s_ma50: fig.add_trace(go.Scatter(x=dates, y=recent['50MA'], mode='lines', name='個股50日線', line=dict(color='#FFD700', width=1.5)), row=1, col=1)
+                    if show_s_ma150: fig.add_trace(go.Scatter(x=dates, y=recent['150MA'], mode='lines', name='個股150日線', line=dict(color='#00FFFF', width=1.5)), row=1, col=1)
+                    if show_s_ma200: fig.add_trace(go.Scatter(x=dates, y=recent['200MA'], mode='lines', name='個股200日線', line=dict(color='#FF00FF', width=1.5)), row=1, col=1)
 
-                    # 🌊 市寬大盤疊加 (預設ON)
-                    b_sym = "^HSI" if ".HK" in ticker else "SPY"
-                    b_df = yf.Ticker(b_sym).history(period="2y").dropna()
-                    if not b_df.empty:
-                        b_df['20MA'] = b_df['Close'].rolling(20).mean().bfill()
-                        b_df['50MA'] = b_df['Close'].rolling(50).mean().bfill()
-                        b_df['150MA'] = b_df['Close'].rolling(150).mean().bfill()
-                        b_df['200MA'] = b_df['Close'].rolling(200).mean().bfill()
+                    # 🌊 市寬虛線疊加 (預設ON)
+                    b_sym_plot = "^HSI" if ".HK" in ticker else "SPY"
+                    b_df_plot = yf.Ticker(b_sym_plot).history(period="2y").dropna()
+                    if not b_df_plot.empty:
+                        b_df_plot['20MA'] = b_df_plot['Close'].rolling(20).mean().bfill()
+                        b_df_plot['50MA'] = b_df_plot['Close'].rolling(50).mean().bfill()
+                        b_df_plot['150MA'] = b_df_plot['Close'].rolling(150).mean().bfill()
+                        b_df_plot['200MA'] = b_df_plot['Close'].rolling(200).mean().bfill()
                         
-                        align_b = b_df.reindex(recent.index).ffill().bfill()
+                        align_b = b_df_plot.reindex(recent.index).ffill().bfill()
                         if len(align_b)>0 and align_b['Close'].iloc[0]!=0 and recent['Close'].iloc[0]!=0:
                             norm = recent['Close'].iloc[0] / align_b['Close'].iloc[0]
-                            if show_b_idx: fig.add_trace(go.Scatter(x=dates, y=align_b['Close']*norm, mode='lines', name=f'{b_sym} 基準', line=dict(color='#FF4B4B', width=2)), row=1, col=1)
-                            if show_b_ma20: fig.add_trace(go.Scatter(x=dates, y=align_b['20MA']*norm, mode='lines', name=f'{b_sym} 20MA', line=dict(color='#FFFFFF', width=2, dash='dot')), row=1, col=1)
-                            if show_b_ma50: fig.add_trace(go.Scatter(x=dates, y=align_b['50MA']*norm, mode='lines', name=f'{b_sym} 50MA', line=dict(color='#FFD700', width=2, dash='dot')), row=1, col=1)
-                            
-                            # 150MA (帶向下箭咀)
-                            if show_b_ma150: 
-                                l_150 = align_b['150MA']*norm
-                                fig.add_trace(go.Scatter(x=dates, y=l_150, mode='lines', name=f'{b_sym} 150MA', line=dict(color='#00FFFF', width=2, dash='dot')), row=1, col=1)
-                                if len(align_b)>10 and align_b['150MA'].iloc[-1] < align_b['150MA'].iloc[-10]:
-                                    fig.add_annotation(x=dates[-1], y=l_150.iloc[-1], ax=0, ay=-40, xref="x", yref="y", showarrow=True, arrowhead=3, arrowsize=2, arrowwidth=3, arrowcolor="red", text="市寬150日轉弱")
-
-                            # 200MA (帶向下箭咀)
-                            if show_b_ma200:
-                                l_200 = align_b['200MA']*norm
-                                fig.add_trace(go.Scatter(x=dates, y=l_200, mode='lines', name=f'{b_sym} 200MA', line=dict(color='#FF00FF', width=2, dash='dot')), row=1, col=1)
-                                if len(align_b)>10 and align_b['200MA'].iloc[-1] < align_b['200MA'].iloc[-10]:
-                                    fig.add_annotation(x=dates[-1], y=l_200.iloc[-1], ax=0, ay=-40, xref="x", yref="y", showarrow=True, arrowhead=3, arrowsize=2, arrowwidth=3, arrowcolor="red", text="市寬200日轉弱")
+                            if show_b_idx: fig.add_trace(go.Scatter(x=dates, y=align_b['Close']*norm, mode='lines', name='大盤基準指數', line=dict(color='#FF4B4B', width=2)), row=1, col=1)
+                            if show_b_ma20: fig.add_trace(go.Scatter(x=dates, y=align_b['20MA']*norm, mode='lines', name='20市寬線', line=dict(color='rgba(255,255,255,0.6)', width=1.5, dash='dot')), row=1, col=1)
+                            if show_b_ma50: fig.add_trace(go.Scatter(x=dates, y=align_b['50MA']*norm, mode='lines', name='50市寬線', line=dict(color='rgba(255,215,0,0.6)', width=1.5, dash='dot')), row=1, col=1)
+                            if show_b_ma150: fig.add_trace(go.Scatter(x=dates, y=align_b['150MA']*norm, mode='lines', name='150市寬線', line=dict(color='rgba(0,255,255,0.6)', width=1.5, dash='dot')), row=1, col=1)
+                            if show_b_ma200: fig.add_trace(go.Scatter(x=dates, y=align_b['200MA']*norm, mode='lines', name='200市寬線', line=dict(color='rgba(255,0,255,0.6)', width=1.5, dash='dot')), row=1, col=1)
 
                     fig.add_trace(go.Bar(x=dates, y=recent['Volume'], marker_color=['#00FF00' if recent['Close'].iloc[i] >= recent['Open'].iloc[i] else '#FF0000' for i in range(len(recent))]), row=2, col=1)
                     counts, bins = np.histogram(recent['Close'], bins=20, weights=recent['Volume'])
@@ -613,7 +611,7 @@ elif "雷達" in app_mode and not "熱力圖" in app_mode:
     else:
         is_us = "美股" in app_mode
         
-    bench_sym = "SPY" if is_us else "^HSI"
+    bench_sym = "SPY" if is_us else "2800.HK"
     target_dict = (US_ETF_MAP if "ETF" in app_mode else US_STOCK_MAP) if is_us else (HK_ETF_MAP if "ETF" in app_mode else HK_STOCK_MAP)
     
     s_choice = st.sidebar.selectbox("2. 選擇掃描範圍", ["🌐 啟動全星系大規模搜索"] + list(target_dict.keys()))
@@ -654,17 +652,21 @@ elif "雷達" in app_mode and not "熱力圖" in app_mode:
 elif "熱力圖" in app_mode:
     st.markdown(f"<h1 class='main-title'>{app_mode}</h1>", unsafe_allow_html=True)
     m_view = st.sidebar.radio("選擇星系", ["🇺🇸 美股陣列", "🇭🇰 港股陣列"])
-    is_us = "美股" in m_view; bench_sym = "SPY" if is_us else "^HSI"
+    
+    is_us = "美股" in m_view; bench_sym = "SPY" if is_us else "2800.HK"
     target_map = (US_ETF_MAP if "ETF" in app_mode else US_STOCK_MAP) if is_us else (HK_ETF_MAP if "ETF" in app_mode else HK_STOCK_MAP)
+    
     with st.spinner('拔河排名計算中...'):
         try:
-            bench_df = yf.Ticker(bench_sym).history(period="60d")['Close'].dropna(); results = []
+            bench_df = yf.Ticker(bench_sym).history(period="60d")['Close'].dropna()
+            results = []
             for name, tickers in target_map.items():
                 for t in tickers:
                     try:
                         d = yf.Ticker(t).history(period="60d")['Close'].dropna()
                         if len(d) >= 20:
-                            rs = 50 + ((d.iloc[-1]/d.iloc[-20]) - (bench_df.iloc[-1]/bench_df.iloc[-20])) * 100
+                            bench_ret = bench_df.iloc[-1]/bench_df.iloc[-20] if len(bench_df) >= 20 else 1.0
+                            rs = 50 + ((d.iloc[-1]/d.iloc[-20]) - bench_ret) * 100
                             results.append({"版塊": name, "RS強弱": round(rs, 1)}); break
                     except: continue
             if results:
@@ -672,4 +674,7 @@ elif "熱力圖" in app_mode:
                 fig = go.Figure(go.Bar(x=df_rs["RS強弱"], y=df_rs["版塊"], orientation='h', marker=dict(color=df_rs["RS強弱"], colorscale='Portland')))
                 fig.update_layout(template="plotly_dark", paper_bgcolor='#0e1117', plot_bgcolor='#0e1117', font=dict(color='white'), height=700)
                 st.plotly_chart(fig, use_container_width=True, theme=None, config={'displayModeBar': False})
-        except: pass
+            else:
+                st.warning("⚠️ 暫時無法獲取板塊數據，請檢查網絡連線或稍後重試。")
+        except Exception as e:
+            st.error(f"⚠️ 熱力圖生成失敗: {e}")
