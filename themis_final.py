@@ -36,8 +36,14 @@ def get_beta(info, df, spy_df):
     except: pass 
     return "1.00" 
 
+# 🚀 爺爺 V98.0 新增：超級濾水器，專治 Yahoo Finance 的 None 值
+def s_n(val, default=0.0):
+    if val is None or str(val).lower() in ['nan', 'inf', 'none', '']: return default
+    try: return float(val)
+    except: return default
+
 # =========================================================================
-# 🛸 爺爺嘅外掛資料庫 (V97.0 完美還原海量板塊 + ETF)
+# 🛸 爺爺嘅外掛資料庫 (V98.0 完美還原海量板塊 + ETF)
 # =========================================================================
 HK_STOCK_MAP = {
     "1. 互聯網巨頭": "0700.HK 9988.HK 3690.HK 1810.HK 9618.HK 1024.HK 9888.HK 0772.HK 0020.HK 0241.HK 0136.HK 1999.HK 2018.HK 3888.HK 2142.HK 1896.HK 0777.HK 0113.HK 0590.HK 1980.HK 1797.HK 6618.HK 2400.HK 0285.HK".split(),
@@ -168,7 +174,7 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # 3. 側邊欄控制
-st.sidebar.markdown("## 🛰️ 戰術控制台 (V97.0 市寬防斷線版)")
+st.sidebar.markdown("## 🛰️ 戰術控制台 (V98.0 數據淨化版)")
 app_mode = st.sidebar.radio("請選擇操作", [
     "🚀 個股深度透視", 
     "📡 個股版塊拔河熱力圖", 
@@ -185,13 +191,11 @@ if app_mode == "🚀 個股深度透視":
     ticker = st.sidebar.text_input("🚀 輸入資產代號", "6869.HK").upper()
     with st.spinner(f"⏳ 系統正在切換引擎，重新為您下載海量數據及繪製摩訶圖... 由於運算龐大，請乖孫耐心等候數秒 ☕🚀"):
         
-        # 🛡️ 提前宣告所有 DataFrame，杜絕 NameError
         df = pd.DataFrame()
         bench_df = pd.DataFrame()
         spy_df = pd.DataFrame()
         
         try:
-            # 🚀 爺爺 V97.0 極速預先下載：將 ^HSI 換成 2800.HK，保證 100% 唔斷線！
             asset = yf.Ticker(ticker)
             info = asset.info
             df = asset.history(period="2y").dropna(subset=['Close', 'Volume'])
@@ -201,7 +205,6 @@ if app_mode == "🚀 個股深度透視":
             spy_df = yf.Ticker("SPY").history(period="2y").dropna(subset=['Close'])
             
             if not df.empty:
-                # 統一清理所有時區，保證 100% 對齊
                 if df.index.tz is not None: df.index = df.index.tz_localize(None)
                 df.index = df.index.normalize()
                 
@@ -371,7 +374,6 @@ if app_mode == "🚀 個股深度透視":
                         fig.add_trace(go.Scatter(x=dates, y=ma20, mode='lines', name='20MA', line=dict(color='#FFD700', width=1.5)), row=1, col=1)
                         fig.add_trace(go.Scatter(x=dates, y=ma50, mode='lines', name='50MA', line=dict(color='#BC13FE', width=1.5)), row=1, col=1)
                     
-                    # 🛡️ 爺爺 V97.0 完美防彈市寬線：只用一早下載好嘅 2800.HK 或 SPY
                     if show_breadth and not bench_df.empty:
                         aligned_bench = bench_df['Close'].reindex(clean_recent.index).ffill().bfill()
                         if len(aligned_bench) > 0 and aligned_bench.iloc[0] != 0 and c_col[0] != 0:
@@ -393,17 +395,20 @@ if app_mode == "🚀 個股深度透視":
                 st.error(f"⚠️ 圖表模塊發生防彈級攔截：({e})。已為您保護其餘系統安全。")
 
         # =======================================================
-        # 🧬 DNA / 估值 / 持倉 (完全獨立區塊)
+        # 🧬 DNA / 估值 / 持倉 (V98.0 超級濾水器淨化版)
         # =======================================================
         if not df.empty:
             try:
                 st.write("---"); d_c1, d_c2 = st.columns([1, 2.5]); is_etf = info.get('quoteType') == 'ETF'; real_roe = info.get('returnOnEquity')
+                
+                # 🛡️ 爺爺 V98.0 濾水器：確保所有數值都係合法數字，拒絕 None 導致崩潰！
                 if is_etf or real_roe is None or real_roe == 0:
                     dna_v = round(safe_n((cx_val * 0.5) + (crs_val * 0.5), 50.0), 1); dna_title = "ETF 綜合質量基因"
-                    m8 = {"🩸 資金純度 (流動)": int(safe_n(cej_s / 10, 5)), "🛡️ 免疫系統 (抗跌)": int(safe_n(crs_val / 10, 5)), "🏗️ 心跳頻率 (動能)": int(safe_n(cx_val / 10, 5)), "🧬 大腦潛力 (趨勢)": int(safe_n(se_s / 10, 5)), "🧱 骨架重量 (規模)": 9 if info.get('totalAssets', 0) > 1e9 else 5, "⚡ 物理底盤 (波幅)": int(max(1, 10 - (v_ann * 20))), "💰 資本配置 (派息)": int(safe_n(info.get('yield', info.get('dividendYield', 0))*200+2, 5)), "📈 經營拐點 (相對)": int(safe_n(crs_val / 10, 5))}
+                    m8 = {"🩸 資金純度 (流動)": int(safe_n(cej_s / 10, 5)), "🛡️ 免疫系統 (抗跌)": int(safe_n(crs_val / 10, 5)), "🏗️ 心跳頻率 (動能)": int(safe_n(cx_val / 10, 5)), "🧬 大腦潛力 (趨勢)": int(safe_n(se_s / 10, 5)), "🧱 骨架重量 (規模)": 9 if s_n(info.get('totalAssets')) > 1e9 else 5, "⚡ 物理底盤 (波幅)": int(max(1, 10 - (v_ann * 20))), "💰 資本配置 (派息)": int(safe_n(s_n(info.get('yield', info.get('dividendYield', 0)))*200+2, 5)), "📈 經營拐點 (相對)": int(safe_n(crs_val / 10, 5))}
                 else:
                     dna_v = round(safe_n(real_roe * 350 + 15, 23.6), 1); dna_title = "投行級股王基因"
-                    m8 = {"🩸 血液純度": int(safe_n(info.get('operatingMargins', 0)*30+3, 5)), "🛡️ 免疫系統": int(safe_n(real_roe*30+3, 7)), "🏗️ 心跳頻率": int(safe_n(info.get('revenueGrowth', 0)*20+4, 6)), "🧬 大腦潛力": int(safe_n(info.get('profitMargins', 0)*30+3, 8)), "🧱 骨架重量": int(max(1, 10 - safe_n(info.get('priceToBook', 5), 5))), "⚡ 物理底盤": 8 if safe_n(info.get('debtToEquity', 150), 150) < 80 else 3, "💰 資本配置": int(safe_n(info.get('dividendYield', 0)*200+2, 5)), "📈 經營拐點": int(safe_n(info.get('earningsGrowth', 0)*25+4, 8))}
+                    m8 = {"🩸 血液純度": int(safe_n(s_n(info.get('operatingMargins'))*30+3, 5)), "🛡️ 免疫系統": int(safe_n(real_roe*30+3, 7)), "🏗️ 心跳頻率": int(safe_n(s_n(info.get('revenueGrowth'))*20+4, 6)), "🧬 大腦潛力": int(safe_n(s_n(info.get('profitMargins'))*30+3, 8)), "🧱 骨架重量": int(max(1, 10 - safe_n(s_n(info.get('priceToBook')), 5))), "⚡ 物理底盤": 8 if safe_n(s_n(info.get('debtToEquity')), 150) < 80 else 3, "💰 資本配置": int(safe_n(s_n(info.get('dividendYield'))*200+2, 5)), "📈 經營拐點": int(safe_n(s_n(info.get('earningsGrowth'))*25+4, 8))}
+                
                 dna_v = max(0.0, min(100.0, dna_v)); d_lv = "第 1 級" if dna_v>=90 else ("第 2 級" if dna_v>=80 else ("第 3 級" if dna_v>=70 else "後續"))
                 with d_c1: st.markdown(f"<div class='cosmos-box' style='border-color:#FF4B4B; height:380px; display:flex; flex-direction:column; justify-content:center;'><div style='color:#FF4B4B; font-weight:900; font-size:1.8rem;'>🧬 COSMOS-DNA</div><div style='font-size:0.9rem; opacity:0.7; margin:5px 0;'>{dna_title}</div><div style='font-size:6rem; font-weight:900;'>{dna_v}</div><div style='color:#FFD700;'>[ 現屬 {d_lv} ]</div></div>", unsafe_allow_html=True)
                 with d_c2:
@@ -421,8 +426,8 @@ if app_mode == "🚀 個股深度透視":
                 v_card(v5, "EV/EBITDA", safe_s(info, ['enterpriseToEbitda'], "x"), "N/A", "企業估值")
                 v_card(v6, "股息率", safe_s(info, ['dividendYield', 'yield'], "%"), "N/A", "回報率")
 
-                ttm_pe = info.get('trailingPE', 0) or 0
-                fwd_pe = info.get('forwardPE', 0) or 0
+                ttm_pe = s_n(info.get('trailingPE'))
+                fwd_pe = s_n(info.get('forwardPE'))
                 if not is_etf:
                     dragon_index = round((dna_v * 0.4) + (cx_val * 0.3) + (crs_val * 0.3), 1)
                     dragon_index = max(5.0, min(98.5, dragon_index)) 
@@ -461,16 +466,20 @@ if app_mode == "🚀 個股深度透視":
         <b style='color:white; font-size:1.3rem;'>真實財報決策指令：</b> <span style='color:{val_color}; font-size:1.3rem;'>{act_desc}</span>
     </div>
 </div>""", unsafe_allow_html=True)
-
+            except Exception as e:
+                st.error(f"⚠️ DNA系統遇到特殊數據結構，已為您保護系統。")
+                
+            try:
                 st.markdown("<div class='whale-box'><div style='color:#FFD700; font-size:2.2rem; font-weight:bold; text-align:center;'>🧙 90 大名家：真實申報持倉</div>", unsafe_allow_html=True)
-                total_shares = info.get('sharesOutstanding', 1); holders = asset.institutional_holders
+                total_shares = info.get('sharesOutstanding', 1) or 1
+                holders = asset.institutional_holders
                 if holders is not None and not holders.empty and 'Holder' in holders.columns:
                     for _, row in holders.head(8).iterrows():
-                        shares = row.get('Shares', 0); calc_pct = (shares/total_shares); val_m = row.get('Value', 0)/1e6
+                        shares = s_n(row.get('Shares')); calc_pct = (shares/total_shares); val_m = s_n(row.get('Value'))/1e6
                         st.markdown(f"<div class='whale-row'><span class='whale-n'>{row['Holder']}</span><span class='whale-a'>持有 {shares:,.0f} 股 | 佔比 {calc_pct:.2%} | 市值 ${val_m:.1f}M</span></div>", unsafe_allow_html=True)
                 st.markdown("</div>", unsafe_allow_html=True)
             except Exception as e:
-                st.error(f"⚠️ DNA系統遇到特殊數據結構，已為您保護系統。")
+                pass
 
 # =========================================================================
 # 🔍 模式 C：起步尋龍雷達 (必勝潛龍羅輯 V87.0 撒網版)
@@ -484,7 +493,6 @@ elif "雷達" in app_mode:
     else:
         is_us = "美股" in app_mode
         
-    # 🚀 爺爺 V97.0 極速雷達：將 ^HSI 換成 2800.HK，防斷線！
     bench_sym = "SPY" if is_us else "2800.HK"
     target_dict = (US_ETF_MAP if "ETF" in app_mode else US_STOCK_MAP) if is_us else (HK_ETF_MAP if "ETF" in app_mode else HK_STOCK_MAP)
     
@@ -527,7 +535,6 @@ elif "熱力圖" in app_mode:
     st.markdown(f"<h1 class='main-title'>{app_mode}</h1>", unsafe_allow_html=True)
     m_view = st.sidebar.radio("選擇星系", ["🇺🇸 美股陣列", "🇭🇰 港股陣列"])
     
-    # 🚀 爺爺 V97.0 極速熱力圖：將 ^HSI 換成 2800.HK，防斷線！
     is_us = "美股" in m_view; bench_sym = "SPY" if is_us else "2800.HK"
     target_map = (US_ETF_MAP if "ETF" in app_mode else US_STOCK_MAP) if is_us else (HK_ETF_MAP if "ETF" in app_mode else HK_STOCK_MAP)
     
@@ -540,7 +547,6 @@ elif "熱力圖" in app_mode:
                     try:
                         d = yf.Ticker(t).history(period="60d")['Close'].dropna()
                         if len(d) >= 20:
-                            # 🛡️ 爺爺加裝：防死火退路，如果大盤有事就當 1.0 (持平)
                             bench_ret = bench_df.iloc[-1]/bench_df.iloc[-20] if len(bench_df) >= 20 else 1.0
                             rs = 50 + ((d.iloc[-1]/d.iloc[-20]) - bench_ret) * 100
                             results.append({"版塊": name, "RS強弱": round(rs, 1)}); break
