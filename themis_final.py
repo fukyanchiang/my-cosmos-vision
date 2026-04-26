@@ -37,7 +37,7 @@ def get_beta(info, df, spy_df):
     return "1.00" 
 
 # =========================================================================
-# 🛸 爺爺嘅外掛資料庫 (V102.0 完美還原海量板塊 + ETF)
+# 🛸 爺爺嘅外掛資料庫 (V103.0 完美還原海量板塊 + ETF)
 # =========================================================================
 HK_STOCK_MAP = {
     "1. 互聯網巨頭": "0700.HK 9988.HK 3690.HK 1810.HK 9618.HK 1024.HK 9888.HK 0772.HK 0020.HK 0241.HK 0136.HK 1999.HK 2018.HK 3888.HK 2142.HK 1896.HK 0777.HK 0113.HK 0590.HK 1980.HK 1797.HK 6618.HK 2400.HK 0285.HK".split(),
@@ -139,7 +139,7 @@ US_ETF_MAP = {
     "E5. 股息/價值/其他商品": "SCHD VYM VIG DVY SDY GLD SLV IAU USO UNG DBC PALL PPLT WEAT CORN SOYB DBA BCI VEA VWO EFA URTH ACWI".split()
 }
 
-# 2. 視覺裝修 
+# 2. 視覺裝修 (保留原裝顏色)
 st.markdown("""
     <style>
     .stApp { background-color: #0e1117; color: white; }
@@ -168,7 +168,7 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # 3. 側邊欄控制
-st.sidebar.markdown("## 🛰️ 戰術控制台 (V102.0 市寬系統大結局版)")
+st.sidebar.markdown("## 🛰️ 戰術控制台 (V103.0 側邊欄歸位版)")
 app_mode = st.sidebar.radio("請選擇操作", [
     "🚀 個股深度透視", 
     "📡 個股版塊拔河熱力圖", 
@@ -177,6 +177,12 @@ app_mode = st.sidebar.radio("請選擇操作", [
     "🛡️ 美股 ETF 專屬雷達",
     "🛡️ 港/A股 ETF 專屬雷達"
 ])
+
+# 🚀 爺爺 V103.0 絕密歸位：將控制掣直接放入左邊側邊欄 (Sidebar)！保證你一定見到！
+st.sidebar.markdown("---")
+st.sidebar.markdown("### ⚙️ 圖表顯示設定")
+show_breadth = st.sidebar.checkbox("🌊 顯示市寬系統 (指數/150MA/200MA)", value=True)
+show_ma = st.sidebar.checkbox("📈 顯示短期均線 (20MA/50MA)", value=False)
 
 # =========================================================================
 # 🚀 模式 A：個股深度透視 
@@ -193,7 +199,6 @@ if app_mode == "🚀 個股深度透視":
         try:
             asset = yf.Ticker(ticker)
             info = asset.info
-            # 爺爺加長咗下載時間，確保計 200日線夠數據！
             df = asset.history(period="3y").dropna(subset=['Close', 'Volume'])
             
             bench_sym = "2800.HK" if ".HK" in ticker else "SPY"
@@ -340,17 +345,11 @@ if app_mode == "🚀 個股深度透視":
         except: pass
 
         # =======================================================
-        # 📊 摩訶釋達圖表 (爺爺終極領悟：150/200日線 + 圖例復活)
+        # 📊 摩訶釋達圖表 (按左邊側邊欄開關掣控制)
         # =======================================================
         st.write("### 📊 摩訶釋達・能量與籌碼透視圖 (支持局部縮放與還原)")
-        c_btn1, c_btn2 = st.columns(2)
-        with c_btn1:
-            show_breadth = st.checkbox("🌊 顯示市寬系統 (指數、150日線、200日線)", value=True)
-        with c_btn2:
-            show_ma = st.checkbox("📈 顯示短期平均線 (20日線、50日線)", value=False)
             
         try:
-            # 爺爺計晒所有長短線先！
             df['20MA'] = df['Close'].rolling(20).mean().bfill()
             df['50MA'] = df['Close'].rolling(50).mean().bfill()
             df['150MA'] = df['Close'].rolling(150).mean().bfill()
@@ -369,12 +368,12 @@ if app_mode == "🚀 個股深度透視":
                 
                 fig.add_trace(go.Candlestick(x=dates, open=o_col, high=h_col, low=l_col, close=c_col, name='股價'), row=1, col=1)
                 
-                # 📈 短期平均線 (預設 OFF)
+                # 📈 讀取左側按鈕: 短期均線
                 if show_ma:
                     fig.add_trace(go.Scatter(x=dates, y=clean_recent['20MA'], mode='lines', name='20日線', line=dict(color='white', width=1.5)), row=1, col=1)
                     fig.add_trace(go.Scatter(x=dates, y=clean_recent['50MA'], mode='lines', name='50日線', line=dict(color='yellow', width=1.5)), row=1, col=1)
                 
-                # 🌊 市寬系統大集結 (預設 ON)
+                # 🌊 讀取左側按鈕: 市寬系統
                 if show_breadth:
                     fig.add_trace(go.Scatter(x=dates, y=clean_recent['150MA'], mode='lines', name='150日線', line=dict(color='cyan', width=1.5)), row=1, col=1)
                     fig.add_trace(go.Scatter(x=dates, y=clean_recent['200MA'], mode='lines', name='200日線', line=dict(color='magenta', width=1.5)), row=1, col=1)
@@ -394,7 +393,6 @@ if app_mode == "🚀 個股深度透視":
                 
                 fig.add_trace(go.Bar(y=(bins[:-1] + bins[1:]) / 2, x=counts, orientation='h', marker_color='rgba(0, 255, 204, 0.4)', name='蟹貨區', xaxis='x3', yaxis='y1'))
                 
-                # 🛡️ 爺爺終極修復：開啟圖例 showlegend=True，完美重現你幅圖嘅排版！
                 fig.update_layout(
                     template="plotly_dark", paper_bgcolor='#0e1117', plot_bgcolor='#0e1117', height=750, 
                     showlegend=True, legend=dict(yanchor="top", y=0.99, xanchor="right", x=0.99, bgcolor="rgba(0,0,0,0.5)"),
@@ -513,7 +511,7 @@ if app_mode == "🚀 個股深度透視":
             pass
 
 # =========================================================================
-# 🔍 模式 C：起步尋龍雷達 
+# 🔍 模式 C：起步尋龍雷達 (必勝潛龍羅輯 V87.0 撒網版)
 # =========================================================================
 elif "雷達" in app_mode:
     st.markdown(f"<h1 class='main-title'>{app_mode}</h1>", unsafe_allow_html=True)
