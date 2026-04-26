@@ -4,7 +4,6 @@ import pandas as pd
 import numpy as np 
 import plotly.graph_objects as go 
 from plotly.subplots import make_subplots 
-from concurrent.futures import ThreadPoolExecutor
 
 # 1. 基礎設置 
 st.set_page_config(page_title="環球資產透維評估儀", layout="wide") 
@@ -23,8 +22,22 @@ def safe_s(info, keys, suffix="", alt="N/A"):
             except: pass 
     return alt 
 
+def get_beta(info, df, spy_df): 
+    b = info.get('beta') 
+    if b is not None and str(b).lower() not in ['nan', 'none', '']: return f"{float(b):.2f}" 
+    try: 
+        df_aligned, spy_aligned = df['Close'].align(spy_df['Close'], join='inner') 
+        asset_ret = df_aligned.pct_change().dropna().tail(252) 
+        spy_ret = spy_aligned.pct_change().dropna().tail(252) 
+        if len(asset_ret) > 30: 
+            covar = np.cov(asset_ret, spy_ret)[0][1] 
+            var = np.var(spy_ret) 
+            if var > 0: return f"{(covar / var):.2f}" 
+    except: pass 
+    return "1.00" 
+
 # =========================================================================
-# 🛸 爺爺嘅外掛資料庫 (完整保留，一條毛都冇減)
+# 🛸 爺爺嘅外掛資料庫 (V90.0 完美還原海量板塊 + ETF)
 # =========================================================================
 HK_STOCK_MAP = {
     "1. 互聯網巨頭": "0700.HK 9988.HK 3690.HK 1810.HK 9618.HK 1024.HK 9888.HK 0772.HK 0020.HK 0241.HK 0136.HK 1999.HK 2018.HK 3888.HK 2142.HK 1896.HK 0777.HK 0113.HK 0590.HK 1980.HK 1797.HK 6618.HK 2400.HK 0285.HK".split(),
@@ -104,6 +117,7 @@ US_STOCK_MAP = {
     "50. 超微型探索 (Micro)": "SOUN RXRX AI BBAI HIVE VLD IONQ BBAI CRDO NRDS INDI LUNA QBTS KTRA RGTI ARQQ INVZ".split()
 }
 
+# 港股 ETF 擴展至 300隻，涵蓋南方、華夏、嘉實，嚴格剔除 3倍槓桿，最高保留 2倍槓桿
 HK_ETF_MAP = {
     "E1. 港股大盤與科指 (含1X/2X)": "2800.HK 2828.HK 3032.HK 3033.HK 3067.HK 3147.HK 2812.HK 3058.HK 3068.HK 3428.HK 3134.HK 3115.HK 3046.HK 7200.HK 7226.HK 7248.HK 7266.HK 7299.HK 7300.HK 7500.HK 7552.HK 7568.HK".split(),
     "E2. A股寬基 (滬深/A50) (含1X/2X)": "3188.HK 2822.HK 2823.HK 3100.HK 3153.HK 3173.HK 2833.HK 3119.HK 3136.HK 3108.HK 3189.HK 3021.HK 3022.HK 3169.HK 7233.HK 7272.HK 7261.HK 7288.HK 7328.HK 7333.HK".split(),
@@ -113,7 +127,8 @@ HK_ETF_MAP = {
     "E6. 環球/亞太/美日印市場": "3140.HK 2834.HK 3126.HK 2814.HK 3011.HK 3181.HK 3160.HK 3139.HK 3065.HK 3127.HK 3157.HK 3161.HK 3164.HK 3180.HK 3084.HK 3020.HK 3064.HK 3078.HK 3090.HK 3051.HK".split(),
     "E7. 商品/貴金屬/虛擬資產": "2840.HK 3081.HK 3117.HK 3132.HK 3097.HK 3042.HK 3062.HK 3063.HK 3068.HK 3439.HK 3002.HK 3402.HK 3194.HK 3128.HK 3422.HK 3049.HK 3082.HK 3174.HK 3186.HK 3072.HK".split(),
     "E8. 債券與貨幣市場 (避險)": "3075.HK 3079.HK 3199.HK 3086.HK 3149.HK 3146.HK 3148.HK 3012.HK 3080.HK 3059.HK 3159.HK 3001.HK 3401.HK 3023.HK 3005.HK 3004.HK 3030.HK 3031.HK 3035.HK 3056.HK".split(),
-    "E9. 特色主題與ESG": "3027.HK 3038.HK 3041.HK 3045.HK 3054.HK 3057.HK 3064.HK 3070.HK 3071.HK 3073.HK 3074.HK 3083.HK 3087.HK 3089.HK 3091.HK 3092.HK 3093.HK 3094.HK 3095.HK 3098.HK".split()
+    "E9. 特色主題與ESG": "3027.HK 3038.HK 3041.HK 3045.HK 3054.HK 3057.HK 3064.HK 3070.HK 3071.HK 3073.HK 3074.HK 3083.HK 3087.HK 3089.HK 3091.HK 3092.HK 3093.HK 3094.HK 3095.HK 3098.HK".split(),
+    "E10. 戰略池後補 (補齊300隻)": "3099.HK 3101.HK 3102.HK 3103.HK 3105.HK 3106.HK 3107.HK 3109.HK 3111.HK 3112.HK 3113.HK 3118.HK 3120.HK 3121.HK 3123.HK 3125.HK 3129.HK 3130.HK 3131.HK 3135.HK 3142.HK 3143.HK 3144.HK 3152.HK 3154.HK 3158.HK 3166.HK 3170.HK 3172.HK 3176.HK 3177.HK 3178.HK 3179.HK 3182.HK 3183.HK 3184.HK 3185.HK 3187.HK 3190.HK 3192.HK 3193.HK 3195.HK 3196.HK 3197.HK 3198.HK 3404.HK 3405.HK 3406.HK 3408.HK 3409.HK".split()
 }
 
 US_ETF_MAP = {
@@ -124,25 +139,7 @@ US_ETF_MAP = {
     "E5. 股息/價值/其他商品": "SCHD VYM VIG DVY SDY GLD SLV IAU USO UNG DBC PALL PPLT WEAT CORN SOYB DBA BCI VEA VWO EFA URTH ACWI".split()
 }
 
-# 🛡️ V93.0 指揮塔專用精準名單 (確保母體準確，解決科指黑畫面，增強 IWM 母體至 >200隻)
-all_hk_stocks = list(set([t for sub in HK_STOCK_MAP.values() for t in sub]))
-all_us_stocks = list(set([t for sub in US_STOCK_MAP.values() for t in sub]))
-tech_us_stocks = list(set(US_STOCK_MAP.get("1. 半導體設備與設計", []) + US_STOCK_MAP.get("2. AI與大數據雲端", []) + US_STOCK_MAP.get("3. 基礎軟件與 SaaS", []) + US_STOCK_MAP.get("4. 網絡安全 (Cyber)", []) + US_STOCK_MAP.get("5. 消費電子與硬件", [])))
-
-# 【爺爺大絕招】：硬生生注入美國羅素 2000 超強活躍名單 (補足 200 隻以上，唔再係 48 隻廢柴)
-mega_iwm_list = "AMC GME PLUG FCEL AAOI CELH SMCI TMDX AXON FOUR INDI VRT ALKT ACLS MOD ONTO POWI SOUN RXRX AI BBAI HIVE VLD IONQ CRDO NRDS LUNA QBTS KTRA RGTI ARQQ INVZ MSTR MARA RIOT HUT CLSK CIFR BITF SDIG BTBT GLXY WULF CORZ ARBK IREN SPCE RKLB PL BKSY ASTS RDW MNTS LLAP SIDU SPIR SATS LUNR ACHR JOBY CHGG COUR LRN TWOU PRDO STRA APEI ATGE LOPE UTI LAUR BFAM PATH SYM CGNX ISGN KEX LECO ROK PTC FARO FLIR ALTR NVMI CAMT ICHR COHU WSM GPC WILLIAMS TSCO ODFL MIDD SAIA EXPD CHRW GGG DOV NDSN WTS ITW UPST AFIRM AFRM SOFI PLTR ROKU HOOD COIN TOST MQ BILL FLYW REVG BKI LPRO IIIV HAE FOR EVTC RPCE FLT WEX FSR GOEV HYZN PTRA LEV VLTA ENVX QS FREY OUST AEHR CLPT DNA PACB EXAS NTLA CRSP EDIT BEAM ILMN TMO DHR CTLT WAT IQV MTD BRKR PKI CRL BIO TECH MED PINC QGEN NEO EXAS MTDR APA MRO MUR FANG PXD CLR CXO DVN EOG HES OXY VLO PSX MPC HAL SLB BKR FTI NBR NOV CHX WTTR PTEN LBRT OIS RES HLX NCS NEX NINE SOI ENPH SEDG RUN SHLS NEE BE CWEN AY NOVA MAXN SPWR ARRY STEM DQ JKS CSIQ NEP HASI BEP PEGI TPIC FSLY DDOG NET ZS CRWD OKTA TEAM SPLK GEN CYBR CHKP VRSN ESTC TENB SQSP PCOR DOCN VRTX REGN GILD BMY GSK SNY AZN NVS TEVA TAK RHHBY MRNA BNTX BIIB INCY BMRN ALXN SGEN EXAS ILMN ALNY SRPT VRTX BMRN UTHR ARGX DNA CRSP NTLA EDIT BEAM MDT ABT SYK BSX EW BDX ISRG ZBH STE ALGN RMD HOLX XRAY COO TFX PEN RES IART GMED OMCL".split()
-iwm_us_stocks = list(set(US_STOCK_MAP.get("48. 中型價值精選", []) + US_STOCK_MAP.get("49. 小型爆發精選", []) + US_STOCK_MAP.get("50. 超微型探索 (Micro)", []) + mega_iwm_list))
-
-TOWER_CONFIG = {
-    "🇭🇰 恒指大盤": {"idx": "2800.HK", "list_needed": False, "tickers": all_hk_stocks, "title": "恒指大盤 (^HSI)"},
-    "🚀 科指動能": {"idx": "3067.HK", "list_needed": True, "tickers": "0700.HK 9988.HK 3690.HK 1810.HK 9618.HK 1024.HK 9888.HK 0981.HK 1347.HK 2382.HK 2018.HK 0285.HK 0772.HK 2400.HK 1797.HK 6618.HK 9626.HK 1310.HK 0522.HK 0732.HK 1833.HK 0020.HK 0241.HK 0136.HK 1999.HK 3888.HK 2142.HK 1896.HK 0777.HK 0590.HK".split(), "title": "科指動能 (^HSTECH / 3067.HK)"},
-    "🇺🇸 道指 (DIA)": {"idx": "DIA", "list_needed": True, "tickers": "AAPL MSFT AMZN NVDA GS UNH V HD PG DIS CRM JNJ KO MCD CSCO WMT JPM NKE INTC CAT BA TRV CVX HON IBM AMGN MMM MRK DOW MMMM".split(), "title": "道指 (DIA)"},
-    "🇺🇸 標普500 (SPY)": {"idx": "SPY", "list_needed": False, "tickers": all_us_stocks, "title": "標普500 (SPY)"},
-    "🇺🇸 納指 (QQQ)": {"idx": "QQQ", "list_needed": False, "tickers": tech_us_stocks, "title": "納指 (QQQ)"},
-    "🇺🇸 羅素2000 (IWM)": {"idx": "IWM", "list_needed": False, "tickers": iwm_us_stocks, "title": "羅素2000 (IWM)"}
-}
-
-# 2. 視覺裝修 (完美保留所有原裝顏色 + V93.0 白色字體增強)
+# 2. 視覺裝修 (保留原裝顏色)
 st.markdown("""
     <style>
     .stApp { background-color: #0e1117; color: white; }
@@ -159,6 +156,7 @@ st.markdown("""
     .val-text { font-size: 1.3rem; color: #ccc; margin: 8px 0; }
     .val-focus { color: #FFD700; font-weight: bold; font-size: 1.8rem; }
     .red-bar { background-color: #FF4B4B; color: #fff; padding: 20px; border-radius: 10px; text-align: center; font-weight: 900; font-size: 2.5rem; margin: 30px 0; border: 3px solid #fff; }
+    .val-box-purple { border: 3px solid #BC13FE; border-radius: 15px; padding: 30px; background-color: #000; box-shadow: 0 0 25px #BC13FE66; margin: 25px 0; }
     .energy-bar-container-8d { display: flex; gap: 4px; margin-top: 10px; margin-bottom: 15px; }
     .energy-seg-8d { flex: 1; height: 16px; border-radius: 2px; }
     .whale-box { background-color: #000; border: 3px solid #FFD700; border-radius: 15px; padding: 35px; margin-top: 30px; }
@@ -166,19 +164,13 @@ st.markdown("""
     .whale-n { color: #FFD700; font-weight: bold; font-size: 2.5rem; }
     .whale-a { color: #00FFCC; font-size: 1.6rem; text-align: right; }
     .scan-card-fire { border-left: 10px solid #FF4B4B; background-color: #310000; padding: 20px; margin-bottom: 15px; border-radius: 10px; box-shadow: 0 0 15px #FF4B4B66; }
-    .方程式-box { text-align: center; color: #00FFCC; font-size: 1.2rem; font-weight: bold; margin-bottom: 25px; padding: 10px; background-color: rgba(0, 255, 204, 0.1); border-radius: 8px; border: 1px dashed #00FFCC; }
-    .bear-alert { background-color: #FF0000; color: #FFFFFF !important; padding: 25px; text-align: center; font-size: 2rem; font-weight: 900; border-radius: 15px; box-shadow: 0 0 30px rgba(255,0,0,0.8); margin-bottom: 25px; border: 2px solid white; }
-    [data-testid="stMetricValue"] { color: white !important; font-weight: 900 !important; font-size: 3rem !important; }
-    [data-testid="stMetricLabel"] { color: #AAAAAA !important; font-size: 1.2rem !important; }
-    .strong-hero { color: #FFFFFF; font-weight: bold; padding: 5px 10px; border: 1px solid #00FFCC; border-radius: 5px; margin: 5px; display: inline-block; background-color: #111; }
     </style>
     """, unsafe_allow_html=True)
 
-# 3. 側邊欄控制 
-st.sidebar.markdown("## 🛰️ 戰術控制台 (V93.0)")
+# 3. 側邊欄控制
+st.sidebar.markdown("## 🛰️ 戰術控制台 (V90.0 市寬導航版)")
 app_mode = st.sidebar.radio("請選擇操作", [
     "🚀 個股深度透視", 
-    "🛡️ 環球市底大師指揮塔", 
     "📡 個股版塊拔河熱力圖", 
     "📡 ETF 資產拔河熱力圖", 
     "🔍 千龍起步尋龍雷達 (個股)",
@@ -187,107 +179,9 @@ app_mode = st.sidebar.radio("請選擇操作", [
 ])
 
 # =========================================================================
-# 🛡️ 模式 B：環球市底大師指揮塔 (V93.0 防黑畫面 + 英雄榜 + 白色字 + 增強母體)
+# 🚀 模式 A：個股深度透視 
 # =========================================================================
-if app_mode == "🛡️ 環球市底大師指揮塔":
-    st.markdown("<h1 class='main-title'>🛡️ 環球市底大師指揮塔</h1>", unsafe_allow_html=True)
-    tower_tab = st.radio("選擇監控星系", list(TOWER_CONFIG.keys()), horizontal=True)
-    
-    st.sidebar.markdown("---")
-    st.sidebar.markdown("### 🛠️ 均線顯示開關")
-    show_ma20 = st.sidebar.checkbox("20日線 (短線動能)", True)
-    show_ma50 = st.sidebar.checkbox("50日線 / 10周 (中期趨勢)", True)
-    show_ma150 = st.sidebar.checkbox("150日線 / 30周 (大師分界)", True)
-    show_ma200 = st.sidebar.checkbox("200日線 (終極牛熊)", True)
-
-    conf = TOWER_CONFIG[tower_tab]
-    
-    def scan_breadth(tickers):
-        good_50, good_150, good_200 = 0, 0, 0
-        strong_names = []
-        try:
-            data = yf.download(tickers, period="250d", progress=False, threads=True)['Close']
-            for t in tickers:
-                try:
-                    if t in data.columns:
-                        px = data[t].dropna()
-                        if len(px) > 200:
-                            lp = px.iloc[-1]
-                            ma50, ma150, ma200 = px.tail(50).mean(), px.tail(150).mean(), px.tail(200).mean()
-                            if lp > ma50: 
-                                good_50 += 1
-                                strong_names.append(t)
-                            if lp > ma150: good_150 += 1
-                            if lp > ma200: good_200 += 1
-                except: continue
-        except: pass
-        return good_50, good_150, good_200, strong_names, len(tickers)
-
-    with st.spinner(f"⏳ 正在掃描 {tower_tab} 核心母體大數據... 請稍後 ☕"):
-        g50, g150, g200, heroes, total_n = scan_breadth(conf["tickers"])
-        
-        try:
-            idx_df = yf.Ticker(conf["idx"]).history(period="2y").dropna()
-            if not idx_df.empty:
-                idx_df['MA20'] = idx_df['Close'].rolling(20).mean()
-                idx_df['MA50'] = idx_df['Close'].rolling(50).mean()
-                idx_df['MA150'] = idx_df['Close'].rolling(150).mean()
-                idx_df['MA200'] = idx_df['Close'].rolling(200).mean()
-                
-                # 熊市判定
-                slope_150 = idx_df['MA150'].diff(10).iloc[-1] if len(idx_df) > 10 else 0
-                slope_200 = idx_df['MA200'].diff(10).iloc[-1] if len(idx_df) > 10 else 0
-                is_bear = (idx_df['MA50'].iloc[-1] < idx_df['MA150'].iloc[-1]) and (slope_150 < 0) and (slope_200 < 0)
-                
-                if is_bear:
-                    st.markdown(f"<div class='bear-alert'>⚠️ 警告：{tower_tab} 已進入長線熊市階段<br><span style='font-size:1.2rem; color:white;'>50/150日死叉 + 150/200日線向下斜 ➔ 絕對不宜隨意買入！</span></div>", unsafe_allow_html=True)
-                
-                # 市寬 Metric
-                st.markdown(f"<h3 style='color:white;'>📊 {conf['title']} 市底指標 (取樣: {total_n} 隻)</h3>", unsafe_allow_html=True)
-                c1, c2, c3 = st.columns(3)
-                c1.metric("高於 50天線 (中期熱度)", f"{(g50/max(total_n, 1)*100):.1f}%")
-                c2.metric("高於 150天線 (大師防線)", f"{(g150/max(total_n, 1)*100):.1f}%")
-                c3.metric("高於 200天線 (終極牛熊)", f"{(g200/max(total_n, 1)*100):.1f}%")
-                
-                # 圖表
-                recent = idx_df.tail(250); dates = recent.index.strftime('%Y-%m-%d')
-                fig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.7, 0.3], vertical_spacing=0.05)
-                fig.add_trace(go.Candlestick(x=dates, open=recent['Open'], high=recent['High'], low=recent['Low'], close=recent['Close'], name='指數'), row=1, col=1)
-                
-                if show_ma20: fig.add_trace(go.Scatter(x=dates, y=recent['MA20'], line=dict(color='white', width=1), name='20日線'), row=1, col=1)
-                if show_ma50: fig.add_trace(go.Scatter(x=dates, y=recent['MA50'], line=dict(color='#FFD700', width=1.5), name='50日線'), row=1, col=1)
-                if show_ma150: fig.add_trace(go.Scatter(x=dates, y=recent['MA150'], line=dict(color='#00FFFF', width=2), name='150日線'), row=1, col=1)
-                if show_ma200: fig.add_trace(go.Scatter(x=dates, y=recent['MA200'], line=dict(color='#FF00FF', width=2), name='200日線'), row=1, col=1)
-                
-                # 死亡箭頭
-                bear_days = recent[(recent['MA150'].diff(10) < 0) & (recent['MA200'].diff(10) < 0)].index.strftime('%Y-%m-%d')
-                if not bear_days.empty:
-                    fig.add_trace(go.Scatter(x=bear_days, y=recent.loc[recent.index.strftime('%Y-%m-%d').isin(bear_days), 'High']*1.03, mode='markers', marker=dict(symbol='arrow-down', color='red', size=12), name='趨勢向下'), row=1, col=1)
-
-                counts, bins = np.histogram(recent['Close'], bins=30, weights=recent['Volume'])
-                fig.add_trace(go.Bar(y=(bins[:-1] + bins[1:]) / 2, x=counts, orientation='h', marker_color='rgba(0, 255, 204, 0.3)', xaxis='x3', yaxis='y1', name='蟹貨區'))
-                fig.add_trace(go.Bar(x=dates, y=recent['Volume'], marker_color='gray', name='成交量'), row=2, col=1)
-                
-                fig.update_layout(template="plotly_dark", height=800, paper_bgcolor='#0e1117', plot_bgcolor='#0e1117',
-                                  xaxis=dict(tickfont=dict(color='white'), type='category'), yaxis=dict(tickfont=dict(color='white')),
-                                  xaxis3=dict(overlaying='x', side='top', range=[0, max(counts)*1.5], showticklabels=False),
-                                  legend=dict(font=dict(color='white')))
-                st.plotly_chart(fig, use_container_width=True)
-                
-                # 英雄榜
-                if conf["list_needed"] and heroes:
-                    st.markdown(f"### 🛡️ {tower_tab} 英雄榜 (企穩 50 天線撐市強者)")
-                    hero_html = "".join([f"<span class='strong-hero'>{h}</span>" for h in heroes])
-                    st.markdown(hero_html, unsafe_allow_html=True)
-            else:
-                st.error("加載大盤數據時出現錯誤，請檢查網絡或稍後再試。")
-        except Exception as e:
-            st.error("加載大盤數據時出現錯誤，請檢查網絡或稍後再試。")
-
-# =========================================================================
-# 🚀 模式 A：個股深度透視 (一條毛都冇改，完美保留 V89.0 原貌)
-# =========================================================================
-elif app_mode == "🚀 個股深度透視":
+if app_mode == "🚀 個股深度透視":
     ticker = st.sidebar.text_input("🚀 輸入資產代號", "6869.HK").upper()
     with st.spinner(f"⏳ 系統正在切換引擎，重新為您下載海量數據及繪製摩訶圖... 由於運算龐大，請乖孫耐心等候數秒 ☕🚀"):
         try:
@@ -343,7 +237,7 @@ elif app_mode == "🚀 個股深度透視":
                 name_html = f"<span style='font-size: 1.8rem; color: #AAAAAA; font-weight: 500; margin-left: 15px;'>{asset_name}</span>" if asset_name else ""
                 
                 st.markdown(f"""<div class='main-title' style='margin-bottom:10px;'>環球資產透維評估儀 [{ticker}]{name_html}</div>""", unsafe_allow_html=True)
-                st.markdown(f"""<div class='方程式-box'>🛡️ 必勝潛伏方程式：COSMOS-RS (星系強弱) > 52, EJ 錢流底氣 > 85, 短期能量 > 75, 最近 20 日主力資金池淨額是正數買入，OBV 大戶籌碼流入或觀望，資金部署集中度是分散</div>""", unsafe_allow_html=True)
+                st.markdown(f"""<div style='text-align: center; color: #00FFCC; font-size: 1.2rem; font-weight: bold; margin-bottom: 25px; padding: 10px; background-color: rgba(0, 255, 204, 0.1); border-radius: 8px; border: 1px dashed #00FFCC;'>🛡️ 必勝潛伏方程式：COSMOS-RS (星系強弱) > 52, EJ 錢流底氣 > 85, 短期能量 > 75, 最近 20 日主力資金池淨額是正數買入，OBV 大戶籌碼流入或觀望，資金部署集中度是分散</div>""", unsafe_allow_html=True)
                 
                 c1, c2, c3 = st.columns([1, 1.2, 1.6])
                 with c1: st.markdown(f"""<div class='cosmos-box' style='height: 460px; display:flex; flex-direction:column; justify-content:center;'><div class='cosmos-label'>COSMOS-X (天體動能)</div><div class='cosmos-value'>{cx_val:.1f}</div></div>""", unsafe_allow_html=True)
@@ -419,13 +313,34 @@ elif app_mode == "🚀 個股深度透視":
                     st.markdown("</div>", unsafe_allow_html=True)
                 except: pass
 
-                # 📊 摩訶釋達圖
-                st.write("### 📊 摩訶釋達・能量與籌碼透視圖")
+                # ✅ 爺爺 V90.0 優化：圖表加入大盤市寬線與平均線開關掣
+                st.write("### 📊 摩訶釋達・能量與籌碼透視圖 (支持局部縮放與還原)")
+                
+                c_btn1, c_btn2 = st.columns(2)
+                with c_btn1:
+                    show_breadth = st.checkbox("🌊 顯示大盤市寬基準線 (預設開啟)", value=True)
+                with c_btn2:
+                    show_ma = st.checkbox("📈 顯示移動平均線 (20日, 50日) (預設關閉)", value=False)
+                    
                 recent = df.tail(120); dates = recent.index.strftime('%Y-%m-%d')
                 fig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.7, 0.3], vertical_spacing=0.05)
                 fig.add_trace(go.Candlestick(x=dates, open=recent['Open'], high=recent['High'], low=recent['Low'], close=recent['Close'], name='股價'), row=1, col=1)
+                
+                if show_ma:
+                    fig.add_trace(go.Scatter(x=dates, y=recent['Close'].rolling(20).mean(), mode='lines', name='20MA', line=dict(color='#FFD700', width=1.5)), row=1, col=1)
+                    fig.add_trace(go.Scatter(x=dates, y=recent['Close'].rolling(50).mean(), mode='lines', name='50MA', line=dict(color='#BC13FE', width=1.5)), row=1, col=1)
+                    
+                if show_breadth:
+                    bench_sym_c = "^HSI" if ".HK" in ticker else "SPY"
+                    try:
+                        bench_df_c = yf.Ticker(bench_sym_c).history(period="1y")['Close'].reindex(recent.index).ffill().bfill()
+                        norm_factor = recent['Close'].iloc[0] / bench_df_c.iloc[0] if len(recent)>0 and len(bench_df_c)>0 and bench_df_c.iloc[0]!=0 else 1
+                        breadth_line = bench_df_c * norm_factor
+                        fig.add_trace(go.Scatter(x=dates, y=breadth_line, mode='lines', name=f'{bench_sym_c} 市寬基準', line=dict(color='#00FFFF', width=2, dash='dot')), row=1, col=1)
+                    except: pass
+                
                 fig.add_trace(go.Bar(x=dates, y=recent['Volume'], marker_color=['#00FF00' if recent['Close'].iloc[i] >= recent['Open'].iloc[i] else '#FF0000' for i in range(len(recent))]), row=2, col=1)
-                counts, bins = np.histogram(recent['Close'], bins=20, weights=recent['Volume'])
+                counts, bins = np.histogram(recent['Close'].dropna(), bins=20, weights=recent['Volume'].dropna())
                 fig.add_trace(go.Bar(y=(bins[:-1] + bins[1:]) / 2, x=counts, orientation='h', marker_color='rgba(0, 255, 204, 0.4)', xaxis='x3', yaxis='y1'))
                 fig.update_layout(template="plotly_dark", paper_bgcolor='#0e1117', plot_bgcolor='#0e1117', height=750, showlegend=False, xaxis_rangeslider_visible=False, xaxis=dict(type='category', showgrid=False), yaxis=dict(showgrid=True, gridcolor='#333'), xaxis3=dict(overlaying='x', side='top', range=[0, max(counts)*1.1], showgrid=False, showticklabels=False))
                 st.plotly_chart(fig, use_container_width=True, theme=None, config={'scrollZoom': True, 'displayModeBar': True, 'displaylogo': False, 'modeBarButtonsToAdd':['drawline','drawrect','eraseshape']})
@@ -506,7 +421,7 @@ elif app_mode == "🚀 個股深度透視":
         except: pass
 
 # =========================================================================
-# 🔍 模式 C：起步尋龍雷達 (必勝潛龍羅輯 撒網版 完全不變)
+# 🔍 模式 C：起步尋龍雷達 (必勝潛龍羅輯 V87.0 撒網版)
 # =========================================================================
 elif "雷達" in app_mode:
     st.markdown(f"<h1 class='main-title'>{app_mode}</h1>", unsafe_allow_html=True)
@@ -553,7 +468,7 @@ elif "雷達" in app_mode:
         if not found: st.warning("💤 雷達掃描完畢，目前未有起飛目標。(此過濾條件為潛龍必勝模式，要求大戶真實佈局)")
 
 # =========================================================================
-# 📡 拔河熱力圖 (完全不變)
+# 📡 拔河熱力圖 
 # =========================================================================
 elif "熱力圖" in app_mode:
     st.markdown(f"<h1 class='main-title'>{app_mode}</h1>", unsafe_allow_html=True)
