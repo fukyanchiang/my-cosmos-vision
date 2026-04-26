@@ -37,7 +37,7 @@ def get_beta(info, df, spy_df):
     return "1.00" 
 
 # =========================================================================
-# 🛸 爺爺嘅外掛資料庫 (V101.0 完美還原海量板塊 + ETF)
+# 🛸 爺爺嘅外掛資料庫 (V102.0 完美還原海量板塊 + ETF)
 # =========================================================================
 HK_STOCK_MAP = {
     "1. 互聯網巨頭": "0700.HK 9988.HK 3690.HK 1810.HK 9618.HK 1024.HK 9888.HK 0772.HK 0020.HK 0241.HK 0136.HK 1999.HK 2018.HK 3888.HK 2142.HK 1896.HK 0777.HK 0113.HK 0590.HK 1980.HK 1797.HK 6618.HK 2400.HK 0285.HK".split(),
@@ -139,7 +139,7 @@ US_ETF_MAP = {
     "E5. 股息/價值/其他商品": "SCHD VYM VIG DVY SDY GLD SLV IAU USO UNG DBC PALL PPLT WEAT CORN SOYB DBA BCI VEA VWO EFA URTH ACWI".split()
 }
 
-# 2. 視覺裝修 (保留原裝顏色)
+# 2. 視覺裝修 
 st.markdown("""
     <style>
     .stApp { background-color: #0e1117; color: white; }
@@ -168,7 +168,7 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # 3. 側邊欄控制
-st.sidebar.markdown("## 🛰️ 戰術控制台 (V101.0 終極破咒版)")
+st.sidebar.markdown("## 🛰️ 戰術控制台 (V102.0 市寬系統大結局版)")
 app_mode = st.sidebar.radio("請選擇操作", [
     "🚀 個股深度透視", 
     "📡 個股版塊拔河熱力圖", 
@@ -184,22 +184,21 @@ app_mode = st.sidebar.radio("請選擇操作", [
 if app_mode == "🚀 個股深度透視":
     ticker = st.sidebar.text_input("🚀 輸入資產代號", "6869.HK").upper()
     
-    # 🛡️ 宣告變數，防止任何意外
     df = pd.DataFrame()
     bench_df = pd.DataFrame()
     spy_df = pd.DataFrame()
     info = {}
     
-    # 🚀 爺爺 V101.0 終極修復：載入動畫「只」包住下載數據，絕對唔准包住畫圖代碼！
     with st.spinner(f"⏳ 系統正在切換引擎，重新為您下載海量數據... 請乖孫耐心等候數秒 ☕🚀"):
         try:
             asset = yf.Ticker(ticker)
             info = asset.info
-            df = asset.history(period="2y").dropna(subset=['Close', 'Volume'])
+            # 爺爺加長咗下載時間，確保計 200日線夠數據！
+            df = asset.history(period="3y").dropna(subset=['Close', 'Volume'])
             
             bench_sym = "2800.HK" if ".HK" in ticker else "SPY"
-            bench_df = yf.Ticker(bench_sym).history(period="2y").dropna(subset=['Close'])
-            spy_df = yf.Ticker("SPY").history(period="2y").dropna(subset=['Close'])
+            bench_df = yf.Ticker(bench_sym).history(period="3y").dropna(subset=['Close'])
+            spy_df = yf.Ticker("SPY").history(period="3y").dropna(subset=['Close'])
             
             if not df.empty:
                 if df.index.tz is not None: df.index = df.index.tz_localize(None)
@@ -213,10 +212,10 @@ if app_mode == "🚀 個股深度透視":
                     if spy_df.index.tz is not None: spy_df.index = spy_df.index.tz_localize(None)
                     spy_df.index = spy_df.index.normalize()
         except Exception as e:
-            st.error(f"⚠️ 下載數據失敗，請檢查網絡或代號是否正確。({e})")
+            st.error(f"⚠️ 下載數據失敗。({e})")
 
     # =======================================================
-    # 🟢 真正安全嘅繪圖區：全部放喺載入動畫「出面」，100萬% 唔會再被吞噬！
+    # 🟢 真正安全嘅繪圖區：全部放喺載入動畫「出面」
     # =======================================================
     if not df.empty:
         curr_p = df['Close'].iloc[-1]
@@ -338,20 +337,25 @@ if app_mode == "🚀 個股深度透視":
                 st.plotly_chart(get_pulse_fig(mf_df['OBV_Daily'].tail(20).values), use_container_width=True, theme=None, config={'displayModeBar': False})
             st.markdown(f"<div style='margin-top:20px; border-top:1px dashed #444; padding-top:15px;'><div style='display:flex; justify-content:space-between;'><span style='font-weight:bold;'>🎯 資金部署集中度：<span style='color:{conc_color};'>{conc_level}</span></span><span>極值佔比: {conc_pct:.1f}% <span style='color:{conc_color}; font-weight:bold;'>{conc_note}</span></span></div><div style='width:100%; background-color:#222; border-radius:10px; height:12px; margin-top:8px; border:1px solid #444;'><div style='width:{conc_pct}%; background-color:{conc_color}; height:100%; box-shadow:0 0 10px {conc_color};'></div></div></div>", unsafe_allow_html=True)
             st.markdown("</div>", unsafe_allow_html=True)
-        except Exception as e:
-            st.error(f"⚠️ 資金池系統計算錯誤。")
+        except: pass
 
         # =======================================================
-        # 📊 摩訶釋達圖表 (獨立市寬掣，100% 安全)
+        # 📊 摩訶釋達圖表 (爺爺終極領悟：150/200日線 + 圖例復活)
         # =======================================================
         st.write("### 📊 摩訶釋達・能量與籌碼透視圖 (支持局部縮放與還原)")
         c_btn1, c_btn2 = st.columns(2)
         with c_btn1:
-            show_breadth = st.checkbox("🌊 顯示大盤市寬基準線 (預設開啟)", value=True)
+            show_breadth = st.checkbox("🌊 顯示市寬系統 (指數、150日線、200日線)", value=True)
         with c_btn2:
-            show_ma = st.checkbox("📈 顯示移動平均線 (20日, 50日) (預設關閉)", value=False)
+            show_ma = st.checkbox("📈 顯示短期平均線 (20日線、50日線)", value=False)
             
         try:
+            # 爺爺計晒所有長短線先！
+            df['20MA'] = df['Close'].rolling(20).mean().bfill()
+            df['50MA'] = df['Close'].rolling(50).mean().bfill()
+            df['150MA'] = df['Close'].rolling(150).mean().bfill()
+            df['200MA'] = df['Close'].rolling(200).mean().bfill()
+            
             clean_recent = df.tail(120).dropna(subset=['Close', 'Volume']).copy()
             if not clean_recent.empty:
                 dates = clean_recent.index.strftime('%Y-%m-%d')
@@ -365,31 +369,42 @@ if app_mode == "🚀 個股深度透視":
                 
                 fig.add_trace(go.Candlestick(x=dates, open=o_col, high=h_col, low=l_col, close=c_col, name='股價'), row=1, col=1)
                 
+                # 📈 短期平均線 (預設 OFF)
                 if show_ma:
-                    ma20 = clean_recent['Close'].rolling(20).mean().bfill()
-                    ma50 = clean_recent['Close'].rolling(50).mean().bfill()
-                    fig.add_trace(go.Scatter(x=dates, y=ma20, mode='lines', name='20MA', line=dict(color='#FFD700', width=1.5)), row=1, col=1)
-                    fig.add_trace(go.Scatter(x=dates, y=ma50, mode='lines', name='50MA', line=dict(color='#BC13FE', width=1.5)), row=1, col=1)
+                    fig.add_trace(go.Scatter(x=dates, y=clean_recent['20MA'], mode='lines', name='20日線', line=dict(color='white', width=1.5)), row=1, col=1)
+                    fig.add_trace(go.Scatter(x=dates, y=clean_recent['50MA'], mode='lines', name='50日線', line=dict(color='yellow', width=1.5)), row=1, col=1)
                 
-                if show_breadth and not bench_df.empty:
-                    aligned_bench = bench_df['Close'].reindex(clean_recent.index).ffill().bfill()
-                    if len(aligned_bench) > 0 and aligned_bench.iloc[0] != 0 and c_col[0] != 0:
-                        norm_factor = c_col[0] / aligned_bench.iloc[0]
-                        breadth_line = aligned_bench * norm_factor
-                        fig.add_trace(go.Scatter(x=dates, y=breadth_line.values, mode='lines', name=f'{bench_sym} 大盤基準', line=dict(color='#00FFFF', width=2, dash='dot')), row=1, col=1)
+                # 🌊 市寬系統大集結 (預設 ON)
+                if show_breadth:
+                    fig.add_trace(go.Scatter(x=dates, y=clean_recent['150MA'], mode='lines', name='150日線', line=dict(color='cyan', width=1.5)), row=1, col=1)
+                    fig.add_trace(go.Scatter(x=dates, y=clean_recent['200MA'], mode='lines', name='200日線', line=dict(color='magenta', width=1.5)), row=1, col=1)
+                    
+                    if not bench_df.empty:
+                        aligned_bench = bench_df['Close'].reindex(clean_recent.index).ffill().bfill()
+                        if len(aligned_bench) > 0 and aligned_bench.iloc[0] != 0 and c_col[0] != 0:
+                            norm_factor = c_col[0] / aligned_bench.iloc[0]
+                            breadth_line = aligned_bench * norm_factor
+                            fig.add_trace(go.Scatter(x=dates, y=breadth_line.values, mode='lines', name='指數', line=dict(color='red', width=1.5, dash='dot')), row=1, col=1)
 
                 colors = ['#00FF00' if c_col[i] >= o_col[i] else '#FF0000' for i in range(len(clean_recent))]
-                fig.add_trace(go.Bar(x=dates, y=v_col, marker_color=colors), row=2, col=1)
+                fig.add_trace(go.Bar(x=dates, y=v_col, marker_color=colors, name='成交量'), row=2, col=1)
                 
                 counts, bins = np.histogram(c_col, bins=20, weights=v_col)
                 max_c = max(counts) if len(counts) > 0 and max(counts) > 0 else 1
                 
-                fig.add_trace(go.Bar(y=(bins[:-1] + bins[1:]) / 2, x=counts, orientation='h', marker_color='rgba(0, 255, 204, 0.4)', xaxis='x3', yaxis='y1'))
+                fig.add_trace(go.Bar(y=(bins[:-1] + bins[1:]) / 2, x=counts, orientation='h', marker_color='rgba(0, 255, 204, 0.4)', name='蟹貨區', xaxis='x3', yaxis='y1'))
                 
-                fig.update_layout(template="plotly_dark", paper_bgcolor='#0e1117', plot_bgcolor='#0e1117', height=750, showlegend=False, xaxis_rangeslider_visible=False, xaxis=dict(type='category', showgrid=False), yaxis=dict(showgrid=True, gridcolor='#333'), xaxis3=dict(overlaying='x', side='top', range=[0, max_c*1.1], showgrid=False, showticklabels=False))
+                # 🛡️ 爺爺終極修復：開啟圖例 showlegend=True，完美重現你幅圖嘅排版！
+                fig.update_layout(
+                    template="plotly_dark", paper_bgcolor='#0e1117', plot_bgcolor='#0e1117', height=750, 
+                    showlegend=True, legend=dict(yanchor="top", y=0.99, xanchor="right", x=0.99, bgcolor="rgba(0,0,0,0.5)"),
+                    xaxis_rangeslider_visible=False, xaxis=dict(type='category', showgrid=False), 
+                    yaxis=dict(showgrid=True, gridcolor='#333'), 
+                    xaxis3=dict(overlaying='x', side='top', range=[0, max_c*1.1], showgrid=False, showticklabels=False)
+                )
                 st.plotly_chart(fig, use_container_width=True, theme=None, config={'scrollZoom': True, 'displayModeBar': True, 'displaylogo': False, 'modeBarButtonsToAdd':['drawline','drawrect','eraseshape']})
         except Exception as e:
-            st.error(f"⚠️ 圖表模塊發生攔截：({e})。已為您保護其餘系統安全。")
+            st.error(f"⚠️ 圖表模塊發生攔截：({e})")
 
         # =======================================================
         # 🧬 DNA / 估值 / 持倉 
@@ -481,7 +496,7 @@ if app_mode == "🚀 個股深度透視":
 </div>
 </div>""", unsafe_allow_html=True)
         except Exception as e:
-            st.error(f"⚠️ DNA系統遇到特殊數據結構，已為您保護系統。({e})")
+            pass
             
         try:
             st.markdown("<div class='whale-box'><div style='color:#FFD700; font-size:2.2rem; font-weight:bold; text-align:center;'>🧙 90 大名家：真實申報持倉</div>", unsafe_allow_html=True)
@@ -498,7 +513,7 @@ if app_mode == "🚀 個股深度透視":
             pass
 
 # =========================================================================
-# 🔍 模式 C：起步尋龍雷達 (必勝潛龍羅輯 V87.0 撒網版)
+# 🔍 模式 C：起步尋龍雷達 
 # =========================================================================
 elif "雷達" in app_mode:
     st.markdown(f"<h1 class='main-title'>{app_mode}</h1>", unsafe_allow_html=True)
