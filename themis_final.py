@@ -124,22 +124,25 @@ US_ETF_MAP = {
     "E5. 股息/價值/其他商品": "SCHD VYM VIG DVY SDY GLD SLV IAU USO UNG DBC PALL PPLT WEAT CORN SOYB DBA BCI VEA VWO EFA URTH ACWI".split()
 }
 
-# 🛡️ V92.0 指揮塔專用精準名單 (確保母體準確)
+# 🛡️ V93.0 指揮塔專用精準名單 (確保母體準確，解決科指黑畫面，增強 IWM 母體至 >200隻)
 all_hk_stocks = list(set([t for sub in HK_STOCK_MAP.values() for t in sub]))
 all_us_stocks = list(set([t for sub in US_STOCK_MAP.values() for t in sub]))
 tech_us_stocks = list(set(US_STOCK_MAP.get("1. 半導體設備與設計", []) + US_STOCK_MAP.get("2. AI與大數據雲端", []) + US_STOCK_MAP.get("3. 基礎軟件與 SaaS", []) + US_STOCK_MAP.get("4. 網絡安全 (Cyber)", []) + US_STOCK_MAP.get("5. 消費電子與硬件", [])))
-iwm_us_stocks = list(set(US_STOCK_MAP.get("48. 中型價值精選", []) + US_STOCK_MAP.get("49. 小型爆發精選", []) + US_STOCK_MAP.get("50. 超微型探索 (Micro)", [])))
+
+# 【爺爺大絕招】：硬生生注入美國羅素 2000 超強活躍名單 (補足 200 隻以上，唔再係 48 隻廢柴)
+mega_iwm_list = "AMC GME PLUG FCEL AAOI CELH SMCI TMDX AXON FOUR INDI VRT ALKT ACLS MOD ONTO POWI SOUN RXRX AI BBAI HIVE VLD IONQ CRDO NRDS LUNA QBTS KTRA RGTI ARQQ INVZ MSTR MARA RIOT HUT CLSK CIFR BITF SDIG BTBT GLXY WULF CORZ ARBK IREN SPCE RKLB PL BKSY ASTS RDW MNTS LLAP SIDU SPIR SATS LUNR ACHR JOBY CHGG COUR LRN TWOU PRDO STRA APEI ATGE LOPE UTI LAUR BFAM PATH SYM CGNX ISGN KEX LECO ROK PTC FARO FLIR ALTR NVMI CAMT ICHR COHU WSM GPC WILLIAMS TSCO ODFL MIDD SAIA EXPD CHRW GGG DOV NDSN WTS ITW UPST AFIRM AFRM SOFI PLTR ROKU HOOD COIN TOST MQ BILL FLYW REVG BKI LPRO IIIV HAE FOR EVTC RPCE FLT WEX FSR GOEV HYZN PTRA LEV VLTA ENVX QS FREY OUST AEHR CLPT DNA PACB EXAS NTLA CRSP EDIT BEAM ILMN TMO DHR CTLT WAT IQV MTD BRKR PKI CRL BIO TECH MED PINC QGEN NEO EXAS MTDR APA MRO MUR FANG PXD CLR CXO DVN EOG HES OXY VLO PSX MPC HAL SLB BKR FTI NBR NOV CHX WTTR PTEN LBRT OIS RES HLX NCS NEX NINE SOI ENPH SEDG RUN SHLS NEE BE CWEN AY NOVA MAXN SPWR ARRY STEM DQ JKS CSIQ NEP HASI BEP PEGI TPIC FSLY DDOG NET ZS CRWD OKTA TEAM SPLK GEN CYBR CHKP VRSN ESTC TENB SQSP PCOR DOCN VRTX REGN GILD BMY GSK SNY AZN NVS TEVA TAK RHHBY MRNA BNTX BIIB INCY BMRN ALXN SGEN EXAS ILMN ALNY SRPT VRTX BMRN UTHR ARGX DNA CRSP NTLA EDIT BEAM MDT ABT SYK BSX EW BDX ISRG ZBH STE ALGN RMD HOLX XRAY COO TFX PEN RES IART GMED OMCL".split()
+iwm_us_stocks = list(set(US_STOCK_MAP.get("48. 中型價值精選", []) + US_STOCK_MAP.get("49. 小型爆發精選", []) + US_STOCK_MAP.get("50. 超微型探索 (Micro)", []) + mega_iwm_list))
 
 TOWER_CONFIG = {
-    "🇭🇰 恒指大盤": {"idx": "^HSI", "list_needed": False, "tickers": all_hk_stocks},
-    "🚀 科指動能": {"idx": "^HSTECH", "list_needed": True, "tickers": "0700.HK 9988.HK 3690.HK 1810.HK 9618.HK 1024.HK 9888.HK 0981.HK 1347.HK 2382.HK 2018.HK 0285.HK 0772.HK 2400.HK 1797.HK 6618.HK 9626.HK 1310.HK 0522.HK 0732.HK 1833.HK 0020.HK 0241.HK 0136.HK 1999.HK 3888.HK 2142.HK 1896.HK 0777.HK 0590.HK".split()},
-    "🇺🇸 道指 (DIA)": {"idx": "DIA", "list_needed": True, "tickers": "AAPL MSFT AMZN NVDA GS UNH V HD PG DIS CRM JNJ KO MCD CSCO WMT JPM NKE INTC CAT BA TRV CVX HON IBM AMGN MMM MRK DOW MMMM".split()},
-    "🇺🇸 標普500 (SPY)": {"idx": "SPY", "list_needed": False, "tickers": all_us_stocks},
-    "🇺🇸 納指 (QQQ)": {"idx": "QQQ", "list_needed": False, "tickers": tech_us_stocks},
-    "🇺🇸 羅素2000 (IWM)": {"idx": "IWM", "list_needed": False, "tickers": iwm_us_stocks}
+    "🇭🇰 恒指大盤": {"idx": "2800.HK", "list_needed": False, "tickers": all_hk_stocks, "title": "恒指大盤 (^HSI)"},
+    "🚀 科指動能": {"idx": "3067.HK", "list_needed": True, "tickers": "0700.HK 9988.HK 3690.HK 1810.HK 9618.HK 1024.HK 9888.HK 0981.HK 1347.HK 2382.HK 2018.HK 0285.HK 0772.HK 2400.HK 1797.HK 6618.HK 9626.HK 1310.HK 0522.HK 0732.HK 1833.HK 0020.HK 0241.HK 0136.HK 1999.HK 3888.HK 2142.HK 1896.HK 0777.HK 0590.HK".split(), "title": "科指動能 (^HSTECH / 3067.HK)"},
+    "🇺🇸 道指 (DIA)": {"idx": "DIA", "list_needed": True, "tickers": "AAPL MSFT AMZN NVDA GS UNH V HD PG DIS CRM JNJ KO MCD CSCO WMT JPM NKE INTC CAT BA TRV CVX HON IBM AMGN MMM MRK DOW MMMM".split(), "title": "道指 (DIA)"},
+    "🇺🇸 標普500 (SPY)": {"idx": "SPY", "list_needed": False, "tickers": all_us_stocks, "title": "標普500 (SPY)"},
+    "🇺🇸 納指 (QQQ)": {"idx": "QQQ", "list_needed": False, "tickers": tech_us_stocks, "title": "納指 (QQQ)"},
+    "🇺🇸 羅素2000 (IWM)": {"idx": "IWM", "list_needed": False, "tickers": iwm_us_stocks, "title": "羅素2000 (IWM)"}
 }
 
-# 2. 視覺裝修 (完美保留所有原裝顏色 + V92.0 白色字體增強)
+# 2. 視覺裝修 (完美保留所有原裝顏色 + V93.0 白色字體增強)
 st.markdown("""
     <style>
     .stApp { background-color: #0e1117; color: white; }
@@ -172,7 +175,7 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # 3. 側邊欄控制 
-st.sidebar.markdown("## 🛰️ 戰術控制台 (V92.0)")
+st.sidebar.markdown("## 🛰️ 戰術控制台 (V93.0)")
 app_mode = st.sidebar.radio("請選擇操作", [
     "🚀 個股深度透視", 
     "🛡️ 環球市底大師指揮塔", 
@@ -184,7 +187,7 @@ app_mode = st.sidebar.radio("請選擇操作", [
 ])
 
 # =========================================================================
-# 🛡️ 模式 B：環球市底大師指揮塔 (V92.0 防黑畫面 + 英雄榜 + 白色字)
+# 🛡️ 模式 B：環球市底大師指揮塔 (V93.0 防黑畫面 + 英雄榜 + 白色字 + 增強母體)
 # =========================================================================
 if app_mode == "🛡️ 環球市底大師指揮塔":
     st.markdown("<h1 class='main-title'>🛡️ 環球市底大師指揮塔</h1>", unsafe_allow_html=True)
@@ -240,7 +243,7 @@ if app_mode == "🛡️ 環球市底大師指揮塔":
                     st.markdown(f"<div class='bear-alert'>⚠️ 警告：{tower_tab} 已進入長線熊市階段<br><span style='font-size:1.2rem; color:white;'>50/150日死叉 + 150/200日線向下斜 ➔ 絕對不宜隨意買入！</span></div>", unsafe_allow_html=True)
                 
                 # 市寬 Metric
-                st.markdown(f"<h3 style='color:white;'>📊 {tower_tab} 市底指標 (取樣: {total_n} 隻)</h3>", unsafe_allow_html=True)
+                st.markdown(f"<h3 style='color:white;'>📊 {conf['title']} 市底指標 (取樣: {total_n} 隻)</h3>", unsafe_allow_html=True)
                 c1, c2, c3 = st.columns(3)
                 c1.metric("高於 50天線 (中期熱度)", f"{(g50/max(total_n, 1)*100):.1f}%")
                 c2.metric("高於 150天線 (大師防線)", f"{(g150/max(total_n, 1)*100):.1f}%")
@@ -276,6 +279,8 @@ if app_mode == "🛡️ 環球市底大師指揮塔":
                     st.markdown(f"### 🛡️ {tower_tab} 英雄榜 (企穩 50 天線撐市強者)")
                     hero_html = "".join([f"<span class='strong-hero'>{h}</span>" for h in heroes])
                     st.markdown(hero_html, unsafe_allow_html=True)
+            else:
+                st.error("加載大盤數據時出現錯誤，請檢查網絡或稍後再試。")
         except Exception as e:
             st.error("加載大盤數據時出現錯誤，請檢查網絡或稍後再試。")
 
@@ -501,7 +506,7 @@ elif app_mode == "🚀 個股深度透視":
         except: pass
 
 # =========================================================================
-# 🔍 模式 C：起步尋龍雷達 (必勝潛龍羅輯 V92.0 撒網版 完全不變)
+# 🔍 模式 C：起步尋龍雷達 (必勝潛龍羅輯 撒網版 完全不變)
 # =========================================================================
 elif "雷達" in app_mode:
     st.markdown(f"<h1 class='main-title'>{app_mode}</h1>", unsafe_allow_html=True)
