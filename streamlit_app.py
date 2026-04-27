@@ -22,7 +22,7 @@ def safe_s(info, keys, suffix="", alt="N/A"):
             except: pass 
     return alt 
 
-# 🚀 爺爺補完：Beta 引擎
+# 🚀 爺爺還原：Beta、Alpha、波動率計算引擎
 def get_beta(info, df, spy_df): 
     b = info.get('beta') 
     if b is not None and str(b).lower() not in ['nan', 'none', '']: return f"{float(b):.2f}" 
@@ -37,19 +37,17 @@ def get_beta(info, df, spy_df):
     except: pass 
     return "1.00" 
 
-# 🚀 爺爺新增：Alpha 引擎
 def get_alpha(beta, df, spy_df):
     try:
         b = float(beta)
         df_aligned, spy_aligned = df['Close'].align(spy_df['Close'], join='inner')
         asset_ret = (df_aligned.iloc[-1] - df_aligned.iloc[0]) / df_aligned.iloc[0]
         spy_ret = (spy_aligned.iloc[-1] - spy_aligned.iloc[0]) / spy_aligned.iloc[0]
-        risk_free = 0.04 # 假設無風險利率 4%
+        risk_free = 0.04 
         alpha = asset_ret - (risk_free + b * (spy_ret - risk_free))
         return f"{alpha * 100:.2f}%"
     except: return "N/A"
 
-# 🚀 爺爺新增：波動率引擎
 def get_volatility(df):
     try:
         ret = df['Close'].pct_change().dropna().tail(252)
@@ -58,7 +56,7 @@ def get_volatility(df):
     except: return "N/A"
 
 # =========================================================================
-# 🛸 爺爺嘅外掛資料庫 (包含市寬系統專用股票池)
+# 🛸 爺爺嘅外掛資料庫 (完全保留一條毛都冇改)
 # =========================================================================
 HK_STOCK_MAP = {
     "1. 互聯網巨頭": "0700.HK 9988.HK 3690.HK 1810.HK 9618.HK 1024.HK 9888.HK 0772.HK 0020.HK 0241.HK 0136.HK 1999.HK 2018.HK 3888.HK 2142.HK 1896.HK 0777.HK 0113.HK 0590.HK 1980.HK 1797.HK 6618.HK 2400.HK 0285.HK".split(),
@@ -202,7 +200,7 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # 3. 側邊欄控制
-st.sidebar.markdown("## 🛰️ 戰術控制台 (V116.0 滿血版)")
+st.sidebar.markdown("## 🛰️ 戰術控制台 (V119.0 神之八磚版)")
 app_mode = st.sidebar.radio("請選擇操作", [
     "🚀 個股深度透視", 
     "🛡️ 環球市底大師指揮塔", 
@@ -404,6 +402,41 @@ elif app_mode == "🚀 個股深度透視":
                 st.markdown(f"""<div class='main-title' style='margin-bottom:10px;'>環球資產透維評估儀 [{ticker}]{name_html}</div>""", unsafe_allow_html=True)
                 st.markdown(f"""<div style='text-align: center; color: #00FFCC; font-size: 1.2rem; font-weight: bold; margin-bottom: 25px; padding: 10px; background-color: rgba(0, 255, 204, 0.1); border-radius: 8px; border: 1px dashed #00FFCC;'>🛡️ 必勝潛伏方程式：COSMOS-RS (星系強弱) > 52, EJ 錢流底氣 > 85, 短期能量 > 75, 最近 20 日主力資金池淨額是正數買入，OBV 大戶籌碼流入或觀望，資金部署集中度是分散</div>""", unsafe_allow_html=True)
                 
+                # =======================================================
+                # 🚀 爺爺終極還原：QUANTUM_X 八大護國神磚！(放在必勝方程式下方)
+                # =======================================================
+                q_asset = int(min(100, max(0, safe_n(info.get('returnOnEquity', 0.1)*300 + 50, 75))))
+                q_trend = int(min(100, max(0, crs_val)))
+                q_power = int(min(100, max(0, cx_val * 1.5)))
+                q_money = int(min(100, max(0, cej_s)))
+                q_sent  = int(min(100, max(0, se_s)))
+                q_total = int((q_asset + q_trend + q_power + q_money + q_sent) / 5)
+                q_pivot = df['Close'].tail(120).mean() if not df.empty else 0
+                q_vol_ratio = df['Volume'].iloc[-1] / max(1, df['Volume'].tail(20).mean()) if not df.empty else 0
+
+                st.markdown("<div style='margin-bottom: 20px;'>", unsafe_allow_html=True)
+                qc1, qc2, qc3, qc4 = st.columns(4)
+                def q_card(col, icon, title, val, suffix=""):
+                    col.markdown(f"""
+                    <div style='background-color:#111; border-radius:10px; padding:15px; border:1px solid #00FFCC; margin-bottom:15px; box-shadow: 0 0 10px rgba(0,255,204,0.2);'>
+                        <div style='color:#00FFCC; font-size:1.1rem; font-weight:bold; margin-bottom:8px;'>{icon} {title}</div>
+                        <div style='color:white; font-size:2.2rem; font-weight:900;'>{val}{suffix}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                q_card(qc1, "🏢", "資產質量", f"{q_asset}/100")
+                q_card(qc2, "📈", "趨勢強度", f"{q_trend}/100")
+                q_card(qc3, "⚡", "動能 (Power)", f"{q_power}/100")
+                q_card(qc4, "🐋", "大資金", f"{q_money}/100")
+
+                qc5, qc6, qc7, qc8 = st.columns(4)
+                q_card(qc5, "🎭", "市場情緒", f"{q_sent}/100")
+                q_card(qc6, "🏆", "綜合總分", f"{q_total}/100")
+                q_card(qc7, "🏛️", "歷史中軸價", f"${q_pivot:.2f}")
+                q_card(qc8, "💰", "成交比率", f"{q_vol_ratio:.1f}x")
+                st.markdown("</div>", unsafe_allow_html=True)
+                
+                # 其他內容全部向下移動
                 c1, c2, c3 = st.columns([1, 1.2, 1.6])
                 with c1: st.markdown(f"""<div class='cosmos-box' style='height: 460px; display:flex; flex-direction:column; justify-content:center;'><div class='cosmos-label'>COSMOS-X (天體動能)</div><div class='cosmos-value'>{cx_val:.1f}</div></div>""", unsafe_allow_html=True)
                 with c2:
@@ -548,7 +581,6 @@ elif app_mode == "🚀 個股深度透視":
                 st.markdown(f"<div class='red-bar'>🔥 戰略透視：短期動能爆發數值 [{se_s:.1f}%] 🔥</div>", unsafe_allow_html=True)
                 v1,v2,v3 = st.columns(3); v4,v5,v6 = st.columns(3)
                 
-                # 🚀 爺爺補完：加入 Beta、Alpha、波動率卡片
                 v7,v8,v9 = st.columns(3)
                 def v_card(col, t, t_v, f_v, d): col.markdown(f"<div class='val-box'><div class='val-label'>{t}</div><div class='val-text'>TTM: <span class='val-focus'>{t_v}</span></div><div class='val-text'>預期: <span class='val-focus'>{f_v}</span></div><div style='color:#FFA500; font-size:0.9rem;'>{d}</div></div>", unsafe_allow_html=True)
                 v_card(v1, "PE 獲利比", safe_s(info, ['trailingPE'], "x"), safe_s(info, ['forwardPE'], "x"), "獲利估值")
@@ -687,6 +719,3 @@ elif "熱力圖" in app_mode:
                 fig.update_layout(template="plotly_dark", paper_bgcolor='#0e1117', plot_bgcolor='#0e1117', font=dict(color='white'), height=700)
                 st.plotly_chart(fig, use_container_width=True, theme=None, config={'displayModeBar': False})
         except: pass
-
-# --- END OF FILE ---
-# (安全區域：確保複製時沒有斷尾)
