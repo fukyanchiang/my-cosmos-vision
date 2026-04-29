@@ -169,21 +169,35 @@ US_ETF_MAP = {
 
 @st.cache_data(ttl=3600)
 def get_breadth_data(tickers):
-    stats = {'20MA':0, '50MA':0, '150MA':0, '200MA':0, 'valid':0, 'above_50_list': []}
+    stats = {'20MA':0, '50MA':0, '150MA':0, '200MA':0, 'valid':0, 'above_50_list': [],
+             'hist_20MA': [0]*20, 'hist_50MA': [0]*20, 'hist_150MA': [0]*20, 'hist_200MA': [0]*20}
     if not tickers: 
         stats['valid'] = 1
         return stats
     for t in tickers:
         try:
             c = yf.Ticker(t).history(period="1y")['Close'].dropna()
-            if len(c) < 50: continue
+            n = len(c)
+            if n < 50: continue
+            
             curr = c.iloc[-1]
             if curr > c.tail(20).mean(): stats['20MA'] += 1
             if curr > c.tail(50).mean(): 
                 stats['50MA'] += 1
                 stats['above_50_list'].append(t)
-            if len(c) >= 150 and curr > c.tail(150).mean(): stats['150MA'] += 1
-            if len(c) >= 200 and curr > c.tail(200).mean(): stats['200MA'] += 1
+            if n >= 150 and curr > c.tail(150).mean(): stats['150MA'] += 1
+            if n >= 200 and curr > c.tail(200).mean(): stats['200MA'] += 1
+            
+            for i in range(20):
+                days_ago = 19 - i
+                end_idx = n - days_ago
+                if end_idx >= 20:
+                    past_curr = c.iloc[end_idx - 1]
+                    if past_curr > c.iloc[end_idx-20:end_idx].mean(): stats['hist_20MA'][i] += 1
+                    if end_idx >= 50 and past_curr > c.iloc[end_idx-50:end_idx].mean(): stats['hist_50MA'][i] += 1
+                    if end_idx >= 150 and past_curr > c.iloc[end_idx-150:end_idx].mean(): stats['hist_150MA'][i] += 1
+                    if end_idx >= 200 and past_curr > c.iloc[end_idx-200:end_idx].mean(): stats['hist_200MA'][i] += 1
+                    
             stats['valid'] += 1
         except: pass
     stats['valid'] = max(1, stats['valid'])
@@ -316,6 +330,40 @@ if app_mode == "🛡️ 環球市底大師指揮塔":
                     <div><span style='color: #00FFCC; font-size: 1.2rem; font-weight: bold;'>200市寬線之上</span><br><span style='color: white; font-size: 3rem; font-weight: 900;'>{(b_stats['200MA']/v_count)*100:.1f}%</span></div>
                 </div>
                 """, unsafe_allow_html=True)
+
+                # 🚀 爺爺新增：20日市寬變化走勢圖 (完全不需要矩陣運算，100% 穩定)
+                st.markdown("<h4 style='color:#FFF; margin-top:20px; margin-bottom:5px;'>📊 最近 20 日市寬變化趨勢</h4>", unsafe_allow_html=True)
+                fig_trend = go.Figure()
+                
+                # 提取真實日期
+                x_dates = clean_recent.index[-20:].strftime('%m-%d').tolist()
+                if len(x_dates) < 20: # 安全防護
+                    x_dates = [f"D{i}" for i in range(-19, 1)]
+                
+                y_20 = [(v/v_count)*100 for v in b_stats['hist_20MA']]
+                y_50 = [(v/v_count)*100 for v in b_stats['hist_50MA']]
+                y_150 = [(v/v_count)*100 for v in b_stats['hist_150MA']]
+                y_200 = [(v/v_count)*100 for v in b_stats['hist_200MA']]
+
+                fig_trend.add_trace(go.Scatter(x=x_dates, y=y_20, mode='lines+markers', name='20市寬線', line=dict(color='white', width=2)))
+                fig_trend.add_trace(go.Scatter(x=x_dates, y=y_50, mode='lines+markers', name='50市寬線', line=dict(color='yellow', width=2)))
+                fig_trend.add_trace(go.Scatter(x=x_dates, y=y_150, mode='lines+markers', name='150市寬線', line=dict(color='cyan', width=2)))
+                fig_trend.add_trace(go.Scatter(x=x_dates, y=y_200, mode='lines+markers', name='200市寬線', line=dict(color='magenta', width=2)))
+                
+                # 在最後一個點加上標籤
+                fig_trend.add_annotation(x=x_dates[-1], y=y_20[-1], text="20市寬", showarrow=False, xanchor="left", xshift=10, font=dict(color="white", size=12))
+                fig_trend.add_annotation(x=x_dates[-1], y=y_50[-1], text="50市寬", showarrow=False, xanchor="left", xshift=10, font=dict(color="yellow", size=12))
+                fig_trend.add_annotation(x=x_dates[-1], y=y_150[-1], text="150市寬", showarrow=False, xanchor="left", xshift=10, font=dict(color="cyan", size=12))
+                fig_trend.add_annotation(x=x_dates[-1], y=y_200[-1], text="200市寬", showarrow=False, xanchor="left", xshift=10, font=dict(color="magenta", size=12))
+
+                fig_trend.update_layout(
+                    template="plotly_dark", paper_bgcolor='#0e1117', plot_bgcolor='#111', height=300,
+                    margin=dict(l=20, r=60, t=10, b=20), # r=60 留空間畀標籤
+                    xaxis=dict(title="", showgrid=True, gridcolor='#333', type='category'),
+                    yaxis=dict(title="市寬 %", range=[0, 105], showgrid=True, gridcolor='#333'),
+                    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+                )
+                st.plotly_chart(fig_trend, use_container_width=True, config={'displayModeBar': False})
 
                 st.write("")
                 fig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.7, 0.3], vertical_spacing=0.05)
