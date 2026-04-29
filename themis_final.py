@@ -45,7 +45,7 @@ def get_alpha(beta, df, spy_df):
         spy_ret = (spy_aligned.iloc[-1] - spy_aligned.iloc[0]) / spy_aligned.iloc[0]
         risk_free = 0.04 
         alpha = asset_ret - (risk_free + b * (spy_ret - risk_free))
-        # 🚀 爺爺修改：Alpha 限制顯示位數
+        # 🚀 爺爺修改：Alpha 限制顯示位數 (1個小數位)
         return f"{alpha * 100:.1f}%"
     except: return "N/A"
 
@@ -200,7 +200,7 @@ st.markdown("""
     .val-label { color: #FFFFFF !important; font-size: 1.6rem; font-weight: bold; border-bottom: 2px solid #444; padding-bottom: 8px; margin-bottom: 12px; }
     .val-text { font-size: 1.3rem; color: #ccc; margin: 8px 0; }
     .val-focus { color: #FFD700; font-weight: bold; font-size: 1.8rem; }
-    .red-bar { color: #fff; border-radius: 10px; text-align: center; font-weight: 900; }
+    .red-bar { background-color: #FF4B4B; color: #fff; padding: 20px; border-radius: 10px; text-align: center; font-weight: 900; font-size: 2.5rem; margin: 30px 0; border: 3px solid #fff; }
     .val-box-purple { border: 3px solid #BC13FE; border-radius: 15px; padding: 30px; background-color: #000; box-shadow: 0 0 25px #BC13FE66; margin: 25px 0; }
     .energy-bar-container-8d { display: flex; gap: 4px; margin-top: 10px; margin-bottom: 15px; }
     .energy-seg-8d { flex: 1; height: 16px; border-radius: 2px; }
@@ -227,15 +227,6 @@ app_mode = st.sidebar.radio("請選擇操作", [
 
 if app_mode in ["🚀 個股深度透視", "🛡️ 環球市底大師指揮塔"]:
     st.sidebar.markdown("---")
-    
-    # 🚀 爺爺修改：側邊欄 X-Factor Slider (輸入端)
-    st.sidebar.header("🎭 投行定性打分 (X-Factor)")
-    story_lbl = f"11. 時代敘事溢價"
-    s10_mgmt = st.sidebar.slider("10. 靈魂人物溢價 (CEO/執行力)", 0, 100, 70)
-    s11_story = st.sidebar.slider(story_lbl, 0, 100, 80)
-    x_factor = st.sidebar.selectbox("🕵️‍♂️ 投行隱藏 X 因子", ["無特殊狀況", "跨界第二曲線 (+10分)", "自動印鈔機護城河 (+5分)", "隱形吸血鬼SBC (-15分)"])
-    st.sidebar.markdown("---")
-
     st.sidebar.markdown("### 🛠️ 圖表顯示開關")
     st.sidebar.markdown("**📈 個股均線區**")
     show_s_ma20 = st.sidebar.checkbox("20日線 (短線動能)", value=False)
@@ -362,6 +353,19 @@ if app_mode == "🛡️ 環球市底大師指揮塔":
 elif app_mode == "🚀 個股深度透視":
     ticker = st.sidebar.text_input("🚀 輸入資產代號", "6869.HK").upper()
     
+    # --- 爺爺修改：投行級軟實力 X-Factor 側邊欄 ---
+    st.sidebar.markdown("---")
+    st.sidebar.header("🎭 投行定性打分 (X-Factor)")
+    market_type = "港股" if ".HK" in ticker else "美股"
+    story_lbl = f"11. 時代敘事溢價 ({'國策支持' if market_type=='港股' else 'AI風口'})"
+    s10_mgmt = st.sidebar.slider("10. 靈魂人物溢價 (CEO/執行力)", 0, 100, 70)
+    s11_story = st.sidebar.slider(story_lbl, 0, 100, 80)
+    x_factor = st.sidebar.selectbox(
+        "🕵️‍♂️ 投行隱藏 X 因子",
+        ["無特殊狀況", "跨界第二曲線 (+10分)", "自動印鈔機護城河 (+5分)", "隱形吸血鬼SBC (-15分)"]
+    )
+    # ----------------------------------------------------------------
+
     with st.spinner(f"⏳ 系統正在切換引擎，重新為您下載海量數據及繪製摩訶圖... 請稍候 ☕🚀"):
         try:
             asset = yf.Ticker(ticker); info = asset.info
@@ -383,17 +387,14 @@ elif app_mode == "🚀 個股深度透視":
                 spy.index = spy.index.normalize()
                 curr_p = df['Close'].iloc[-1]
                 
-                # --- 🚀 爺爺修改：加上行業標籤 ---
+                # --- 🚀 爺爺修改：加上行業標籤與攻防 Bar ---
                 asset_name = info.get('shortName', info.get('longName', ''))
                 industry_str = f" | {info.get('sector', 'N/A')} - {info.get('industry', 'N/A')}" if info.get('sector') else ""
                 name_html = f"<span style='font-size: 1.8rem; color: #AAAAAA; font-weight: 500; margin-left: 15px;'>{asset_name}{industry_str}</span>" if asset_name else ""
-                
                 st.markdown(f"""<div class='main-title' style='margin-bottom:10px;'>環球資產透維評估儀 [{ticker}]{name_html}</div>""", unsafe_allow_html=True)
                 
-                # --- 🚀 爺爺修改：取代舊紅 Bar，顯示攻防數據 ---
                 ath_val = info.get('fiftyTwoWeekHigh', curr_p)
                 dist_ath = ((curr_p / ath_val) - 1) * 100 if ath_val and ath_val > 0 else 0
-                
                 df['50MA_strat'] = df['Close'].rolling(50).mean().bfill()
                 ma50_bias = ((curr_p / df['50MA_strat'].iloc[-1]) - 1) * 100 if df['50MA_strat'].iloc[-1] > 0 else 0
                 
@@ -405,6 +406,7 @@ elif app_mode == "🚀 個股深度透視":
                 """, unsafe_allow_html=True)
                 
                 st.markdown(f"""<div style='text-align: center; color: #00FFCC; font-size: 1.2rem; font-weight: bold; margin-bottom: 25px; padding: 10px; background-color: rgba(0, 255, 204, 0.1); border-radius: 8px; border: 1px dashed #00FFCC;'>🛡️ 必勝潛伏方程式：COSMOS-RS (星系強弱) > 52, EJ 錢流底氣 > 85, 短期能量 > 75, 最近 20 日主力資金池淨額是正數買入，OBV 大戶籌碼流入或觀望，資金部署集中度是分散</div>""", unsafe_allow_html=True)
+                # ------------------------------------------------
 
                 c_tail = df['Close'].tail(125); days = np.arange(len(c_tail))
                 slope, intercept = np.polyfit(days, c_tail, 1); pred = intercept + slope * len(days)
@@ -669,12 +671,19 @@ elif app_mode == "🚀 個股深度透視":
                 if t_eps > 0 and f_eps > (t_eps * 2.5):
                     f_eps = t_eps * 2.5 
 
-                # 自動對標增長 DNA 決定 PE 
+                # 🚀 防護 3: 自動對標增長 DNA 決定 PE，週期硬件股強制封頂
                 g_score = m9.get("🚀 增長加速度 (15%)", 5) if not is_etf else 5
-                if g_score >= 9: fair_pe = 35.0
-                elif g_score >= 7: fair_pe = 25.0
-                elif g_score >= 5: fair_pe = 18.0
-                else: fair_pe = 12.0
+                sector = info.get('sector', '')
+                industry = info.get('industry', '')
+                is_semi_or_hardware = "Semiconductor" in industry or "Hardware" in industry or "Technology" in sector
+                
+                if is_semi_or_hardware:
+                    fair_pe = 18.0 if g_score >= 8 else (15.0 if g_score >= 5 else 10.0)
+                else:
+                    if g_score >= 9: fair_pe = 35.0
+                    elif g_score >= 7: fair_pe = 25.0
+                    elif g_score >= 5: fair_pe = 18.0
+                    else: fair_pe = 12.0
                 
                 forward_price = f_eps * fair_pe
                 price_diff = ((forward_price - curr_p) / curr_p) * 100 if curr_p > 0 else 0
