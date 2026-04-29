@@ -167,51 +167,27 @@ US_ETF_MAP = {
     "U5. 全球國家/地區": "EWY EWZ ILF EIS EWT TUR ECH EFNL EWC EWP EWH EWI EPOL EPU EWW THD VNM EWM EWA EWJ EWN EWS EWQ EZA EWU EWL SPY KSA EWD EWG UAE QAT EPHE FXI EIDO INDA".split()
 }
 
-# =========================================================================
-# 🚀 爺爺終極突破：矩陣運算歷史市寬引擎 (解決畫線慢/死機問題)
-# =========================================================================
 @st.cache_data(ttl=3600)
-def get_historical_breadth(tickers):
+def get_breadth_data(tickers):
+    stats = {'20MA':0, '50MA':0, '150MA':0, '200MA':0, 'valid':0, 'above_50_list': []}
     if not tickers: 
-        return None, None, None
-    try:
-        df = yf.download(tickers, period="1y", progress=False)['Close']
-        if isinstance(df, pd.Series): df = df.to_frame()
-        df = df.ffill() 
-        
-        ma20 = df.rolling(20).mean()
-        ma50 = df.rolling(50).mean()
-        ma150 = df.rolling(150).mean()
-        ma200 = df.rolling(200).mean()
-        
-        valid_counts = df.notna().sum(axis=1)
-        valid_counts = valid_counts.replace(0, 1) 
-        
-        b_df = pd.DataFrame(index=df.index)
-        b_df['20MA'] = (df > ma20).sum(axis=1) / valid_counts * 100
-        b_df['50MA'] = (df > ma50).sum(axis=1) / valid_counts * 100
-        b_df['150MA'] = (df > ma150).sum(axis=1) / valid_counts * 100
-        b_df['200MA'] = (df > ma200).sum(axis=1) / valid_counts * 100
-        
-        latest_close = df.iloc[-1]
-        latest_50ma = ma50.iloc[-1]
-        above_50_list = latest_close[latest_close > latest_50ma].index.tolist()
-        
-        curr_stats = {
-            '20MA': b_df['20MA'].iloc[-1], '50MA': b_df['50MA'].iloc[-1],
-            '150MA': b_df['150MA'].iloc[-1], '200MA': b_df['200MA'].iloc[-1],
-            'valid': valid_counts.iloc[-1], 'above_50_list': above_50_list
-        }
-        
-        past_idx = -6 if len(b_df) > 5 else -1
-        past_stats = {
-            '20MA': b_df['20MA'].iloc[past_idx], '50MA': b_df['50MA'].iloc[past_idx],
-            '150MA': b_df['150MA'].iloc[past_idx], '200MA': b_df['200MA'].iloc[past_idx]
-        }
-        
-        return b_df, curr_stats, past_stats
-    except:
-        return None, None, None
+        stats['valid'] = 1
+        return stats
+    for t in tickers:
+        try:
+            c = yf.Ticker(t).history(period="1y")['Close'].dropna()
+            if len(c) < 50: continue
+            curr = c.iloc[-1]
+            if curr > c.tail(20).mean(): stats['20MA'] += 1
+            if curr > c.tail(50).mean(): 
+                stats['50MA'] += 1
+                stats['above_50_list'].append(t)
+            if len(c) >= 150 and curr > c.tail(150).mean(): stats['150MA'] += 1
+            if len(c) >= 200 and curr > c.tail(200).mean(): stats['200MA'] += 1
+            stats['valid'] += 1
+        except: pass
+    stats['valid'] = max(1, stats['valid'])
+    return stats
 
 # 2. 視覺裝修 
 st.markdown("""
@@ -230,9 +206,9 @@ st.markdown("""
     .bar-group-container { display: flex; gap: 8px; margin-bottom: 15px; }
     .bar-triad { display: flex; gap: 3px; }
     .ej-seg { width: 16px; height: 35px; border-radius: 2px; border: 1.2px solid rgba(255,255,255,0.4); }
-    .val-box { background-color: #000 !important; border: 2px solid #FFD700; border-radius: 12px; padding: 20px; text-align: center; min-height: 200px; margin-bottom: 15px; }
+    .val-box { background-color: #000 !important; border: 2px solid #FFD700; border-radius: 12px; padding: 20px; text-align: center; min-height: 220px; margin-bottom: 15px; }
     .val-label { color: #FFFFFF !important; font-size: 1.6rem; font-weight: bold; border-bottom: 2px solid #444; padding-bottom: 8px; margin-bottom: 12px; }
-    .val-text { font-size: 1.3rem; color: #ccc; margin: 8px 0; }
+    .val-text { font-size: 1.2rem; color: #ccc; margin: 8px 0; }
     .val-focus { color: #FFD700; font-weight: bold; font-size: 1.8rem; }
     .red-bar { color: #fff; border-radius: 10px; text-align: center; font-weight: 900; }
     .val-box-purple { border: 3px solid #BC13FE; border-radius: 15px; padding: 30px; background-color: #000; box-shadow: 0 0 25px #BC13FE66; margin: 25px 0; }
@@ -248,7 +224,7 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # 3. 側邊欄控制
-st.sidebar.markdown("## 🛰️ 戰術控制台 (V160.0 雙Y軸市寬版)")
+st.sidebar.markdown("## 🛰️ 戰術控制台 (V160.0 全球旗艦版)")
 app_mode = st.sidebar.radio("請選擇操作", [
     "🚀 個股深度透視", 
     "🛡️ 環球市底大師指揮塔", 
@@ -266,14 +242,12 @@ if app_mode in ["🚀 個股深度透視", "🛡️ 環球市底大師指揮塔"
     s11_story = st.sidebar.slider("11. 時代敘事溢價", 0, 100, 80)
     x_factor = st.sidebar.selectbox("🕵️‍♂️ 投行隱藏 X 因子", ["無特殊狀況", "跨界第二曲線 (+10分)", "自動印鈔機護城河 (+5分)", "隱形吸血鬼SBC (-15分)"])
     st.sidebar.markdown("---")
-
     st.sidebar.markdown("### 🛠️ 圖表顯示開關")
     st.sidebar.markdown("**📈 個股均線區**")
     show_s_ma20 = st.sidebar.checkbox("20日線 (短線動能)", value=False)
     show_s_ma50 = st.sidebar.checkbox("50日線 / 10周 (中期趨勢)", value=False)
     show_s_ma150 = st.sidebar.checkbox("150日線 / 30周 (大師分界)", value=False)
     show_s_ma200 = st.sidebar.checkbox("200日線 (終極牛熊)", value=False)
-
     st.sidebar.markdown("**🌊 市寬系統區 (虛線對比)**")
     show_b_idx = st.sidebar.checkbox("基準指數實線", value=True)
     show_b_ma20 = st.sidebar.checkbox("20市寬線", value=True)
@@ -282,7 +256,7 @@ if app_mode in ["🚀 個股深度透視", "🛡️ 環球市底大師指揮塔"
     show_b_ma200 = st.sidebar.checkbox("200市寬線", value=True)
 
 # =========================================================================
-# 🛡️ 模式 B：環球市底大師指揮塔 (雙 Y 軸真實市寬 + 勢頭數字)
+# 🛡️ 模式 B：環球市底大師指揮塔 
 # =========================================================================
 if app_mode == "🛡️ 環球市底大師指揮塔":
     st.markdown("<h1 class='main-title'>🛡️ 環球市底大師指揮塔</h1>", unsafe_allow_html=True)
@@ -309,78 +283,81 @@ if app_mode == "🛡️ 環球市底大師指揮塔":
     elif "納市" in idx_choice: ticker_sym = "QQQ"; b_tickers = NDX_43
     else: ticker_sym = "IWM"; b_tickers = IWM_32
 
-    with st.spinner(f"⏳ 爺爺啟動矩陣運算，極速提取 {len(b_tickers)} 隻成份股歷史市寬... 請稍候 ☕🚀"):
+    with st.spinner(f"⏳ 大宗師正在計算市寬數據... 請稍候 ☕🚀"):
         try:
             idx_df = yf.Ticker(ticker_sym).history(period="2y").dropna(subset=['Close', 'Volume'])
-            b_df, curr_stats, past_stats = get_historical_breadth(b_tickers)
-            
-            if not idx_df.empty and curr_stats is not None:
+            if not idx_df.empty:
+                idx_df['20MA'] = idx_df['Close'].rolling(20).mean()
+                idx_df['50MA'] = idx_df['Close'].rolling(50).mean()
+                idx_df['150MA'] = idx_df['Close'].rolling(150).mean()
+                idx_df['200MA'] = idx_df['Close'].rolling(200).mean()
+                
                 clean_recent = idx_df.tail(250).copy()
                 dates = clean_recent.index.strftime('%Y-%m-%d')
                 
-                # 指數本身牛熊警告
-                idx_df['50MA'] = idx_df['Close'].rolling(50).mean()
-                idx_df['150MA'] = idx_df['Close'].rolling(150).mean()
-                if len(idx_df) > 150:
-                    if idx_df['50MA'].iloc[-1] < idx_df['150MA'].iloc[-1] and idx_df['150MA'].iloc[-1] < idx_df['150MA'].iloc[-10]:
-                        st.markdown("<div class='bear-warning'>🚨 指數警告：已進入熊市 (10周線跌穿30周線，且30周線向下) 🚨</div>", unsafe_allow_html=True)
+                if len(clean_recent) > 150:
+                    curr_50 = clean_recent['50MA'].iloc[-1]
+                    curr_150 = clean_recent['150MA'].iloc[-1]
+                    past_150 = clean_recent['150MA'].iloc[-10] 
+                    if curr_50 < curr_150 and curr_150 < past_150:
+                        st.markdown("<div class='bear-warning'>🚨 警告：已進入熊市 (10周線跌穿30周線，且30周線向下) 🚨</div>", unsafe_allow_html=True)
                 
-                v_count = curr_stats['valid']
-                st.markdown(f"### 🌊 {idx_choice} - 內部成份股市寬趨勢監控")
+                b_stats = get_breadth_data(b_tickers)
+                v_count = b_stats['valid']
+                
+                st.markdown(f"### 🌊 {idx_choice} - 內部成份股市寬健康度")
                 st.markdown(f"<div style='color: white; font-size:1.1rem; margin-bottom:15px;'>（系統真實成功掃描：<b style='color:#00FFCC;'>{v_count}</b> 隻核心成份股）</div>", unsafe_allow_html=True)
                 
-                diff_20 = curr_stats['20MA'] - past_stats['20MA']
-                diff_50 = curr_stats['50MA'] - past_stats['50MA']
-                diff_150 = curr_stats['150MA'] - past_stats['150MA']
-                diff_200 = curr_stats['200MA'] - past_stats['200MA']
-
-                def get_trend_html(diff):
-                    color = "#00FF00" if diff >= 0 else "#FF4B4B"
-                    arrow = "📈 擴闊" if diff >= 0 else "📉 收縮"
-                    return f"<span style='color: {color}; font-size: 1.1rem; font-weight: bold;'>5日勢頭: {diff:+.1f}% ({arrow})</span>"
-
                 st.markdown(f"""
                 <div style='display: flex; justify-content: space-between; text-align: center; background-color: #111; padding: 20px; border-radius: 15px;'>
-                    <div><span style='color: #00FFCC; font-size: 1.2rem; font-weight: bold;'>20市寬線之上</span><br><span style='color: white; font-size: 3.5rem; font-weight: 900;'>{curr_stats['20MA']:.1f}%</span><br>{get_trend_html(diff_20)}</div>
-                    <div><span style='color: #00FFCC; font-size: 1.2rem; font-weight: bold;'>50市寬線之上</span><br><span style='color: white; font-size: 3.5rem; font-weight: 900;'>{curr_stats['50MA']:.1f}%</span><br>{get_trend_html(diff_50)}</div>
-                    <div><span style='color: #00FFCC; font-size: 1.2rem; font-weight: bold;'>150市寬線之上</span><br><span style='color: white; font-size: 3.5rem; font-weight: 900;'>{curr_stats['150MA']:.1f}%</span><br>{get_trend_html(diff_150)}</div>
-                    <div><span style='color: #00FFCC; font-size: 1.2rem; font-weight: bold;'>200市寬線之上</span><br><span style='color: white; font-size: 3.5rem; font-weight: 900;'>{curr_stats['200MA']:.1f}%</span><br>{get_trend_html(diff_200)}</div>
+                    <div><span style='color: #00FFCC; font-size: 1.2rem; font-weight: bold;'>20市寬線之上</span><br><span style='color: white; font-size: 3rem; font-weight: 900;'>{(b_stats['20MA']/v_count)*100:.1f}%</span></div>
+                    <div><span style='color: #00FFCC; font-size: 1.2rem; font-weight: bold;'>50市寬線之上</span><br><span style='color: white; font-size: 3rem; font-weight: 900;'>{(b_stats['50MA']/v_count)*100:.1f}%</span></div>
+                    <div><span style='color: #00FFCC; font-size: 1.2rem; font-weight: bold;'>150市寬線之上</span><br><span style='color: white; font-size: 3rem; font-weight: 900;'>{(b_stats['150MA']/v_count)*100:.1f}%</span></div>
+                    <div><span style='color: #00FFCC; font-size: 1.2rem; font-weight: bold;'>200市寬線之上</span><br><span style='color: white; font-size: 3rem; font-weight: 900;'>{(b_stats['200MA']/v_count)*100:.1f}%</span></div>
                 </div>
                 """, unsafe_allow_html=True)
 
                 st.write("")
-                # 🚀 啟動雙 Y 軸設定
-                fig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.7, 0.3], vertical_spacing=0.05, specs=[[{"secondary_y": True}], [{"secondary_y": False}]])
+                fig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.7, 0.3], vertical_spacing=0.05)
                 
                 o_col = clean_recent['Open'].values; c_col = clean_recent['Close'].values
                 h_col = clean_recent['High'].values; l_col = clean_recent['Low'].values
                 v_col = clean_recent['Volume'].values
 
-                if show_b_idx: fig.add_trace(go.Candlestick(x=dates, open=o_col, high=h_col, low=l_col, close=c_col, name=f'{ticker_sym} 基準指數'), row=1, col=1, secondary_y=False)
+                if show_b_idx: fig.add_trace(go.Candlestick(x=dates, open=o_col, high=h_col, low=l_col, close=c_col, name=f'{ticker_sym} 基準指數'), row=1, col=1)
+                else: fig.add_trace(go.Scatter(x=dates, y=c_col, mode='lines', name='隱藏基準', line=dict(color='rgba(255,255,255,0)')), row=1, col=1)
+
+                if show_b_ma20: fig.add_trace(go.Scatter(x=dates, y=clean_recent['20MA'], mode='lines', name='20市寬線', line=dict(color='white', width=1.5, dash='dot')), row=1, col=1)
+                if show_b_ma50: fig.add_trace(go.Scatter(x=dates, y=clean_recent['50MA'], mode='lines', name='50市寬線', line=dict(color='yellow', width=1.5, dash='dot')), row=1, col=1)
                 
-                # 對齊日期並畫出真實歷史市寬線
-                align_b = b_df.reindex(clean_recent.index).fillna(method='ffill')
-                if show_b_ma20: fig.add_trace(go.Scatter(x=dates, y=align_b['20MA'], mode='lines', name='真實20市寬線(%)', line=dict(color='white', width=1.5, dash='dot')), row=1, col=1, secondary_y=True)
-                if show_b_ma50: fig.add_trace(go.Scatter(x=dates, y=align_b['50MA'], mode='lines', name='真實50市寬線(%)', line=dict(color='yellow', width=1.5, dash='dot')), row=1, col=1, secondary_y=True)
-                if show_b_ma150: fig.add_trace(go.Scatter(x=dates, y=align_b['150MA'], mode='lines', name='真實150市寬線(%)', line=dict(color='cyan', width=2, dash='dot')), row=1, col=1, secondary_y=True)
-                if show_b_ma200: fig.add_trace(go.Scatter(x=dates, y=align_b['200MA'], mode='lines', name='真實200市寬線(%)', line=dict(color='magenta', width=2, dash='dot')), row=1, col=1, secondary_y=True)
+                if show_b_ma150: 
+                    fig.add_trace(go.Scatter(x=dates, y=clean_recent['150MA'], mode='lines', name='150市寬線', line=dict(color='cyan', width=2, dash='dot')), row=1, col=1)
+                    if len(clean_recent) > 10 and clean_recent['150MA'].iloc[-1] < clean_recent['150MA'].iloc[-10]:
+                        fig.add_annotation(x=dates[-1], y=clean_recent['150MA'].iloc[-1], ax=0, ay=-40, xref="x", yref="y", showarrow=True, arrowhead=3, arrowsize=2, arrowwidth=3, arrowcolor="red", text="⬇")
+
+                if show_b_ma200: 
+                    fig.add_trace(go.Scatter(x=dates, y=clean_recent['200MA'], mode='lines', name='200市寬線', line=dict(color='magenta', width=2, dash='dot')), row=1, col=1)
+                    if len(clean_recent) > 10 and clean_recent['200MA'].iloc[-1] < clean_recent['200MA'].iloc[-10]:
+                        fig.add_annotation(x=dates[-1], y=clean_recent['200MA'].iloc[-1], ax=0, ay=-40, xref="x", yref="y", showarrow=True, arrowhead=3, arrowsize=2, arrowwidth=3, arrowcolor="red", text="⬇")
 
                 colors = ['#00FF00' if c_col[i] >= o_col[i] else '#FF0000' for i in range(len(clean_recent))]
                 fig.add_trace(go.Bar(x=dates, y=v_col, marker_color=colors, name='成交量'), row=2, col=1)
+                counts, bins = np.histogram(c_col, bins=20, weights=v_col)
+                max_c = max(counts) if len(counts) > 0 and max(counts) > 0 else 1
+                fig.add_trace(go.Bar(y=(bins[:-1] + bins[1:]) / 2, x=counts, orientation='h', marker_color='rgba(0, 255, 204, 0.4)', name='蟹貨區', xaxis='x3', yaxis='y1'))
 
                 fig.update_layout(
                     template="plotly_dark", paper_bgcolor='#0e1117', plot_bgcolor='#0e1117', height=750, 
                     showlegend=True, legend=dict(font=dict(color="white"), orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
                     xaxis_rangeslider_visible=False, xaxis=dict(type='category', showgrid=False), 
-                    yaxis=dict(showgrid=True, gridcolor='#333', title="指數價格 (左軸)"),
-                    yaxis2=dict(title="市寬百分比 % (右軸)", range=[0, 105], showgrid=False)
+                    yaxis=dict(showgrid=True, gridcolor='#333'), xaxis3=dict(overlaying='x', side='top', range=[0, max_c*1.1], showgrid=False, showticklabels=False)
                 )
                 st.plotly_chart(fig, use_container_width=True, theme=None, config={'scrollZoom': True, 'displayModeBar': False})
 
-                if ("科指" in idx_choice or "道指" in idx_choice) and curr_stats['above_50_list']:
+                if ("科指" in idx_choice or "道指" in idx_choice) and b_stats['above_50_list']:
                     st.markdown(f"<h3 style='color: white;'>🏆 逆市名單 ({idx_choice.split(' ')[0]}) - 企穩 50天線之上</h3>", unsafe_allow_html=True)
                     cols = st.columns(6)
-                    for i, t in enumerate(curr_stats['above_50_list'][:30]):
+                    for i, t in enumerate(b_stats['above_50_list'][:30]):
                         cols[i % 6].info(t)
         except Exception as e: st.error(f"⚠️ 數據載入失敗：{e}")
 
@@ -470,7 +447,7 @@ elif app_mode == "🚀 個股深度透視":
                     except: return go.Figure().update_layout(height=130, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', xaxis=dict(visible=False), yaxis=dict(visible=False))
 
                 # =======================================================
-                # 🚀 QUANTUM_X 八大護國神磚！(放在必勝方程式下方)
+                # 🚀 QUANTUM_X 八大護國神磚！
                 # =======================================================
                 q_asset = int(min(100, max(0, safe_n(info.get('returnOnEquity', 0.1)*300 + 50, 75))))
                 q_trend = int(min(100, max(0, crs_val)))
