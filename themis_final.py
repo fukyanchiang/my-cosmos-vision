@@ -45,7 +45,6 @@ def get_alpha(beta, df, spy_df):
         spy_ret = (spy_aligned.iloc[-1] - spy_aligned.iloc[0]) / spy_aligned.iloc[0]
         risk_free = 0.04 
         alpha = asset_ret - (risk_free + b * (spy_ret - risk_free))
-        # 🚀 爺爺修改：Alpha 限制顯示位數
         return f"{alpha * 100:.1f}%"
     except: return "N/A"
 
@@ -443,7 +442,7 @@ elif app_mode == "🚀 個股深度透視":
                 st.markdown(f"""
                 <div style='display: flex; gap: 15px; margin-bottom: 25px;'>
                     <div class='red-bar' style='flex: 1; background-color: #310000; border: 2px solid #FF4B4B; padding: 15px;'>🎯 巔峰收復進度：距離 52周高位 [ {dist_ath:.1f}% ]</div>
-                    <div class='red-bar' style='flex: 1; background-color: #002222; border: 2px solid #00FFCC; padding: 15px;'>⚖️ 地心引力監控：偏離 50日線 [ {ma50_bias:+.1f}% ]</div>
+                    <div class='red-bar' style='flex: 1; background-color: #002222; border: 2px solid #00FFCC; padding: 15px;'>⚖️ 地心引力監控：偏離 50日成本線 [ {ma50_bias:+.1f}% ]</div>
                 </div>
                 """, unsafe_allow_html=True)
 
@@ -616,7 +615,7 @@ elif app_mode == "🚀 個股深度透視":
 
                 st.write("---"); d_c1, d_c2 = st.columns([1, 2.5]); is_etf = info.get('quoteType') == 'ETF'; real_roe = info.get('returnOnEquity')
                 
-                # --- 左圖 9 項 DNA 硬指標 (保持不變) ---
+                # --- 左圖 9 項 DNA 硬指標 (加上加權標籤) ---
                 if is_etf or real_roe is None or real_roe == 0:
                     dna_v = round(safe_n((cx_val * 0.5) + (crs_val * 0.5), 50.0), 1); dna_title = "ETF 綜合質量基因"
                     m9 = {"🚀 增長加速度 (15%)": int(safe_n(cx_val / 10, 5)), "🔭 營收天花板 (15%)": int(safe_n(crs_val / 10, 5)), "🛡️ 定價權護城河 (15%)": int(safe_n(cej_s / 10, 5)), "🦖 市場佔有率 (15%)": 9 if info.get('totalAssets', 0) > 1e9 else 5, "💰 資本效率 (10%)": int(safe_n(se_s / 10, 5)), "💎 獲利含金量 (10%)": int(max(1, 10 - (v_ann * 20))), "🧱 財務安全墊 (10%)": int(safe_n(crs_val / 10, 5)), "🎁 股東回饋 (5%)": int(safe_n(info.get('yield', info.get('dividendYield', 0))*200+2, 5)), "📈 經營穩定性 (5%)": int(safe_n(cx_val / 12, 5))}
@@ -669,6 +668,10 @@ elif app_mode == "🚀 個股深度透視":
                     if f_pe and f_pe > 0: f_eps = curr_p / f_pe
                     else: f_eps = max(t_eps, 0.1) * (1 + (dna_v/100)) # 保底推算
                 
+                # 🛡️ 爺爺保鑣：如果 Forward EPS 真係大過 TTM EPS 5 倍以上，強制壓低，防止 API 暴走誤導
+                if t_eps > 0 and f_eps > (t_eps * 5):
+                    f_eps = t_eps * 2.5 # 最多畀佢睇 2.5 倍爆發
+
                 # 自動對標增長 DNA 決定 PE 
                 g_score = m9.get("🚀 增長加速度 (15%)", 5)
                 if g_score >= 9: fair_pe = 35.0
@@ -702,12 +705,14 @@ elif app_mode == "🚀 個股深度透視":
                 # 3. 顯示 3 個戰術大格仔
                 vc1, vc2, vc3 = st.columns(3)
                 with vc1:
-                    st.markdown(f"""<div class='val-box-purple' style='height:280px;'><div class='val-label'>🎯 遠期目標價 (預測)</div><div style='font-size:3.5rem; font-weight:900; color:#00FFCC;'>${forward_price:,.2f}</div><div style='font-size:1.2rem; margin-top:10px;'>潛在空間: <span style='color:{"#00FFCC" if price_diff>0 else "#FF4B4B"}; font-weight:900;'>{"+" if price_diff>0 else ""}{price_diff:.1f}%</span></div><div style='font-size:0.8rem; opacity:0.6; margin-top:10px;'>TTM EPS: ${t_eps:.2f} | Fwd EPS: ${f_eps:.2f}</div></div>""", unsafe_allow_html=True)
+                    # 🚀 爺爺修改：老花友善字體，TTM EPS 同 Forward EPS 放大到 1.2rem
+                    st.markdown(f"""<div class='val-box-purple' style='height:280px;'><div class='val-label'>🎯 遠期目標價 (預測)</div><div style='font-size:3.5rem; font-weight:900; color:#00FFCC;'>${forward_price:,.2f}</div><div style='font-size:1.2rem; margin-top:10px;'>潛在空間: <span style='color:{"#00FFCC" if price_diff>0 else "#FF4B4B"}; font-weight:900;'>{"+" if price_diff>0 else ""}{price_diff:.1f}%</span></div><div style='font-size:1.2rem; font-weight:bold; margin-top:10px; opacity:0.9;'>TTM EPS: ${t_eps:.2f} | Fwd EPS: ${f_eps:.2f}</div></div>""", unsafe_allow_html=True)
                 with vc2:
                     st.markdown(f"""<div class='val-box-purple' style='border-color:{val_color}; box-shadow: 0 0 25px {val_color}44; height:280px;'><div class='val-label'>🏆 真龍指數 ({val_title})</div><div style='font-size:5rem; font-weight:900; color:{val_color};'>{dragon_index}</div><div style='font-size:1.1rem; color:{val_color};'>[ 現屬 {t_lv} ({t_desc}) ]</div></div>""", unsafe_allow_html=True)
                 with vc3:
-                    st.markdown(f"""<div class='val-box-purple' style='border-color:#00FFFF; box-shadow: 0 0 25px #00FFFF44; height:280px;'><div class='val-label'>🎭 時代敘事與決策</div><div style='font-size:1.5rem; font-weight:bold; margin-top:10px;'>{x_factor}</div><p style='color:#00FFFF; margin-top:5px;'>敘事溢價信心: {s11_story}%</p><div style='background:#111; padding:10px; border-radius:5px; margin-top:15px; font-weight:bold;'>{act_desc}</div></div>""", unsafe_allow_html=True)
+                    st.markdown(f"""<div class='val-box-purple' style='border-color:#00FFFF; box-shadow: 0 0 25px #00FFFF44; height:280px;'><div class='val-label'>🎭 時代敘事與決策</div><div style='font-size:1.5rem; font-weight:bold; margin-top:10px;'>{x_factor}</div><p style='color:#00FFFF; margin-top:5px; font-size:1.2rem;'>敘事溢價信心: {s11_story}%</p><div style='background:#111; padding:10px; border-radius:5px; margin-top:15px; font-weight:bold;'>{act_desc}</div></div>""", unsafe_allow_html=True)
 
+                # --- 戰略透視 Grid ---
                 st.write("---")
                 v1,v2,v3 = st.columns(3); v4,v5,v6 = st.columns(3)
                 v7,v8,v9 = st.columns(3)
@@ -721,8 +726,10 @@ elif app_mode == "🚀 個股深度透視":
                 
                 beta_v = get_beta(info, df, spy)
                 alpha_v = get_alpha(beta_v, df, spy)
-                v_card(v7, "Beta 敏感度", beta_v, "N/A", "對大盤聯動性")
-                v_card(v8, "@ (Alpha) 超額回報", alpha_v, "N/A", "大盤外表現")
+                
+                # 🚀 爺爺修改：Alpha 唔再顯示 TTM/預期，改為單行顯示
+                v7.markdown(f"<div class='val-box'><div class='val-label'>Beta 敏感度</div><div class='val-focus' style='margin-top:20px;'>{beta_v}</div><div style='color:#FFA500; font-size:0.9rem; margin-top:15px;'>對大盤聯動性</div></div>", unsafe_allow_html=True)
+                v8.markdown(f"<div class='val-box'><div class='val-label'>@ (Alpha) 超額回報</div><div class='val-focus' style='margin-top:20px;'>{alpha_v}</div><div style='color:#FFA500; font-size:0.9rem; margin-top:15px;'>大盤外表現</div></div>", unsafe_allow_html=True)
                 
                 # 🚀 爺爺修改：波動率雙併 HV + IV
                 hv_v = get_volatility(df)
