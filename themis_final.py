@@ -352,6 +352,13 @@ elif app_mode == "🚀 個股深度透視":
     )
     # ----------------------------------------------------------------
 
+    # --- [爺爺終極補丁] DCF 參數微調區 (完美插入，零干擾) ---
+    st.sidebar.markdown("---")
+    st.sidebar.subheader("⚖️ DCF 哥哥：專業參數微調")
+    dr_val = st.sidebar.slider("1. 折現率 (WACC %)", 7.0, 18.0, 10.0, 0.5) / 100
+    pgr_val = st.sidebar.slider("2. 永續增長率 (PGR %)", 0.0, 4.0, 2.0, 0.1) / 100
+    # -----------------------------------------------------
+
     with st.spinner(f"⏳ 系統正在切換引擎，重新為您下載海量數據及繪製摩訶圖... 請稍候 ☕🚀"):
         try:
             asset = yf.Ticker(ticker); info = asset.info
@@ -578,12 +585,11 @@ elif app_mode == "🚀 個股深度透視":
                         st.plotly_chart(fig, use_container_width=True, theme=None, config={'scrollZoom': True, 'displayModeBar': False})
                 except Exception as e: pass
 
+                # --- [爺爺終極補丁] 左圖 9 項 DNA 硬指標 權重標籤 (只加 %，邏輯無改) ---
                 st.write("---"); d_c1, d_c2 = st.columns([1, 2.5]); is_etf = info.get('quoteType') == 'ETF'; real_roe = info.get('returnOnEquity')
-                
-                # --- 爺爺修改：左圖 9 項 DNA 硬指標 (保持完美排版) ---
                 if is_etf or real_roe is None or real_roe == 0:
                     dna_v = round(safe_n((cx_val * 0.5) + (crs_val * 0.5), 50.0), 1); dna_title = "ETF 綜合質量基因"
-                    m9 = {"🚀 增長加速度": int(safe_n(cx_val / 10, 5)), "🔭 營收天花板": int(safe_n(crs_val / 10, 5)), "🛡️ 定價權護城河": int(safe_n(cej_s / 10, 5)), "🦖 市場佔有率": 9 if info.get('totalAssets', 0) > 1e9 else 5, "💰 資本效率": int(safe_n(se_s / 10, 5)), "💎 獲利含金量": int(max(1, 10 - (v_ann * 20))), "🧱 財務安全墊": int(safe_n(crs_val / 10, 5)), "🎁 股東回饋": int(safe_n(info.get('yield', info.get('dividendYield', 0))*200+2, 5)), "📈 經營穩定性": int(safe_n(cx_val / 12, 5))}
+                    m9 = {"🚀 增長加速度 (15%)": int(safe_n(cx_val / 10, 5)), "🔭 營收天花板 (15%)": int(safe_n(crs_val / 10, 5)), "🛡️ 定價權護城河 (15%)": int(safe_n(cej_s / 10, 5)), "🦖 市場佔有率 (15%)": 9 if info.get('totalAssets', 0) > 1e9 else 5, "💰 資本效率 (10%)": int(safe_n(se_s / 10, 5)), "💎 獲利含金量 (10%)": int(max(1, 10 - (v_ann * 20))), "🧱 財務安全墊 (10%)": int(safe_n(crs_val / 10, 5)), "🎁 股東回饋 (5%)": int(safe_n(info.get('yield', info.get('dividendYield', 0))*200+2, 5)), "📈 經營穩定性 (5%)": int(safe_n(cx_val / 12, 5))}
                 else:
                     f1_growth = min(100, max(0, safe_n(info.get('earningsGrowth', 0)) * 200 + 40))
                     f2_rev = min(100, max(0, safe_n(info.get('revenueGrowth', 0)) * 150 + 40))
@@ -600,20 +606,19 @@ elif app_mode == "🚀 個股深度透視":
                     dna_title = "投行級股王基因"
                     
                     m9 = {
-                        "🚀 增長加速度": int(max(1, min(10, f1_growth / 10))),
-                        "🔭 營收天花板": int(max(1, min(10, f2_rev / 10))),
-                        "🛡️ 定價權護城河": int(max(1, min(10, f3_moat / 10))),
-                        "🦖 市場佔有率": int(max(1, min(10, f4_dom / 10))),
-                        "💰 資本效率": int(max(1, min(10, f5_roe / 10))),
-                        "💎 獲利含金量": int(max(1, min(10, f6_cash / 10))),
-                        "🧱 財務安全墊": int(max(1, min(10, f7_safe / 10))),
-                        "🎁 股東回饋": int(max(1, min(10, f8_yield / 10))),
-                        "📈 經營穩定性": int(max(1, min(10, f9_stable / 10)))
+                        "🚀 增長加速度 (15%)": int(max(1, min(10, f1_growth / 10))),
+                        "🔭 營收天花板 (15%)": int(max(1, min(10, f2_rev / 10))),
+                        "🛡️ 定價權護城河 (15%)": int(max(1, min(10, f3_moat / 10))),
+                        "🦖 市場佔有率 (15%)": int(max(1, min(10, f4_dom / 10))),
+                        "💰 資本效率 (10%)": int(max(1, min(10, f5_roe / 10))),
+                        "💎 獲利含金量 (10%)": int(max(1, min(10, f6_cash / 10))),
+                        "🧱 財務安全墊 (10%)": int(max(1, min(10, f7_safe / 10))),
+                        "🎁 股東回饋 (5%)": int(max(1, min(10, f8_yield / 10))),
+                        "📈 經營穩定性 (5%)": int(max(1, min(10, f9_stable / 10)))
                     }
                     
                 dna_v = max(0.0, min(100.0, dna_v)); d_lv = "第 1 級" if dna_v>=90 else ("第 2 級" if dna_v>=80 else ("第 3 級" if dna_v>=70 else "後續"))
                 
-                # 為了容納 9 條 Bar，cosmos-box 嘅 height 稍微提升至 420px，完全唔影響整體靚排版
                 with d_c1: st.markdown(f"<div class='cosmos-box' style='border-color:#FF4B4B; height:420px; display:flex; flex-direction:column; justify-content:center;'><div style='color:#FF4B4B; font-weight:900; font-size:1.8rem;'>🧬 COSMOS-DNA</div><div style='font-size:0.9rem; opacity:0.7; margin:5px 0;'>{dna_title}</div><div style='font-size:6rem; font-weight:900;'>{dna_v}</div><div style='color:#FFD700;'>[ 現屬 {d_lv} ]</div></div>", unsafe_allow_html=True)
                 with d_c2:
                     colors_9d = ["#00FFCC", "#00FFCC", "#00FFCC", "#00FFCC", "#FF4B4B", "#BC13FE", "#FFFFFF", "#FFD700", "#FF00FF"]
@@ -644,9 +649,7 @@ elif app_mode == "🚀 個股深度透視":
                 ttm_pe = info.get('trailingPE', 0) or 0
                 fwd_pe = info.get('forwardPE', 0) or 0
                 
-                # --- 爺爺修改：右圖 11 項總分融合與審判 (真龍指數) ---
                 if not is_etf:
-                    # DNA (70%) + 管理層 (15%) + 敘事 (15%)
                     base_score = (dna_v * 0.70) + (s10_mgmt * 0.15) + (s11_story * 0.15)
                     
                     if "第二曲線" in x_factor: base_score += 10
@@ -690,12 +693,13 @@ elif app_mode == "🚀 個股深度透視":
     </div>
 </div>""", unsafe_allow_html=True)
                 
-                # --- 爺爺修改：第 12 項 DCF 哥哥雷達獨立框 ---
+                # --- [爺爺終極補丁] 第 12 項 DCF 哥哥：成功接駁 Sidebar Sliders ---
                 fcf = safe_n(info.get('freeCashflow', 0), 0)
                 curr_price = safe_n(info.get('currentPrice', 1), 1)
                 if fcf > 0:
                     growth = safe_n(info.get('earningsGrowth', 0.05), 0.05)
-                    wacc, terminal_g = 0.09, 0.02
+                    # 爺爺將下面嘅寫死數字，換成上面 Sidebar 你手動控制嘅 dr_val 同 pgr_val
+                    wacc, terminal_g = dr_val, pgr_val
                     shares = safe_n(info.get('sharesOutstanding', 1), 1)
                     pv = sum([(fcf * (1+growth)**i) / (1+wacc)**i for i in range(1, 6)])
                     tv = (fcf * (1+growth)**5 * (1+terminal_g)) / (wacc - terminal_g)
