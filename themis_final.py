@@ -693,12 +693,14 @@ elif app_mode == "🚀 個股深度透視":
     </div>
 </div>""", unsafe_allow_html=True)
                 
-                # --- [爺爺終極補丁] 第 12 項 DCF 哥哥：成功接駁 Sidebar Sliders ---
+                # --- [爺爺終極補丁] 第 12 項 DCF 哥哥：成功接駁 Sidebar Sliders + 安全閥 ---
                 fcf = safe_n(info.get('freeCashflow', 0), 0)
                 curr_price = safe_n(info.get('currentPrice', 1), 1)
                 if fcf > 0:
-                    growth = safe_n(info.get('earningsGrowth', 0.05), 0.05)
-                    # 爺爺將下面嘅寫死數字，換成上面 Sidebar 你手動控制嘅 dr_val 同 pgr_val
+                    # 💡 爺爺加咗「安全閥」：強制將 API 抓到嘅增長率封頂喺 30% (0.30)，防止週期股計出火星價
+                    raw_growth = safe_n(info.get('earningsGrowth', 0.05), 0.05)
+                    growth = min(raw_growth, 0.30)
+                    
                     wacc, terminal_g = dr_val, pgr_val
                     shares = safe_n(info.get('sharesOutstanding', 1), 1)
                     pv = sum([(fcf * (1+growth)**i) / (1+wacc)**i for i in range(1, 6)])
