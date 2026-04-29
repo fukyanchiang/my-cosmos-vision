@@ -22,7 +22,7 @@ def safe_s(info, keys, suffix="", alt="N/A"):
             except: pass 
     return alt 
 
-# 🚀 引擎還原：Beta、Alpha、波動率計算引擎
+# 🚀 爺爺還原：Beta、Alpha、波動率計算引擎
 def get_beta(info, df, spy_df): 
     b = info.get('beta') 
     if b is not None and str(b).lower() not in ['nan', 'none', '']: return f"{float(b):.2f}" 
@@ -45,6 +45,7 @@ def get_alpha(beta, df, spy_df):
         spy_ret = (spy_aligned.iloc[-1] - spy_aligned.iloc[0]) / spy_aligned.iloc[0]
         risk_free = 0.04 
         alpha = asset_ret - (risk_free + b * (spy_ret - risk_free))
+        # 🚀 爺爺修改：Alpha 限制顯示位數
         return f"{alpha * 100:.1f}%"
     except: return "N/A"
 
@@ -55,6 +56,7 @@ def get_volatility(df):
         return f"{vol * 100:.1f}%"
     except: return "N/A"
 
+# 🚀 爺爺新增：隱含波動率 (IV) 提取器
 def get_iv(asset):
     try:
         options = asset.options
@@ -68,7 +70,7 @@ def get_iv(asset):
     except: return "N/A"
 
 # =========================================================================
-# 🛸 終極擴軍資料庫 (V150.0) - 完美載入 Excel 3 Sheets 全名單 + 港股 A 股門戶
+# 🛸 爺爺的外掛資料庫 (V150.0 Macro 旗艦擴軍版)
 # =========================================================================
 
 # 1. 🇭🇰 港股 ETF 資料庫 
@@ -151,7 +153,7 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # 3. 側邊欄控制
-st.sidebar.markdown("## 🛰️ 戰術控制台 (V150.0 終極版)")
+st.sidebar.markdown("## 🛰️ 戰術控制台 (V150.0 神之八磚版)")
 app_mode = st.sidebar.radio("請選擇操作", [
     "🚀 個股深度透視", 
     "🛡️ 環球市底大師指揮塔", 
@@ -165,6 +167,7 @@ app_mode = st.sidebar.radio("請選擇操作", [
 if app_mode in ["🚀 個股深度透視", "🛡️ 環球市底大師指揮塔"]:
     st.sidebar.markdown("---")
     
+    # 🚀 爺爺修改：側邊欄 X-Factor Slider (輸入端)
     st.sidebar.header("🎭 投行定性打分 (X-Factor)")
     story_lbl = f"11. 時代敘事溢價"
     s10_mgmt = st.sidebar.slider("10. 靈魂人物溢價 (CEO/執行力)", 0, 100, 70)
