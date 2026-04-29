@@ -45,7 +45,6 @@ def get_alpha(beta, df, spy_df):
         spy_ret = (spy_aligned.iloc[-1] - spy_aligned.iloc[0]) / spy_aligned.iloc[0]
         risk_free = 0.04 
         alpha = asset_ret - (risk_free + b * (spy_ret - risk_free))
-        # 🚀 爺爺修改：Alpha 限制顯示位數 (1個小數位)
         return f"{alpha * 100:.1f}%"
     except: return "N/A"
 
@@ -70,7 +69,7 @@ def get_iv(asset):
     except: return "N/A"
 
 # =========================================================================
-# 🛸 爺爺嘅外掛資料庫 (完全保留一條毛都冇改)
+# 🛸 爺爺的外掛資料庫 (V125.0 Macro 旗艦擴軍版)
 # =========================================================================
 HK_STOCK_MAP = {
     "1. 互聯網巨頭": "0700.HK 9988.HK 3690.HK 1810.HK 9618.HK 1024.HK 9888.HK 0772.HK 0020.HK 0241.HK 0136.HK 1999.HK 2018.HK 3888.HK 2142.HK 1896.HK 0777.HK 0113.HK 0590.HK 1980.HK 1797.HK 6618.HK 2400.HK 0285.HK".split(),
@@ -150,8 +149,21 @@ US_STOCK_MAP = {
     "50. 超微型探索 (Micro)": "SOUN RXRX AI BBAI HIVE VLD IONQ BBAI CRDO NRDS INDI LUNA QBTS KTRA RGTI ARQQ INVZ".split()
 }
 
-HK_ETF_MAP = {"E1. 港股大盤與科指": "2800.HK 2828.HK 3032.HK 3033.HK 3067.HK 3147.HK 2812.HK 3058.HK 3068.HK 3428.HK 3134.HK 3115.HK 3046.HK".split()}
-US_ETF_MAP = {"E1. 大盤/寬基/信用債": "SPY QQQ DIA IWM VOO IVV VTI RSP QQQM ONEQ VUG VTV IWD IWF TLT AGG BND LQD HYG IEF SHY MBB MUB JNK TIP IGOV EMB GOVT".split()}
+# 1. 🇭🇰 港股 ETF 資料庫 (涵蓋 A股門戶 + 港股各板塊龍頭)
+HK_ETF_MAP = {
+    "H1. 科技/互聯網/晶片": "3033.HK 3088.HK 9888.HK 3191.HK 7709.HK 3167.HK".split(),
+    "H2. 醫藥/新能源/高息": "3069.HK 3174.HK 3134.HK 2845.HK 3110.HK 3070.HK".split(),
+    "H3. 虛擬資產/加密貨幣": "3066.HK 3068.HK 3439.HK 3419.HK".split(),
+    "H4. A股持倉/大盤旗艦": "2822.HK 3188.HK 2823.HK 3109.HK 3147.HK 2800.HK 2828.HK".split()
+}
+
+# 2. 🇺🇸 美股 ETF 資料庫 (同步 Excel 3 個 Sheets)
+US_ETF_MAP = {
+    "U1. 核心主題 A": "BWET OIH SMH IGV GBTC BTC HODL IBIT FBTC ARKK ARKG XBI TAN LIT DRIV CLOU SKYY SNSR FINX BOTZ CIBR METV NERD".split(),
+    "U2. 主題成長 B": "MSOS MJ IPAY HERO HACK GAMR ESPO BLOK BLCN BETZ ARKX ARKW ARKQ ARKF MOON GXTG BKCH AIQ XSD PBW".split(),
+    "U3. SPDR 行業板塊": "XLE XLF XLK XLI XLB XLY XLP XLV XLU XLRE KRE KBE XME XRT XHB XOP".split(),
+    "U4. 全球國家/地區": "EWY EWZ EWG EWI EWD KSA MCHI FXI INDA EPI EWT SPY QQQ DIA IWM EWH EWA EWC EWS EWJ EWN EWP EWL TUR THD EIDO EWM EPU ENZL EWW EIRL EDEN EFNL".split()
+}
 
 @st.cache_data(ttl=3600)
 def get_breadth_data(tickers):
@@ -200,7 +212,7 @@ st.markdown("""
     .val-label { color: #FFFFFF !important; font-size: 1.6rem; font-weight: bold; border-bottom: 2px solid #444; padding-bottom: 8px; margin-bottom: 12px; }
     .val-text { font-size: 1.3rem; color: #ccc; margin: 8px 0; }
     .val-focus { color: #FFD700; font-weight: bold; font-size: 1.8rem; }
-    .red-bar { background-color: #FF4B4B; color: #fff; padding: 20px; border-radius: 10px; text-align: center; font-weight: 900; font-size: 2.5rem; margin: 30px 0; border: 3px solid #fff; }
+    .red-bar { color: #fff; border-radius: 10px; text-align: center; font-weight: 900; }
     .val-box-purple { border: 3px solid #BC13FE; border-radius: 15px; padding: 30px; background-color: #000; box-shadow: 0 0 25px #BC13FE66; margin: 25px 0; }
     .energy-bar-container-8d { display: flex; gap: 4px; margin-top: 10px; margin-bottom: 15px; }
     .energy-seg-8d { flex: 1; height: 16px; border-radius: 2px; }
@@ -227,6 +239,15 @@ app_mode = st.sidebar.radio("請選擇操作", [
 
 if app_mode in ["🚀 個股深度透視", "🛡️ 環球市底大師指揮塔"]:
     st.sidebar.markdown("---")
+    
+    # 🚀 爺爺修改：側邊欄 X-Factor Slider (輸入端)
+    st.sidebar.header("🎭 投行定性打分 (X-Factor)")
+    story_lbl = f"11. 時代敘事溢價"
+    s10_mgmt = st.sidebar.slider("10. 靈魂人物溢價 (CEO/執行力)", 0, 100, 70)
+    s11_story = st.sidebar.slider(story_lbl, 0, 100, 80)
+    x_factor = st.sidebar.selectbox("🕵️‍♂️ 投行隱藏 X 因子", ["無特殊狀況", "跨界第二曲線 (+10分)", "自動印鈔機護城河 (+5分)", "隱形吸血鬼SBC (-15分)"])
+    st.sidebar.markdown("---")
+
     st.sidebar.markdown("### 🛠️ 圖表顯示開關")
     st.sidebar.markdown("**📈 個股均線區**")
     show_s_ma20 = st.sidebar.checkbox("20日線 (短線動能)", value=False)
@@ -353,19 +374,6 @@ if app_mode == "🛡️ 環球市底大師指揮塔":
 elif app_mode == "🚀 個股深度透視":
     ticker = st.sidebar.text_input("🚀 輸入資產代號", "6869.HK").upper()
     
-    # --- 爺爺修改：投行級軟實力 X-Factor 側邊欄 ---
-    st.sidebar.markdown("---")
-    st.sidebar.header("🎭 投行定性打分 (X-Factor)")
-    market_type = "港股" if ".HK" in ticker else "美股"
-    story_lbl = f"11. 時代敘事溢價 ({'國策支持' if market_type=='港股' else 'AI風口'})"
-    s10_mgmt = st.sidebar.slider("10. 靈魂人物溢價 (CEO/執行力)", 0, 100, 70)
-    s11_story = st.sidebar.slider(story_lbl, 0, 100, 80)
-    x_factor = st.sidebar.selectbox(
-        "🕵️‍♂️ 投行隱藏 X 因子",
-        ["無特殊狀況", "跨界第二曲線 (+10分)", "自動印鈔機護城河 (+5分)", "隱形吸血鬼SBC (-15分)"]
-    )
-    # ----------------------------------------------------------------
-
     with st.spinner(f"⏳ 系統正在切換引擎，重新為您下載海量數據及繪製摩訶圖... 請稍候 ☕🚀"):
         try:
             asset = yf.Ticker(ticker); info = asset.info
@@ -387,14 +395,17 @@ elif app_mode == "🚀 個股深度透視":
                 spy.index = spy.index.normalize()
                 curr_p = df['Close'].iloc[-1]
                 
-                # --- 🚀 爺爺修改：加上行業標籤與攻防 Bar ---
+                # --- 🚀 爺爺修改：加上行業標籤 ---
                 asset_name = info.get('shortName', info.get('longName', ''))
                 industry_str = f" | {info.get('sector', 'N/A')} - {info.get('industry', 'N/A')}" if info.get('sector') else ""
                 name_html = f"<span style='font-size: 1.8rem; color: #AAAAAA; font-weight: 500; margin-left: 15px;'>{asset_name}{industry_str}</span>" if asset_name else ""
+                
                 st.markdown(f"""<div class='main-title' style='margin-bottom:10px;'>環球資產透維評估儀 [{ticker}]{name_html}</div>""", unsafe_allow_html=True)
                 
+                # --- 🚀 爺爺修改：取代舊紅 Bar，顯示攻防數據 ---
                 ath_val = info.get('fiftyTwoWeekHigh', curr_p)
                 dist_ath = ((curr_p / ath_val) - 1) * 100 if ath_val and ath_val > 0 else 0
+                
                 df['50MA_strat'] = df['Close'].rolling(50).mean().bfill()
                 ma50_bias = ((curr_p / df['50MA_strat'].iloc[-1]) - 1) * 100 if df['50MA_strat'].iloc[-1] > 0 else 0
                 
@@ -406,7 +417,6 @@ elif app_mode == "🚀 個股深度透視":
                 """, unsafe_allow_html=True)
                 
                 st.markdown(f"""<div style='text-align: center; color: #00FFCC; font-size: 1.2rem; font-weight: bold; margin-bottom: 25px; padding: 10px; background-color: rgba(0, 255, 204, 0.1); border-radius: 8px; border: 1px dashed #00FFCC;'>🛡️ 必勝潛伏方程式：COSMOS-RS (星系強弱) > 52, EJ 錢流底氣 > 85, 短期能量 > 75, 最近 20 日主力資金池淨額是正數買入，OBV 大戶籌碼流入或觀望，資金部署集中度是分散</div>""", unsafe_allow_html=True)
-                # ------------------------------------------------
 
                 c_tail = df['Close'].tail(125); days = np.arange(len(c_tail))
                 slope, intercept = np.polyfit(days, c_tail, 1); pred = intercept + slope * len(days)
