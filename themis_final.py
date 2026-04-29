@@ -167,7 +167,6 @@ US_ETF_MAP = {
     "U5. 全球國家/地區": "EWY EWZ ILF EIS EWT TUR ECH EFNL EWC EWP EWH EWI EPOL EPU EWW THD VNM EWM EWA EWJ EWN EWS EWQ EZA EWU EWL SPY KSA EWD EWG UAE QAT EPHE FXI EIDO INDA".split()
 }
 
-# 🚀 爺爺新增：穩定計算過去 20 日市寬變化軌跡
 @st.cache_data(ttl=3600)
 def get_breadth_data(tickers):
     stats = {'20MA':0, '50MA':0, '150MA':0, '200MA':0, 'valid':0, 'above_50_list': [],
@@ -189,7 +188,6 @@ def get_breadth_data(tickers):
             if n >= 150 and curr > c.tail(150).mean(): stats['150MA'] += 1
             if n >= 200 and curr > c.tail(200).mean(): stats['200MA'] += 1
             
-            # 計算 20日歷史變化軌跡
             for i in range(20):
                 days_ago = 19 - i
                 end_idx = n - days_ago
@@ -336,16 +334,32 @@ if app_mode == "🛡️ 環球市底大師指揮塔":
                 # 🚀 爺爺新增：20日市寬變化走勢圖 (完全不需要矩陣運算，100% 穩定)
                 st.markdown("<h4 style='color:#FFF; margin-top:20px; margin-bottom:5px;'>📊 最近 20 日市寬變化趨勢</h4>", unsafe_allow_html=True)
                 fig_trend = go.Figure()
-                x_days = list(range(-19, 1))
-                fig_trend.add_trace(go.Scatter(x=x_days, y=[(v/v_count)*100 for v in b_stats['hist_20MA']], mode='lines+markers', name='20市寬線', line=dict(color='white', width=2)))
-                fig_trend.add_trace(go.Scatter(x=x_days, y=[(v/v_count)*100 for v in b_stats['hist_50MA']], mode='lines+markers', name='50市寬線', line=dict(color='yellow', width=2)))
-                fig_trend.add_trace(go.Scatter(x=x_days, y=[(v/v_count)*100 for v in b_stats['hist_150MA']], mode='lines+markers', name='150市寬線', line=dict(color='cyan', width=2)))
-                fig_trend.add_trace(go.Scatter(x=x_days, y=[(v/v_count)*100 for v in b_stats['hist_200MA']], mode='lines+markers', name='200市寬線', line=dict(color='magenta', width=2)))
                 
+                # 提取真實日期
+                x_dates = clean_recent.index[-20:].strftime('%m-%d').tolist()
+                if len(x_dates) < 20: # 安全防護
+                    x_dates = [f"D{i}" for i in range(-19, 1)]
+                
+                y_20 = [(v/v_count)*100 for v in b_stats['hist_20MA']]
+                y_50 = [(v/v_count)*100 for v in b_stats['hist_50MA']]
+                y_150 = [(v/v_count)*100 for v in b_stats['hist_150MA']]
+                y_200 = [(v/v_count)*100 for v in b_stats['hist_200MA']]
+
+                fig_trend.add_trace(go.Scatter(x=x_dates, y=y_20, mode='lines+markers', name='20市寬線', line=dict(color='white', width=2)))
+                fig_trend.add_trace(go.Scatter(x=x_dates, y=y_50, mode='lines+markers', name='50市寬線', line=dict(color='yellow', width=2)))
+                fig_trend.add_trace(go.Scatter(x=x_dates, y=y_150, mode='lines+markers', name='150市寬線', line=dict(color='cyan', width=2)))
+                fig_trend.add_trace(go.Scatter(x=x_dates, y=y_200, mode='lines+markers', name='200市寬線', line=dict(color='magenta', width=2)))
+                
+                # 在最後一個點加上標籤
+                fig_trend.add_annotation(x=x_dates[-1], y=y_20[-1], text="20市寬", showarrow=False, xanchor="left", xshift=10, font=dict(color="white", size=12))
+                fig_trend.add_annotation(x=x_dates[-1], y=y_50[-1], text="50市寬", showarrow=False, xanchor="left", xshift=10, font=dict(color="yellow", size=12))
+                fig_trend.add_annotation(x=x_dates[-1], y=y_150[-1], text="150市寬", showarrow=False, xanchor="left", xshift=10, font=dict(color="cyan", size=12))
+                fig_trend.add_annotation(x=x_dates[-1], y=y_200[-1], text="200市寬", showarrow=False, xanchor="left", xshift=10, font=dict(color="magenta", size=12))
+
                 fig_trend.update_layout(
                     template="plotly_dark", paper_bgcolor='#0e1117', plot_bgcolor='#111', height=300,
-                    margin=dict(l=20, r=20, t=10, b=20),
-                    xaxis=dict(title="距今日數 (0為今日)", showgrid=True, gridcolor='#333', tickmode='linear', tick0=-19, dtick=1),
+                    margin=dict(l=20, r=60, t=10, b=20), # r=60 留空間畀標籤
+                    xaxis=dict(title="", showgrid=True, gridcolor='#333', type='category'),
                     yaxis=dict(title="市寬 %", range=[0, 105], showgrid=True, gridcolor='#333'),
                     legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
                 )
