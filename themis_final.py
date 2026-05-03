@@ -990,8 +990,10 @@ elif app_mode == "📈 VCP 形態戰術掃描 & 防守圖":
                     b_df = yf.Ticker(bench_sym).history(period="6mo")['Close'].dropna()
                     df['MA50'] = df['Close'].rolling(50).mean()
                     df['Vol50'] = df['Volume'].rolling(50).mean()
+                    
+                    # 👴 爺爺修改：強制將 RS Line 對齊 K 線嘅日期，解決擠壓問題！
                     df_a, b_a = df['Close'].align(b_df, join='inner')
-                    rs_line = df_a / b_a
+                    rs_line = (df_a / b_a).reindex(df.index).ffill().bfill() 
                     
                     counts, bins = np.histogram(df['Close'], bins=25, weights=df['Volume'])
                     hvn_price = (bins[np.argmax(counts)] + bins[np.argmax(counts)+1]) / 2
@@ -1016,15 +1018,18 @@ elif app_mode == "📈 VCP 形態戰術掃描 & 防守圖":
                             fig.add_annotation(x=dates[i], y=df['Volume'].iloc[i], text="🌟", showarrow=False, yanchor="bottom", font=dict(size=14, color="#FFD700"), row=2, col=1)
 
                     # Row 3: RS 線 + 紫星
-                    rs_dates = df_a.index.strftime('%Y-%m-%d')
-                    fig.add_trace(go.Scatter(x=rs_dates, y=rs_line, mode='lines', line=dict(color='#BC13FE', width=2), name="RS線"), row=3, col=1)
+                    fig.add_trace(go.Scatter(x=dates, y=rs_line, mode='lines', line=dict(color='#BC13FE', width=2), name="RS線"), row=3, col=1)
                     if df['Close'].iloc[-1] < df['Close'].tail(20).max() * 0.98 and rs_line.iloc[-1] >= rs_line.tail(20).max() * 0.99:
-                        fig.add_annotation(x=rs_dates[-1], y=rs_line.iloc[-1], text="🌟 起步點！", showarrow=True, ax=-40, ay=-30, font=dict(color="#BC13FE"), row=3, col=1)
+                        fig.add_annotation(x=dates[-1], y=rs_line.iloc[-1], text="🌟 起步點！", showarrow=True, ax=-40, ay=-30, font=dict(color="#BC13FE"), row=3, col=1)
                         fig.add_annotation(x=0.02, y=0.98, xref="paper", yref="paper", text="🔥 極度強勢：突破在即", showarrow=False, font=dict(color="#FF4B4B", size=20, weight="bold"), row=1, col=1)
 
+                    # 👴 爺爺修改：強制鎖死 categorical axis，保證陰陽燭唔會逼埋一舊！
                     fig.update_layout(template="plotly_dark", paper_bgcolor='#0e1117', plot_bgcolor='#111', height=850,
-                                      xaxis_rangeslider_visible=False, xaxis=dict(showticklabels=False), xaxis2=dict(showticklabels=False),
-                                      xaxis3=dict(title="日期", type="category"), yaxis=dict(title="股價"), yaxis2=dict(title="成交量", showticklabels=False),
+                                      xaxis_rangeslider_visible=False, 
+                                      xaxis=dict(type='category', showticklabels=False), 
+                                      xaxis2=dict(type='category', showticklabels=False),
+                                      xaxis3=dict(type='category', title="日期"), 
+                                      yaxis=dict(title="股價"), yaxis2=dict(title="成交量", showticklabels=False),
                                       yaxis3=dict(title="RS Rating", showticklabels=False),
                                       xaxis4=dict(overlaying='x', side='top', range=[0, max(counts)*4], showgrid=False, showticklabels=False),
                                       legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
