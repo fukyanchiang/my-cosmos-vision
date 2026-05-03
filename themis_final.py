@@ -9,17 +9,17 @@ import time
 # 1. 基礎設置 
 st.set_page_config(page_title="環球資產透維評估儀", layout="wide") 
 
-# 👴 爺爺精準狙擊 CSS：只針對 Radio 同 Selectbox 字體變白，保護黑底與舊邏輯！
+# 👴 爺爺終極 CSS 修正：限定只改「主畫面 (stMain)」嘅字體做白色，絕對唔影響「側邊欄 (Sidebar)」嘅黑色字！
 st.markdown("""
     <style>
     .stApp { background-color: #0e1117; color: white; }
     
-    /* 🎯 解決主畫面 Radio 同 Selectbox 黑色字問題 */
-    div[data-testid="stRadio"] * { color: #FFFFFF !important; }
-    div[data-testid="stSelectbox"] * { color: #FFFFFF !important; }
-    div[data-testid="stWidgetLabel"] p, div[data-testid="stWidgetLabel"] span { color: #FFFFFF !important; font-size: 1.1rem !important; font-weight: bold !important; }
+    /* 🎯 只針對主畫面嘅 Radio 同 Selectbox 轉白色，保護側邊欄！ */
+    section[data-testid="stMain"] div[data-testid="stRadio"] * { color: #FFFFFF !important; }
+    section[data-testid="stMain"] div[data-testid="stSelectbox"] * { color: #FFFFFF !important; }
+    section[data-testid="stMain"] div[data-testid="stWidgetLabel"] p, 
+    section[data-testid="stMain"] div[data-testid="stWidgetLabel"] span { color: #FFFFFF !important; font-size: 1.1rem !important; font-weight: bold !important; }
     
-    div[data-testid="stSidebar"] * { color: white !important; }
     div[data-testid="stMetricValue"] > div { color: #FFFFFF !important; font-size: 3rem !important; font-weight: 900 !important; }
     div[data-testid="stMetricLabel"] > div { color: #00FFCC !important; font-size: 1.2rem !important; font-weight: bold !important; }
     .bear-warning p, .bear-warning span { color: #FF0000 !important; }
@@ -148,7 +148,7 @@ US_STOCK_MAP = {
     "6. 通訊與網絡設備": "CSCO MSI JNPR ANET COMM ZBRA JNPR CIEN LITE VIAV ADTN CALX HLIT INFN NTGR ACIA EXTR CRDO FN CLFD".split(),
     "7. 互聯網平台內容": "META GOOGL PINS SNAP MATCH MTCH IAC OGI YELP BMBL BUMBLE GRND COMP ZIP TRUE CARG MTTR LEA GRPN".split(),
     "8. 媒體與影視娛樂": "NFLX DIS WBD PARA LYV SPOT SIRI ROKU NWSA NYT FOXA OMC IPG WPP NWS EVC NXST MEG TGNA SSP GTN SGA".split(),
-    "9. 電子商務與零售": "AMZN EBAY ETSY MELI SHOP PDD BABA JD SE CPNG W GMED CVNA FAIR FTCH CHWY OSTK REAL REAL RVLV PRTS QRTEA POSH VIPS BZUN".split(),
+    "9. 電子商務與零售": "AMZN EBAY ETSY MELI SHOP PDD BABA JD SE CPNG W GMED CVNA FAIR FTCH CHWY OSTK REAL RVLV PRTS QRTEA POSH VIPS BZUN".split(),
     "10. 傳統零售百貨": "WMT COST TGT DG DLTR KR SYY K DLTR BIG BBY BJ CFG SFM UNFI IMKTA SPTN ANDE VLGEA INTA GROC".split(),
     "11. 核心消費品": "PG KO PEP PM MO EL CL KDP GIS HSY KHC CPB MKC MDLZ SJM CAG STZ TSN K CPB KHC GIS HSY CPB SJM TAP BF.B CHD POST".split(),
     "12. 汽車製造商": "F GM STLA TM HMC RACE CARZ HOG WGO REV GOLF LCII WGO REVG SRG".split(),
@@ -1045,7 +1045,7 @@ elif app_mode == "📈 VCP 形態戰術掃描 & 防守圖":
                 except Exception as e: st.error(f"繪圖出錯: {e}")
 
 # =========================================================================
-# 🌊 全新 Mode E：海龜回測加注雷達 (Pullback Scanner) & 專屬圖表
+# 🌊 全新 Mode E：海龜回測加注雷達 (Pullback Scanner)
 # =========================================================================
 elif app_mode == "🌊 海龜回測加注雷達 (Mode E)":
     st.markdown("<h1 class='main-title'>🌊 海龜回測加注雷達 (Pullback Scanner)</h1>", unsafe_allow_html=True)
@@ -1151,16 +1151,13 @@ elif app_mode == "🌊 海龜回測加注雷達 (Mode E)":
                     fig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.75, 0.25], vertical_spacing=0.03)
                     dates = df.index.strftime('%Y-%m-%d')
                     
-                    # Row 1: K線 + MAs
                     fig.add_trace(go.Candlestick(x=dates, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'], name="K線"), row=1, col=1)
                     fig.add_trace(go.Scatter(x=dates, y=df['MA50'], mode='lines', name='50MA (黃實線)', line=dict(color='yellow', width=1.5)), row=1, col=1)
                     fig.add_trace(go.Scatter(x=dates, y=df['EMA10'], mode='lines', name='10 EMA (橙虛線)', line=dict(color='orange', width=2, dash='dot')), row=1, col=1)
                     
-                    # 畫 海龜買入線 同 海龜止損線
                     fig.add_hline(y=sel_data['Recent High'], line_dash="dash", line_color="#00FFCC", annotation_text=f"🐢 海龜買入 (破前高): ${sel_data['Recent High']:.2f}", annotation_position="top left", annotation_font=dict(color="white", size=13), row=1, col=1)
                     fig.add_hline(y=sel_data['Swing Low'], line_dash="solid", line_color="#FF00FF", annotation_text=f"🛑 海龜波谷止損: ${sel_data['Swing Low']:.2f}", annotation_position="bottom left", annotation_font=dict(color="white", size=13), row=1, col=1)
                     
-                    # Row 2: 成交量
                     v_colors = ['#00FF00' if df['Close'].iloc[i] >= df['Open'].iloc[i] else '#FF0000' for i in range(len(df))]
                     fig.add_trace(go.Bar(x=dates, y=df['Volume'], marker_color=v_colors, name="成交量"), row=2, col=1)
                     
