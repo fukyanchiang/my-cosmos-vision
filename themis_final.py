@@ -9,11 +9,10 @@ import time
 # 1. 基礎設置 
 st.set_page_config(page_title="環球資產透維評估儀", layout="wide") 
 
-# 👴 爺爺終極視覺修正：強制所有 UI 標籤變白、十字準星、有長有短重貨區
+# 👴 爺爺核彈級 CSS：強制所有字體白化
 st.markdown("""
     <style>
-    .stApp { background-color: #0e1117; color: white; }
-    /* 強制所有控制組件嘅標題、選項變白色 */
+    .stApp, .stApp p, .stApp span, .stApp label { color: #FFFFFF !important; }
     div[data-testid="stWidgetLabel"] p, div[data-testid="stWidgetLabel"] span { color: #FFFFFF !important; font-size: 1.1rem !important; font-weight: bold !important; }
     div[data-baseweb="radio"] label, div[data-baseweb="radio"] div { color: #FFFFFF !important; font-size: 1rem !important; }
     div[data-baseweb="select"] span { color: #FFFFFF !important; }
@@ -32,16 +31,16 @@ st.markdown("""
     .ej-seg { width: 16px; height: 35px; border-radius: 2px; border: 1.2px solid rgba(255,255,255,0.4); }
     .val-box { background-color: #000 !important; border: 2px solid #FFD700; border-radius: 12px; padding: 20px; text-align: center; min-height: 220px; margin-bottom: 15px; }
     .val-label { color: #FFFFFF !important; font-size: 1.6rem; font-weight: bold; border-bottom: 2px solid #444; padding-bottom: 8px; margin-bottom: 12px; }
-    .val-text { font-size: 1.2rem; color: #ccc; margin: 8px 0; }
-    .val-focus { color: #FFD700; font-weight: bold; font-size: 1.8rem; }
-    .red-bar { color: #fff; border-radius: 10px; text-align: center; font-weight: 900; }
+    .val-text { font-size: 1.2rem; color: #ccc !important; margin: 8px 0; }
+    .val-focus { color: #FFD700 !important; font-weight: bold; font-size: 1.8rem; }
+    .red-bar { color: #fff !important; border-radius: 10px; text-align: center; font-weight: 900; }
     .val-box-purple { border: 3px solid #BC13FE; border-radius: 15px; padding: 30px; background-color: #000; box-shadow: 0 0 25px #BC13FE66; margin: 25px 0; }
     .energy-bar-container-8d { display: flex; gap: 4px; margin-top: 10px; margin-bottom: 15px; }
     .energy-seg-8d { flex: 1; height: 16px; border-radius: 2px; }
     .whale-box { background-color: #000; border: 3px solid #FFD700; border-radius: 15px; padding: 35px; margin-top: 30px; }
     .whale-row { display: flex; justify-content: space-between; padding: 15px 0; border-bottom: 1px solid #333; }
-    .whale-n { color: #FFD700; font-weight: bold; font-size: 2.5rem; }
-    .whale-a { color: #00FFCC; font-size: 1.6rem; text-align: right; }
+    .whale-n { color: #FFD700 !important; font-weight: bold; font-size: 2.5rem; }
+    .whale-a { color: #00FFCC !important; font-size: 1.6rem; text-align: right; }
     .scan-card-fire { border-left: 5px solid #00FFCC; background-color: #111; padding: 15px; margin-bottom: 10px; border-radius: 8px; }
     .scan-card-super { border-left: 8px solid #FF4B4B; background-color: #310000; padding: 15px; margin-bottom: 10px; border-radius: 8px; box-shadow: 0 0 15px #FF4B4B66; }
     .exit-radar { background-color: #220000; border: 2px solid #FF0000; padding: 15px; border-radius: 10px; margin-top: 20px;}
@@ -62,7 +61,7 @@ def safe_s(info, keys, suffix="", alt="N/A"):
             except: pass 
     return alt 
 
-# 🚀 引擎還原 (一條毛都無改)
+# 🚀 引擎還原
 def get_beta(info, df, spy_df): 
     b = info.get('beta') 
     if b is not None and str(b).lower() not in ['nan', 'none', '']: return f"{float(b):.2f}" 
@@ -108,7 +107,7 @@ def get_iv(asset):
     except: return "N/A"
 
 # =========================================================================
-# 🛸 終極擴軍資料庫 (V160.0) 
+# 🛸 終極擴軍資料庫
 # =========================================================================
 HK_STOCK_MAP = {
     "1. 互聯網巨頭": "0700.HK 9988.HK 3690.HK 1810.HK 9618.HK 1024.HK 9888.HK 0772.HK 0020.HK 0241.HK 0136.HK 1999.HK 2018.HK 3888.HK 2142.HK 1896.HK 0777.HK 0113.HK 0590.HK 1980.HK 1797.HK 6618.HK 2400.HK 0285.HK".split(),
@@ -389,17 +388,17 @@ if app_mode == "🛡️ 環球市底大師指揮塔":
 
                 colors = ['#00FF00' if c_col[i] >= o_col[i] else '#FF0000' for i in range(len(clean_recent))]
                 fig.add_trace(go.Bar(x=dates, y=v_col, marker_color=colors, name='成交量'), row=2, col=1)
-                counts, bins = np.histogram(c_col, bins=20, weights=v_col)
+                counts, bins = np.histogram(c_col, bins=30, weights=v_col)
                 max_c = max(counts) if len(counts) > 0 and max(counts) > 0 else 1
-                fig.add_trace(go.Bar(y=(bins[:-1] + bins[1:]) / 2, x=counts, orientation='h', marker_color='rgba(0, 255, 204, 0.4)', name='蟹貨區', xaxis='x3', yaxis='y1'))
+                fig.add_trace(go.Bar(y=(bins[:-1] + bins[1:]) / 2, x=counts, orientation='h', marker_color='rgba(150, 150, 150, 0.4)', name='蟹貨區', xaxis='x3', yaxis='y1'))
 
                 fig.update_layout(
                     template="plotly_dark", paper_bgcolor='#0e1117', plot_bgcolor='#0e1117', height=750, 
                     showlegend=True, legend=dict(font=dict(color="white"), orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
                     xaxis_rangeslider_visible=False, xaxis=dict(type='category', showgrid=False), 
-                    yaxis=dict(showgrid=True, gridcolor='#333'), xaxis3=dict(overlaying='x', side='top', range=[0, max_c*1.1], showgrid=False, showticklabels=False)
+                    yaxis=dict(showgrid=True, gridcolor='#333'), xaxis3=dict(overlaying='x', side='top', range=[0, max_c*4], showgrid=False, showticklabels=False)
                 )
-                st.plotly_chart(fig, use_container_width=True, theme=None, config={'scrollZoom': True, 'displayModeBar': False})
+                st.plotly_chart(fig, use_container_width=True, config={'scrollZoom': True, 'displayModeBar': False})
 
                 if ("科指" in idx_choice or "道指" in idx_choice) and b_stats['above_50_list']:
                     st.markdown(f"<h3 style='color: white;'>🏆 逆市名單 ({idx_choice.split(' ')[0]}) - 企穩 50天線之上</h3>", unsafe_allow_html=True)
@@ -641,9 +640,9 @@ elif app_mode == "🚀 個股深度透視":
 
                         colors = ['#00FF00' if c_col[i] >= o_col[i] else '#FF0000' for i in range(len(recent))]
                         fig.add_trace(go.Bar(x=dates, y=v_col, marker_color=colors, name='成交量'), row=2, col=1)
-                        counts, bins = np.histogram(c_col, bins=20, weights=v_col)
+                        counts, bins = np.histogram(c_col, bins=30, weights=v_col)
                         max_c = max(counts) if len(counts) > 0 and max(counts) > 0 else 1
-                        fig.add_trace(go.Bar(y=(bins[:-1] + bins[1:]) / 2, x=counts, orientation='h', marker_color='rgba(0, 255, 204, 0.4)', name='蟹貨區', xaxis='x3', yaxis='y1'))
+                        fig.add_trace(go.Bar(y=(bins[:-1] + bins[1:]) / 2, x=counts, orientation='h', marker_color='rgba(150, 150, 150, 0.4)', name='蟹貨區', xaxis='x3', yaxis='y1'))
                         
                         fig.update_layout(
                             template="plotly_dark", paper_bgcolor='#0e1117', plot_bgcolor='#0e1117', height=750, 
@@ -651,7 +650,7 @@ elif app_mode == "🚀 個股深度透視":
                             xaxis_rangeslider_visible=False, 
                             xaxis=dict(type='category', showgrid=False, showticklabels=True, tickfont=dict(color='white'), title="日期"), 
                             yaxis=dict(showgrid=True, gridcolor='#333', showticklabels=True, tickfont=dict(color='white'), title="股價"), 
-                            xaxis3=dict(overlaying='x', side='top', range=[0, max_c*1.1], showgrid=False, showticklabels=False)
+                            xaxis3=dict(overlaying='x', side='top', range=[0, max_c*4], showgrid=False, showticklabels=False)
                         )
                         st.plotly_chart(fig, use_container_width=True, theme=None, config={'scrollZoom': True, 'displayModeBar': True}) 
                 except Exception as e: pass
@@ -934,7 +933,7 @@ elif app_mode == "📈 VCP 形態戰術掃描 & 防守圖":
                         rs_rating = int((all_rets[all_rets <= ret].count() / len(all_rets)) * 99)
                         if rs_rating < 80: continue
                         
-                        # 3. RS 斜率 (Numpy 版)
+                        # 3. RS 斜率
                         df_aligned, b_aligned = df_vcp['Close'].align(bench_df, join='inner')
                         rs_line = df_aligned / b_aligned
                         if len(rs_line) > 50:
@@ -988,13 +987,13 @@ elif app_mode == "📈 VCP 形態戰術掃描 & 防守圖":
                     df['MA50'] = df['Close'].rolling(50).mean()
                     df['Vol50'] = df['Volume'].rolling(50).mean()
                     
-                    # 👴 爺爺新增：10 EMA (極限防線)
                     df['EMA10'] = df['Close'].ewm(span=10, adjust=False).mean()
                     
                     df_a, b_a = df['Close'].align(b_df, join='inner')
                     rs_line = (df_a / b_a).reindex(df.index).ffill().bfill() 
                     
-                    counts, bins = np.histogram(df['Close'], bins=25, weights=df['Volume'])
+                    # 重貨區計算
+                    counts, bins = np.histogram(df['Close'], bins=40, weights=df['Volume'])
                     hvn_price = (bins[np.argmax(counts)] + bins[np.argmax(counts)+1]) / 2
                     stop_loss = hvn_price * 0.985
                     
@@ -1012,40 +1011,43 @@ elif app_mode == "📈 VCP 形態戰術掃描 & 防守圖":
                     
                     # Row 1: K線 + MAs + HVN
                     fig.add_trace(go.Candlestick(x=dates, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'], name="K線"), row=1, col=1)
-                    fig.add_trace(go.Scatter(x=dates, y=df['MA50'], mode='lines', name='50MA', line=dict(color='yellow', width=1.5)), row=1, col=1)
-                    fig.add_trace(go.Scatter(x=dates, y=df['EMA10'], mode='lines', name='10 EMA', line=dict(color='orange', width=1.5, dash='dot')), row=1, col=1)
+                    # 50MA (黃實線) & 10EMA (橙虛線)
+                    fig.add_trace(go.Scatter(x=dates, y=df['MA50'], mode='lines', name='50MA (黃實線)', line=dict(color='yellow', width=1.5)), row=1, col=1)
+                    fig.add_trace(go.Scatter(x=dates, y=df['EMA10'], mode='lines', name='10 EMA (橙虛線)', line=dict(color='orange', width=1.5, dash='dot')), row=1, col=1)
                     
-                    fig.add_hline(y=pivot_price, line_dash="dash", line_color="#00FFCC", annotation_text=f"🎯 買入 (Pivot): ${pivot_price:.2f}", annotation_position="top left", annotation_font=dict(color="#00FFCC"), row=1, col=1)
-                    fig.add_hline(y=stop_loss, line_dash="solid", line_color="#FF4B4B", annotation_text=f"🛑 重貨區止損: ${stop_loss:.2f}", annotation_position="bottom left", annotation_font=dict(color="#FF4B4B"), row=1, col=1)
-                    fig.add_hline(y=atr_stop, line_dash="dash", line_color="#BC13FE", annotation_text=f"🛡️ 1.5 ATR 止損: ${atr_stop:.2f}", annotation_position="bottom right", annotation_font=dict(color="#BC13FE"), row=1, col=1)
-                    fig.add_trace(go.Bar(y=(bins[:-1]+bins[1:])/2, x=counts, orientation='h', marker_color='rgba(255,255,255,0.15)', name='重貨區 HVN', hoverinfo='skip', xaxis='x4'), row=1, col=1)
+                    # 所有右邊字體強制白色 (color="white")
+                    fig.add_hline(y=pivot_price, line_dash="dash", line_color="#00FFCC", annotation_text=f"🎯 買入 (Pivot): ${pivot_price:.2f}", annotation_position="top left", annotation_font=dict(color="white"), row=1, col=1)
+                    fig.add_hline(y=stop_loss, line_dash="solid", line_color="#FF4B4B", annotation_text=f"🛑 重貨區止損: ${stop_loss:.2f}", annotation_position="bottom left", annotation_font=dict(color="white"), row=1, col=1)
+                    fig.add_hline(y=atr_stop, line_dash="dash", line_color="#BC13FE", annotation_text=f"🛡️ 1.5 ATR 止損: ${atr_stop:.2f}", annotation_position="bottom right", annotation_font=dict(color="white"), row=1, col=1)
+                    
+                    # 👴 爺爺終極修復重貨區：縮細 range 比例 (max*3)，改變不透明度
+                    fig.add_trace(go.Bar(y=(bins[:-1]+bins[1:])/2, x=counts, orientation='h', marker_color='rgba(136, 136, 136, 0.4)', name='重貨區 HVN', hoverinfo='skip', xaxis='x4'), row=1, col=1)
                     
                     # Row 2: 成交量 + 星星
                     v_colors = ['#00FF00' if df['Close'].iloc[i] >= df['Open'].iloc[i] else '#FF0000' for i in range(len(df))]
                     fig.add_trace(go.Bar(x=dates, y=df['Volume'], marker_color=v_colors, name="成交量"), row=2, col=1)
                     for i in range(len(df)):
                         if df['Close'].iloc[i] > df['Open'].iloc[i] and df['Volume'].iloc[i] > df['Vol50'].iloc[i]*1.5:
-                            # 👴 爺爺修正：xanchor="center", yanchor="bottom" 保證星星置中
                             fig.add_annotation(x=dates[i], y=df['Volume'].iloc[i], text="🌟", showarrow=False, yanchor="bottom", xanchor="center", font=dict(size=14, color="#FFD700"), row=2, col=1)
 
                     # Row 3: RS 線 + 紫星
                     fig.add_trace(go.Scatter(x=dates, y=rs_line, mode='lines', line=dict(color='#BC13FE', width=2), name="RS線"), row=3, col=1)
                     if df['Close'].iloc[-1] < df['Close'].tail(20).max() * 0.98 and rs_line.iloc[-1] >= rs_line.tail(20).max() * 0.99:
-                        fig.add_annotation(x=dates[-1], y=rs_line.iloc[-1], text="🌟 起步點！", showarrow=True, ax=-40, ay=-30, font=dict(color="#BC13FE"), row=3, col=1)
-                        fig.add_annotation(x=0.02, y=0.98, xref="paper", yref="paper", text="🔥 極度強勢：突破在即", showarrow=False, font=dict(color="#FF4B4B", size=20, weight="bold"), row=1, col=1)
+                        fig.add_annotation(x=dates[-1], y=rs_line.iloc[-1], text="🌟 起步點！", showarrow=True, ax=-40, ay=-30, font=dict(color="white", size=14), row=3, col=1)
 
-                    # 👴 爺爺修正：終極十字準星 (spikemode) 與重貨區比例 (range max*5)
+                    # 👴 爺爺十字準星 + Plotly 圖例白化
                     fig.update_layout(template="plotly_dark", paper_bgcolor='#0e1117', plot_bgcolor='#111', height=850,
                                       hovermode='x unified',
                                       xaxis_rangeslider_visible=False, 
-                                      xaxis=dict(type='category', showticklabels=False, showspikes=True, spikemode='across', spikecolor="white", spikethickness=1, spikedash='dash'), 
-                                      xaxis2=dict(type='category', showticklabels=False, showspikes=True, spikemode='across', spikecolor="white", spikethickness=1, spikedash='dash'),
-                                      xaxis3=dict(type='category', title="日期", showspikes=True, spikemode='across', spikecolor="white", spikethickness=1, spikedash='dash'), 
-                                      yaxis=dict(title="股價", showspikes=True, spikemode='across', spikecolor="white", spikethickness=1, spikedash='dash'), 
+                                      xaxis=dict(type='category', showticklabels=False, showspikes=True, spikemode='across', spikecolor="white", spikethickness=1, spikedash='dot'), 
+                                      xaxis2=dict(type='category', showticklabels=False, showspikes=True, spikemode='across', spikecolor="white", spikethickness=1, spikedash='dot'),
+                                      xaxis3=dict(type='category', title="日期", showspikes=True, spikemode='across', spikecolor="white", spikethickness=1, spikedash='dot'), 
+                                      yaxis=dict(title="股價", showspikes=True, spikemode='across', spikecolor="white", spikethickness=1, spikedash='dot'), 
                                       yaxis2=dict(title="成交量", showticklabels=False),
                                       yaxis3=dict(title="RS Rating", showticklabels=False),
-                                      xaxis4=dict(overlaying='x', side='top', range=[0, max(counts)*5], showgrid=False, showticklabels=False),
-                                      legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
+                                      # 呢度鎖定重貨區長度
+                                      xaxis4=dict(overlaying='x1', anchor='y1', side='top', range=[0, max(counts)*3.5], showgrid=False, showticklabels=False),
+                                      legend=dict(font=dict(color="white", size=13), orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
                     st.plotly_chart(fig, use_container_width=True)
 
                     # 倉位建議
