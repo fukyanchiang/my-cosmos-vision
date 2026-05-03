@@ -9,7 +9,7 @@ import time
 # 1. 基礎設置 
 st.set_page_config(page_title="環球資產透維評估儀", layout="wide") 
 
-# 👴 爺爺修正：強制 UI 字體白化，黑底白字最清晰，並加入互動十字準星 CSS
+# 👴 爺爺修正：強制 UI 字體白化，黑底白字最清晰
 st.markdown("""
     <style>
     .stApp { background-color: #0e1117; color: white; }
@@ -41,7 +41,6 @@ st.markdown("""
     .whale-a { color: #00FFCC; font-size: 1.6rem; text-align: right; }
     .scan-card-fire { border-left: 5px solid #00FFCC; background-color: #111; padding: 15px; margin-bottom: 10px; border-radius: 8px; }
     .scan-card-super { border-left: 8px solid #FF4B4B; background-color: #310000; padding: 15px; margin-bottom: 10px; border-radius: 8px; box-shadow: 0 0 15px #FF4B4B66; }
-    .bear-warning { color: #FF0000; font-size: 2.5rem; font-weight: 900; text-align: center; text-shadow: 2px 2px 5px #000; padding: 20px; border: 4px dashed red; background-color: #220000; margin: 20px 0; border-radius: 15px;}
     .exit-radar { background-color: #220000; border: 2px solid #FF0000; padding: 15px; border-radius: 10px; margin-top: 20px;}
     </style>
     """, unsafe_allow_html=True)
@@ -60,7 +59,7 @@ def safe_s(info, keys, suffix="", alt="N/A"):
             except: pass 
     return alt 
 
-# 🚀 引擎還原 (一條毛都無改)
+# 🚀 引擎還原
 def get_beta(info, df, spy_df): 
     b = info.get('beta') 
     if b is not None and str(b).lower() not in ['nan', 'none', '']: return f"{float(b):.2f}" 
@@ -87,26 +86,20 @@ def get_alpha(beta, df, spy_df):
     except: return "N/A"
 
 def get_volatility(df):
-    try:
-        ret = df['Close'].pct_change().dropna().tail(252)
-        vol = ret.std() * np.sqrt(252)
-        return f"{vol * 100:.1f}%"
+    try: return f"{(df['Close'].pct_change().dropna().tail(252).std() * np.sqrt(252)) * 100:.1f}%"
     except: return "N/A"
 
 def get_iv(asset):
     try:
         options = asset.options
         if not options: return "N/A"
-        chain = asset.option_chain(options[0])
-        calls = chain.calls
+        calls = asset.option_chain(options[0]).calls
         if calls.empty: return "N/A"
-        mid_idx = len(calls) // 2
-        iv = calls.iloc[mid_idx]['impliedVolatility']
-        return f"{iv * 100:.1f}%"
+        return f"{calls.iloc[len(calls) // 2]['impliedVolatility'] * 100:.1f}%"
     except: return "N/A"
 
 # =========================================================================
-# 🛸 終極擴軍資料庫
+# 🛸 擴軍資料庫
 # =========================================================================
 HK_STOCK_MAP = {
     "1. 互聯網巨頭": "0700.HK 9988.HK 3690.HK 1810.HK 9618.HK 1024.HK 9888.HK 0772.HK 0020.HK 0241.HK 0136.HK 1999.HK 2018.HK 3888.HK 2142.HK 1896.HK 0777.HK 0113.HK 0590.HK 1980.HK 1797.HK 6618.HK 2400.HK 0285.HK".split(),
