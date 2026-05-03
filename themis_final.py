@@ -9,18 +9,15 @@ import time
 # 1. 基礎設置 
 st.set_page_config(page_title="環球資產透維評估儀", layout="wide") 
 
-# 👴 爺爺核彈級 CSS：強制所有字體白化
+# 👴 爺爺已刪除所有干擾 Mode A 嘅毒藥 CSS，還原你最初嘅完美樣式！
 st.markdown("""
     <style>
-    .stApp, .stApp p, .stApp span, .stApp label { color: #FFFFFF !important; }
-    div[data-testid="stWidgetLabel"] p, div[data-testid="stWidgetLabel"] span { color: #FFFFFF !important; font-size: 1.1rem !important; font-weight: bold !important; }
-    div[data-baseweb="radio"] label, div[data-baseweb="radio"] div { color: #FFFFFF !important; font-size: 1rem !important; }
-    div[data-baseweb="select"] span { color: #FFFFFF !important; }
-    div[data-testid="stSidebar"] * { color: #FFFFFF !important; }
+    .stApp { background-color: #0e1117; color: white; }
+    div[data-testid="stSidebar"] * { color: white !important; }
     div[data-testid="stMetricValue"] > div { color: #FFFFFF !important; font-size: 3rem !important; font-weight: 900 !important; }
     div[data-testid="stMetricLabel"] > div { color: #00FFCC !important; font-size: 1.2rem !important; font-weight: bold !important; }
-    
     .bear-warning p, .bear-warning span { color: #FF0000 !important; }
+    
     .main-title { text-align: center; color: #FFD700 !important; font-size: 3.5rem; font-weight: 900; margin-bottom: 25px; }
     .cosmos-box { background-color: #000 !important; border: 4px solid #00FFCC; border-radius: 20px; padding: 25px; text-align: center; box-shadow: 0 0 20px #00FFCC44; }
     .cosmos-label { color: #00FFCC !important; font-size: 1.8rem; font-weight: bold; margin-bottom: 10px; }
@@ -31,18 +28,19 @@ st.markdown("""
     .ej-seg { width: 16px; height: 35px; border-radius: 2px; border: 1.2px solid rgba(255,255,255,0.4); }
     .val-box { background-color: #000 !important; border: 2px solid #FFD700; border-radius: 12px; padding: 20px; text-align: center; min-height: 220px; margin-bottom: 15px; }
     .val-label { color: #FFFFFF !important; font-size: 1.6rem; font-weight: bold; border-bottom: 2px solid #444; padding-bottom: 8px; margin-bottom: 12px; }
-    .val-text { font-size: 1.2rem; color: #ccc !important; margin: 8px 0; }
-    .val-focus { color: #FFD700 !important; font-weight: bold; font-size: 1.8rem; }
-    .red-bar { color: #fff !important; border-radius: 10px; text-align: center; font-weight: 900; }
+    .val-text { font-size: 1.2rem; color: #ccc; margin: 8px 0; }
+    .val-focus { color: #FFD700; font-weight: bold; font-size: 1.8rem; }
+    .red-bar { color: #fff; border-radius: 10px; text-align: center; font-weight: 900; }
     .val-box-purple { border: 3px solid #BC13FE; border-radius: 15px; padding: 30px; background-color: #000; box-shadow: 0 0 25px #BC13FE66; margin: 25px 0; }
     .energy-bar-container-8d { display: flex; gap: 4px; margin-top: 10px; margin-bottom: 15px; }
     .energy-seg-8d { flex: 1; height: 16px; border-radius: 2px; }
     .whale-box { background-color: #000; border: 3px solid #FFD700; border-radius: 15px; padding: 35px; margin-top: 30px; }
     .whale-row { display: flex; justify-content: space-between; padding: 15px 0; border-bottom: 1px solid #333; }
-    .whale-n { color: #FFD700 !important; font-weight: bold; font-size: 2.5rem; }
-    .whale-a { color: #00FFCC !important; font-size: 1.6rem; text-align: right; }
+    .whale-n { color: #FFD700; font-weight: bold; font-size: 2.5rem; }
+    .whale-a { color: #00FFCC; font-size: 1.6rem; text-align: right; }
     .scan-card-fire { border-left: 5px solid #00FFCC; background-color: #111; padding: 15px; margin-bottom: 10px; border-radius: 8px; }
     .scan-card-super { border-left: 8px solid #FF4B4B; background-color: #310000; padding: 15px; margin-bottom: 10px; border-radius: 8px; box-shadow: 0 0 15px #FF4B4B66; }
+    .bear-warning { color: #FF0000; font-size: 2.5rem; font-weight: 900; text-align: center; text-shadow: 2px 2px 5px #000; padding: 20px; border: 4px dashed red; background-color: #220000; margin: 20px 0; border-radius: 15px;}
     .exit-radar { background-color: #220000; border: 2px solid #FF0000; padding: 15px; border-radius: 10px; margin-top: 20px;}
     </style>
     """, unsafe_allow_html=True)
@@ -388,12 +386,8 @@ if app_mode == "🛡️ 環球市底大師指揮塔":
 
                 colors = ['#00FF00' if c_col[i] >= o_col[i] else '#FF0000' for i in range(len(clean_recent))]
                 fig.add_trace(go.Bar(x=dates, y=v_col, marker_color=colors, name='成交量'), row=2, col=1)
-                
-                # Mode B 的重貨區 (保持不變)
                 counts, bins = np.histogram(c_col, bins=20, weights=v_col)
                 max_c = max(counts) if len(counts) > 0 and max(counts) > 0 else 1
-                
-                # 👴 Mode B：加入不指定 row, col 嘅方法畫重貨區
                 fig.add_trace(go.Bar(y=(bins[:-1] + bins[1:]) / 2, x=counts, orientation='h', marker_color='rgba(0, 255, 204, 0.4)', name='蟹貨區', xaxis='x3', yaxis='y1'))
 
                 fig.update_layout(
@@ -644,8 +638,6 @@ elif app_mode == "🚀 個股深度透視":
 
                         colors = ['#00FF00' if c_col[i] >= o_col[i] else '#FF0000' for i in range(len(recent))]
                         fig.add_trace(go.Bar(x=dates, y=v_col, marker_color=colors, name='成交量'), row=2, col=1)
-                        
-                        # 👴 爺爺 Mode A 重貨區，保持原汁原味
                         counts, bins = np.histogram(c_col, bins=20, weights=v_col)
                         max_c = max(counts) if len(counts) > 0 and max(counts) > 0 else 1
                         fig.add_trace(go.Bar(y=(bins[:-1] + bins[1:]) / 2, x=counts, orientation='h', marker_color='rgba(0, 255, 204, 0.4)', name='蟹貨區', xaxis='x3', yaxis='y1'))
@@ -844,7 +836,7 @@ elif "雷達" in app_mode and not "熱力圖" in app_mode and not "VCP" in app_m
                             found = True
                             st.markdown(f"<div class='scan-card-fire'><h2>🎯 {t} | 符合大戶佈局！</h2><p>💰 資金流: {net_flow_20/1e8:.1f}億 | 🎯 集中度: {conc_20:.1f}% | 🌊 OBV: {state}<br>⚡ SE: {se:.1f} | 🔋 EJ: {ej:.1f} | 📈 RS: {crs:.1f}</p></div>", unsafe_allow_html=True)
             except: pass
-        if not found: st.warning("💤 雷達掃描完畢，目前未有起飛目標。(此過濾條件為潛龍必勝模式，要求大戶真實佈局)")
+        if not found: st.warning("💤 雷達掃描完畢，目前未有起起飛目標。(此過濾條件為潛龍必勝模式，要求大戶真實佈局)")
 
 # =========================================================================
 # 📡 拔河熱力圖 
@@ -998,7 +990,7 @@ elif app_mode == "📈 VCP 形態戰術掃描 & 防守圖":
                     df_a, b_a = df['Close'].align(b_df, join='inner')
                     rs_line = (df_a / b_a).reindex(df.index).ffill().bfill() 
                     
-                    # 👴 爺爺修正重貨區：精確計算 bins，唔用 xaxis4，改為直接疊加 xaxis (同 Mode A 一樣做法！)
+                    # 👴 爺爺終極修復重貨區：直接使用 Mode A 寫法 (xaxis="x4")
                     counts, bins = np.histogram(df['Close'], bins=25, weights=df['Volume'])
                     hvn_price = (bins[np.argmax(counts)] + bins[np.argmax(counts)+1]) / 2
                     stop_loss = hvn_price * 0.985
@@ -1017,15 +1009,13 @@ elif app_mode == "📈 VCP 形態戰術掃描 & 防守圖":
                     
                     # Row 1: K線 + MAs + HVN
                     fig.add_trace(go.Candlestick(x=dates, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'], name="K線"), row=1, col=1)
-                    fig.add_trace(go.Scatter(x=dates, y=df['MA50'], mode='lines', name='50MA', line=dict(color='yellow', width=1.5)), row=1, col=1)
-                    fig.add_trace(go.Scatter(x=dates, y=df['EMA10'], mode='lines', name='10 EMA', line=dict(color='orange', width=1.5, dash='dot')), row=1, col=1)
+                    fig.add_trace(go.Scatter(x=dates, y=df['MA50'], mode='lines', name='50MA (黃實線)', line=dict(color='yellow', width=1.5)), row=1, col=1)
+                    fig.add_trace(go.Scatter(x=dates, y=df['EMA10'], mode='lines', name='10 EMA (橙虛線)', line=dict(color='orange', width=1.5, dash='dot')), row=1, col=1)
                     
-                    # 所有右邊字體強制白色 (color="white")
                     fig.add_hline(y=pivot_price, line_dash="dash", line_color="#00FFCC", annotation_text=f"🎯 買入 (Pivot): ${pivot_price:.2f}", annotation_position="top left", annotation_font=dict(color="white", size=13), row=1, col=1)
                     fig.add_hline(y=stop_loss, line_dash="solid", line_color="#FF4B4B", annotation_text=f"🛑 重貨區止損: ${stop_loss:.2f}", annotation_position="bottom left", annotation_font=dict(color="white", size=13), row=1, col=1)
                     fig.add_hline(y=atr_stop, line_dash="dash", line_color="#BC13FE", annotation_text=f"🛡️ 1.5 ATR 止損: ${atr_stop:.2f}", annotation_position="bottom right", annotation_font=dict(color="white", size=13), row=1, col=1)
                     
-                    # 👴 爺爺終極修復重貨區：直接使用 Mode A 寫法，唔加 row=1, col=1，使用 xaxis='x3' (因為 VCP 有 3 橫行，對應 x1, x2, x3，所以我哋用 x4 覆蓋)
                     max_c = max(counts) if len(counts) > 0 and max(counts) > 0 else 1
                     fig.add_trace(go.Bar(y=(bins[:-1]+bins[1:])/2, x=counts, orientation='h', marker_color='rgba(136, 136, 136, 0.4)', name='重貨區 HVN', hoverinfo='skip', xaxis='x4', yaxis='y1'))
                     
@@ -1041,7 +1031,7 @@ elif app_mode == "📈 VCP 形態戰術掃描 & 防守圖":
                     if df['Close'].iloc[-1] < df['Close'].tail(20).max() * 0.98 and rs_line.iloc[-1] >= rs_line.tail(20).max() * 0.99:
                         fig.add_annotation(x=dates[-1], y=rs_line.iloc[-1], text="🌟 起步點！", showarrow=True, ax=-40, ay=-30, font=dict(color="white", size=14), row=3, col=1)
 
-                    # 👴 爺爺圖例白化 + 互動準星 + 重貨區比例尺修復
+                    # 👴 爺爺圖例白化 + 互動準星 + 重貨區比例尺修復 (overlaying='x')
                     fig.update_layout(template="plotly_dark", paper_bgcolor='#0e1117', plot_bgcolor='#111', height=850,
                                       hovermode='x unified',
                                       xaxis_rangeslider_visible=False, 
