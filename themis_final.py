@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np 
 import plotly.graph_objects as go 
 from plotly.subplots import make_subplots 
-from scipy.stats import linregress
+# 👴 爺爺註：已經移走 scipy，改用 numpy 嚟計斜率，保證過關！
 
 # 1. 基礎設置 
 st.set_page_config(page_title="環球資產透維評估儀", layout="wide") 
@@ -812,7 +812,7 @@ elif "雷達" in app_mode and not "熱力圖" in app_mode and not "VCP" in app_m
     bench_sym = "SPY" if is_us else "^HSI"
     target_dict = (US_ETF_MAP if "ETF" in app_mode else US_STOCK_MAP) if is_us else (HK_ETF_MAP if "ETF" in app_mode else HK_STOCK_MAP)
     
-    s_choice = st.sidebar.selectbox("2. 選擇掃描範圍", ["🌐 啟動全星系大規模搜索"] + list(target_dict.keys()))
+    s_choice = st.sidebar.selectbox("2. 選擇掃描範圍", ["🌐 啟 মাতৃ系大規模搜索"] + list(target_dict.keys()))
     
     if st.sidebar.button("📡 發射撒網尋龍電波！"):
         bench_data = yf.Ticker(bench_sym).history(period="2y").dropna()
@@ -951,7 +951,8 @@ elif app_mode == "📈 VCP 形態戰術掃描 & 防守圖":
                         rs_line = df_aligned / b_aligned
                         recent_rs = rs_line.tail(50).values
                         days = np.arange(len(recent_rs))
-                        slope, _, _, _, _ = linregress(days, recent_rs)
+                        # 爺爺改用 numpy 嘅 polyfit，唔使裝 scipy！
+                        slope, intercept = np.polyfit(days, recent_rs, 1)
                         if slope <= 0: continue
                         
                         # 4. 大戶吸籌標記 (近10日有3次價升量增)
