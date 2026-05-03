@@ -246,7 +246,8 @@ app_mode = st.sidebar.radio("請選擇操作", [
     "📡 ETF 資產拔河熱力圖", 
     "🔍 千龍起步尋龍雷達 (個股)",
     "🛡️ 美股 ETF 專屬雷達",
-    "🛡️ 港/A股 ETF 專屬雷達"
+    "🛡️ 港/A股 ETF 專屬雷達",
+    "📈 VCP 形態戰術掃描 & 防守圖"
 ])
 
 if app_mode in ["🚀 個股深度透視", "🛡️ 環球市底大師指揮塔"]:
@@ -867,3 +868,111 @@ elif "熱力圖" in app_mode:
                 fig.update_layout(template="plotly_dark", paper_bgcolor='#0e1117', plot_bgcolor='#0e1117', font=dict(color='white'), height=700)
                 st.plotly_chart(fig, use_container_width=True, theme=None, config={'displayModeBar': False})
         except: pass
+
+# =========================================================================
+# 📈 模式 D：VCP 形態戰術掃描 & 防守圖 (優質股交易法則)
+# =========================================================================
+elif app_mode == "📈 VCP 形態戰術掃描 & 防守圖":
+    st.markdown("<h1 class='main-title'>📈 VCP 形態戰術掃描 & 防守圖</h1>", unsafe_allow_html=True)
+    st.markdown("""
+    <div style='background-color:#111; padding:15px; border-radius:10px; border-left: 5px solid #00FFCC; margin-bottom: 20px;'>
+        <h3 style='color:#00FFCC; margin-top:0;'>🐉 Mark Minervini 優質股過濾系統</h3>
+        <p style='color:#ddd; margin-bottom:0;'>根據《優質股交易法則》構建：嚴格要求 50MA > 150MA > 200MA (多頭排列)，且近期出現成交量萎縮 (量能枯竭)。附帶戰術防守圖表，精確標示買入樞紐點與 7% 絕對止損位。</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    m_choice = st.sidebar.radio("1. 選擇掃描市場", ["🇺🇸 美股市場", "🇭🇰 港股市場"])
+    is_us = "美股" in m_choice
+    target_dict = US_STOCK_MAP if is_us else HK_STOCK_MAP
+    s_choice = st.sidebar.selectbox("2. 選擇掃描板塊", ["🌐 啟動全星系大規模搜索"] + list(target_dict.keys()))
+
+    if 'vcp_scanned_stocks' not in st.session_state:
+        st.session_state.vcp_scanned_stocks = []
+
+    if st.sidebar.button("📡 開始 VCP 形態自動掃描"):
+        tickers_to_scan = list(set([t for sub in target_dict.values() for t in sub])) if "全星系" in s_choice else target_dict[s_choice]
+        found_stocks = []
+        pb = st.progress(0)
+        
+        with st.spinner("正在執行 VCP 波幅收縮與量能枯竭過濾引擎... (可能需要數十秒)"):
+            for idx, t in enumerate(tickers_to_scan):
+                pb.progress((idx + 1) / len(tickers_to_scan))
+                try:
+                    df_vcp = yf.Ticker(t).history(period="1y").dropna()
+                    if len(df_vcp) > 200:
+                        df_vcp['MA50'] = df_vcp['Close'].rolling(50).mean()
+                        df_vcp['MA150'] = df_vcp['Close'].rolling(150).mean()
+                        df_vcp['MA200'] = df_vcp['Close'].rolling(200).mean()
+                        df_vcp['Vol50'] = df_vcp['Volume'].rolling(50).mean()
+                        
+                        curr = df_vcp.iloc[-1]
+                        
+                        # 趨勢過濾 (Trend Template)
+                        trend_cond = (curr['Close'] > curr['MA150']) and \
+                                     (curr['Close'] > curr['MA200']) and \
+                                     (curr['MA50'] > curr['MA150']) and \
+                                     (curr['MA150'] > curr['MA200']) and \
+                                     (curr['MA200'] > df_vcp['MA200'].iloc[-20]) # 200MA 處於上升趨勢
+                        
+                        # 量能枯竭 (Volume Dry-up) - 近3日平均成交量顯著萎縮 (< 50日均量 80%)
+                        recent_vol = df_vcp['Volume'].tail(3).mean()
+                        vol_cond = recent_vol < (curr['Vol50'] * 0.8)
+                        
+                        if trend_cond and vol_cond:
+                            # 尋找近期樞紐點 (Pivot Point) - 以過去20日最高價作為短期阻力突破點
+                            pivot = df_vcp['High'].tail(20).max()
+                            found_stocks.append({'Ticker': t, 'Price': curr['Close'], 'Pivot': pivot})
+                except:
+                    pass
+        
+        st.session_state.vcp_scanned_stocks = found_stocks
+        if not found_stocks:
+            st.warning("💤 雷達掃描完畢，目前未能找到符合嚴格 VCP 多頭排列及量能枯竭的股票。\n\n**爺爺叮囑：最好的操作就是『不交易』。**")
+
+    if st.session_state.vcp_scanned_stocks:
+        st.success(f"🎉 成功尋獲 {len(st.session_state.vcp_scanned_stocks)} 隻 VCP 潛力股！請在下方選擇生成防守圖：")
+        
+        stock_options = [s['Ticker'] for s in st.session_state.vcp_scanned_stocks]
+        selected_stock = st.selectbox("🎯 選擇目標股票查看「戰術防守圖」", stock_options)
+        
+        if selected_stock:
+            sel_data = next((item for item in st.session_state.vcp_scanned_stocks if item["Ticker"] == selected_stock), None)
+            pivot_price = sel_data['Pivot']
+            stop_loss = pivot_price * 0.93 # 7% 絕對止損位
+            
+            df_chart = yf.Ticker(selected_stock).history(period="6mo").dropna()
+            df_chart['MA50'] = df_chart['Close'].rolling(50).mean()
+            
+            st.markdown(f"### 🛡️ {selected_stock} 戰術防守陣地 (Candlestick View)")
+            
+            fig = go.Figure(data=[go.Candlestick(x=df_chart.index,
+                        open=df_chart['Open'], high=df_chart['High'],
+                        low=df_chart['Low'], close=df_chart['Close'],
+                        name="K線")])
+                        
+            fig.add_trace(go.Scatter(x=df_chart.index, y=df_chart['MA50'], mode='lines', name='50 MA (防守支持線)', line=dict(color='yellow')))
+            
+            fig.add_hline(y=pivot_price, line_dash="dash", line_color="#00FFCC", 
+                          annotation_text=f"🎯 買入樞紐點 (Pivot): ${pivot_price:.2f}", annotation_position="top left", annotation_font=dict(color="#00FFCC", size=14))
+                          
+            fig.add_hline(y=stop_loss, line_dash="dash", line_color="#FF4B4B", 
+                          annotation_text=f"🛑 7% 絕對止損位: ${stop_loss:.2f}", annotation_position="bottom left", annotation_font=dict(color="#FF4B4B", size=14))
+                          
+            fig.update_layout(template="plotly_dark", paper_bgcolor='#0e1117', plot_bgcolor='#111', height=650,
+                              xaxis_rangeslider_visible=False, title=f"{selected_stock} VCP 形態圖 (附止損/樞紐點)",
+                              legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
+            
+            st.plotly_chart(fig, use_container_width=True)
+            
+            st.markdown(f"""
+            <div style='display: flex; gap: 15px;'>
+                <div style='flex:1; background-color:#002200; padding:15px; border-radius:10px; border:1px solid #00FFCC;'>
+                    <h4 style='color:#00FFCC; margin-top:0;'>🟢 攻擊計畫 (Buy Entry)</h4>
+                    在股價帶量突破 <b>${pivot_price:.2f}</b> 時「一步到位」買入，絕不抄底。若突破當日成交量大於均量 50% 最佳。
+                </div>
+                <div style='flex:1; background-color:#310000; padding:15px; border-radius:10px; border:1px solid #FF4B4B;'>
+                    <h4 style='color:#FF4B4B; margin-top:0;'>🔴 撤退計畫 (Hard Stop)</h4>
+                    買入後若跌穿 <b>${stop_loss:.2f}</b> (約 7%)，無條件觸發止損，清倉離場，不存幻想。
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
