@@ -9,12 +9,12 @@ import time
 # 1. 基礎設置 
 st.set_page_config(page_title="環球資產透維評估儀", layout="wide") 
 
-# 👴 爺爺終極 CSS 修正：限定只改「主畫面 (stMain)」嘅字體做白色，絕對唔影響「側邊欄 (Sidebar)」嘅黑色字！
+# 👴 爺爺精準 CSS：只改主畫面字體變白，保護側邊欄白底黑字！
 st.markdown("""
     <style>
     .stApp { background-color: #0e1117; color: white; }
     
-    /* 🎯 只針對主畫面嘅 Radio 同 Selectbox 轉白色，保護側邊欄！ */
+    /* 🎯 狙擊主畫面 (stMain) 嘅選項字體，絕對唔影響 stSidebar */
     section[data-testid="stMain"] div[data-testid="stRadio"] * { color: #FFFFFF !important; }
     section[data-testid="stMain"] div[data-testid="stSelectbox"] * { color: #FFFFFF !important; }
     section[data-testid="stMain"] div[data-testid="stWidgetLabel"] p, 
@@ -46,7 +46,6 @@ st.markdown("""
     .whale-a { color: #00FFCC; font-size: 1.6rem; text-align: right; }
     .scan-card-fire { border-left: 5px solid #00FFCC; background-color: #111; padding: 15px; margin-bottom: 10px; border-radius: 8px; }
     .scan-card-super { border-left: 8px solid #FF4B4B; background-color: #310000; padding: 15px; margin-bottom: 10px; border-radius: 8px; box-shadow: 0 0 15px #FF4B4B66; }
-    .bear-warning { color: #FF0000; font-size: 2.5rem; font-weight: 900; text-align: center; text-shadow: 2px 2px 5px #000; padding: 20px; border: 4px dashed red; background-color: #220000; margin: 20px 0; border-radius: 15px;}
     .exit-radar { background-color: #220000; border: 2px solid #FF0000; padding: 15px; border-radius: 10px; margin-top: 20px;}
     .pullback-card { border-left: 8px solid #BC13FE; background-color: #1a0024; padding: 15px; margin-bottom: 10px; border-radius: 8px; }
     </style>
@@ -66,7 +65,7 @@ def safe_s(info, keys, suffix="", alt="N/A"):
             except: pass 
     return alt 
 
-# 🚀 引擎還原 (一條毛都無改)
+# 🚀 核心引擎 (一條毛都無改)
 def get_beta(info, df, spy_df): 
     b = info.get('beta') 
     if b is not None and str(b).lower() not in ['nan', 'none', '']: return f"{float(b):.2f}" 
@@ -247,7 +246,7 @@ def get_breadth_data(tickers):
     return stats
 
 # 3. 側邊欄控制
-st.sidebar.markdown("## 🛰️ 戰術控制台 (V160.0 全球旗艦版)")
+st.sidebar.markdown("## 🛰️ 戰術控制台 (V166.0)")
 app_mode = st.sidebar.radio("請選擇操作", [
     "🚀 個股深度透視", 
     "🛡️ 環球市底大師指揮塔", 
@@ -646,6 +645,7 @@ elif app_mode == "🚀 個股深度透視":
 
                         colors = ['#00FF00' if c_col[i] >= o_col[i] else '#FF0000' for i in range(len(recent))]
                         fig.add_trace(go.Bar(x=dates, y=v_col, marker_color=colors, name='成交量'), row=2, col=1)
+                        
                         counts, bins = np.histogram(c_col, bins=20, weights=v_col)
                         max_c = max(counts) if len(counts) > 0 and max(counts) > 0 else 1
                         fig.add_trace(go.Bar(y=(bins[:-1] + bins[1:]) / 2, x=counts, orientation='h', marker_color='rgba(0, 255, 204, 0.4)', name='蟹貨區', xaxis='x3', yaxis='y1'))
@@ -800,7 +800,7 @@ elif app_mode == "🚀 個股深度透視":
         except Exception as e: st.error(f"渲染錯誤: {e}")
 
 # =========================================================================
-# 🔍 模式 C：起步尋龍雷達 (必勝潛龍羅輯 V87.0 撒網版)
+# 🔍 模式 C：起步尋龍雷達 (原本羅輯完全保留)
 # =========================================================================
 elif "雷達" in app_mode and not "熱力圖" in app_mode and not "VCP" in app_mode and not "Mode E" in app_mode:
     st.markdown(f"<h1 class='main-title'>{app_mode}</h1>", unsafe_allow_html=True)
@@ -847,7 +847,7 @@ elif "雷達" in app_mode and not "熱力圖" in app_mode and not "VCP" in app_m
         if not found: st.warning("💤 雷達掃描完畢，目前未有起飛目標。(此過濾條件為潛龍必勝模式，要求大戶真實佈局)")
 
 # =========================================================================
-# 📡 拔河熱力圖 
+# 📡 拔河熱力圖 (原本羅輯完全保留)
 # =========================================================================
 elif "熱力圖" in app_mode:
     st.markdown(f"<h1 class='main-title'>{app_mode}</h1>", unsafe_allow_html=True)
@@ -1045,127 +1045,153 @@ elif app_mode == "📈 VCP 形態戰術掃描 & 防守圖":
                 except Exception as e: st.error(f"繪圖出錯: {e}")
 
 # =========================================================================
-# 🌊 全新 Mode E：海龜回測加注雷達 (Pullback Scanner)
+# 🌊 模式 E：海龜回測加注雷達 (雙戰術升級版)
 # =========================================================================
 elif app_mode == "🌊 海龜回測加注雷達 (Mode E)":
-    st.markdown("<h1 class='main-title'>🌊 海龜回測加注雷達 (Pullback Scanner)</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 class='main-title'>🌊 海龜回測加注雷達 (Mode E)</h1>", unsafe_allow_html=True)
     st.markdown("""
     <div style='background-color:#111; padding:15px; border-radius:10px; border-left: 5px solid #00FFCC; margin-bottom: 20px;'>
         <h3 style='color:#00FFCC; margin-top:0;'>🐢 N字型突破加注法 (1-2-3 Continuation)</h3>
-        <p style='color:#ddd; margin-bottom:0;'>此雷達專門捕捉<b>「剛剛創新高 ➡️ 正在健康回落 ➡️ 貼近 10 EMA 極限防守」</b>嘅靚股。<br>
+        <p style='color:#ddd; margin-bottom:0;'>此雷達專門捕捉<b>「過濾趨勢 ➡️ 正在健康回落 ➡️ 貼近 10 EMA 極限防守」</b>嘅靚股。<br>
         非常適合用作「第二注加倉」或「錯過突破後嘅再次上車機會」。</p>
     </div>
     """, unsafe_allow_html=True)
-
-    c_cat, c_mkt, c_sec = st.columns([1, 1, 1.5])
-    with c_cat: asset_type = st.radio("1. 資產類別", ["🏢 領頭個股", "🧺 優質 ETF"])
-    with c_mkt: market_choice = st.radio("2. 掃描市場", ["🇺🇸 美股", "🇭🇰 港股"])
     
+    c1, c2, c3 = st.columns([1, 1, 1])
+    with c1: asset_type = st.radio("1. 掃描對象", ["🏢 領頭個股", "🧺 優質 ETF"])
+    with c2: market_choice = st.radio("2. 掃描市場", ["🇺🇸 美股", "🇭🇰 港股"])
+    with c3: turtle_strat = st.radio("3. 選擇海龜戰術", ["🔥 極致真龍 (追求最強)", "🐉 潛龍初醒 (剛入強勢)"])
+
     is_us = "美股" in market_choice
     is_etf = "ETF" in asset_type
-    
-    if is_etf: target_dict = US_ETF_MAP if is_us else HK_ETF_MAP
-    else: target_dict = US_STOCK_MAP if is_us else HK_STOCK_MAP
-    
-    with c_sec: s_choice = st.selectbox("3. 選擇掃描範圍", ["🌐 啟動全星系大規模搜索"] + list(target_dict.keys()))
+    target_dict = (US_ETF_MAP if is_etf else US_STOCK_MAP) if is_us else (HK_ETF_MAP if is_etf else HK_STOCK_MAP)
+    s_choice = st.selectbox("4. 選擇掃描範圍", ["🌐 啟動全星系大規模搜索"] + list(target_dict.keys()))
 
-    if 'pullback_scanned_stocks' not in st.session_state:
-        st.session_state.pullback_scanned_stocks = []
+    if 'e_scanned_stocks' not in st.session_state:
+        st.session_state.e_scanned_stocks = []
 
-    if st.button("📡 發射雷達！尋找健康回測中嘅金龍"):
-        tickers_to_scan = list(set([t for sub in target_dict.values() for t in sub])) if "全星系" in s_choice else target_dict[s_choice]
-        found_pullbacks = []
+    if st.button("📡 執行海龜回測掃描"):
+        tickers = list(set([t for sub in target_dict.values() for t in sub])) if "全星系" in s_choice else target_dict[s_choice]
+        found = []
         pb = st.progress(0)
-        
-        with st.spinner("⏳ 雷達正在過濾萬千數據，尋找「回測企穩」嘅黃金加注點..."):
-            for idx, t in enumerate(tickers_to_scan):
-                pb.progress((idx + 1) / len(tickers_to_scan))
+        bench_df = yf.Ticker("SPY" if is_us else "2800.HK").history(period="1y")['Close'].dropna()
+
+        with st.spinner("⏳ 雷達正在過濾萬千數據，尋找「真龍基因」兼「回測企穩」嘅黃金加注點..."):
+            yearly_returns = {}
+            valid_dfs = {}
+            # Pass 1: 獲取資料並計算 RS 需要的回報率
+            for idx, t in enumerate(tickers):
+                pb.progress((idx + 1) / len(tickers))
                 try:
-                    d = yf.Ticker(t).history(period="60d").dropna()
-                    if len(d) > 50:
-                        ma50 = d['Close'].rolling(50).mean().iloc[-1]
-                        ema10 = d['Close'].ewm(span=10, adjust=False).mean().iloc[-1]
-                        curr_p = d['Close'].iloc[-1]
-                        
-                        if curr_p > ma50:
-                            last_20_highs = d['High'].tail(20)
-                            recent_high = last_20_highs.max()
-                            high_idx = last_20_highs.argmax()
-                            days_since_high = 19 - high_idx
-                            
-                            if 2 <= days_since_high <= 15:
-                                pullback_pct = ((curr_p - recent_high) / recent_high) * 100
-                                
-                                if -15 <= pullback_pct <= -2:
-                                    if ema10 * 0.98 <= curr_p <= ema10 * 1.04:
-                                        swing_low = d['Low'].iloc[-days_since_high:].min()
-                                        
-                                        found_pullbacks.append({
-                                            'Ticker': t,
-                                            'Current Price': curr_p,
-                                            'Recent High': recent_high,
-                                            'Pullback %': pullback_pct,
-                                            'Days Since High': days_since_high,
-                                            'Swing Low': swing_low,
-                                            'EMA10': ema10
-                                        })
-                    if idx % 10 == 0: time.sleep(0.1)
-                except: pass
+                    df_t = yf.Ticker(t).history(period="1y").dropna(subset=['Close', 'Volume', 'High', 'Low', 'Open'])
+                    if len(df_t) > 150:
+                        ret = (df_t['Close'].iloc[-1] / df_t['Close'].iloc[0]) - 1
+                        yearly_returns[t] = ret
+                        valid_dfs[t] = df_t
+                        if idx % 5 == 0: time.sleep(0.1)
+                except: continue
+            
+            # Pass 2: 套用戰術過濾
+            if yearly_returns:
+                all_rets = pd.Series(list(yearly_returns.values()))
+                for t, ret in yearly_returns.items():
+                    df = valid_dfs[t]
+                    curr_p = df['Close'].iloc[-1]
+                    ma50 = df['Close'].rolling(50).mean().iloc[-1]
+                    ma150 = df['Close'].rolling(150).mean().iloc[-1]
+                    ma200 = df['Close'].rolling(200).mean().iloc[-1]
+                    ema10 = df['Close'].ewm(span=10, adjust=False).mean().iloc[-1]
+                    ath = df['High'].tail(252).max()
+                    
+                    rs_rating = int((all_rets[all_rets <= ret].count() / len(all_rets)) * 99)
+                    
+                    # --- 第一關：趨勢篩選 ---
+                    if turtle_strat == "🔥 極致真龍 (追求最強)":
+                        if not (curr_p > ma50 > ma150 > ma200): continue
+                        if rs_rating < 80: continue
+                    else: # 🐉 潛龍初醒
+                        if not (curr_p > ma50 and ma50 > ma150): continue
+                        if (curr_p / ath) > 0.92: continue # 保留空間
+                        if rs_rating < 80: continue # 基因依然要強
 
-        st.session_state.pullback_scanned_stocks = sorted(found_pullbacks, key=lambda x: x['Pullback %'], reverse=True)
+                    # --- 第二關：N字回測篩選 ---
+                    last_20_high = df['High'].tail(20).max()
+                    high_idx = df['High'].tail(20).argmax()
+                    days_since_high = 19 - high_idx
+                    
+                    if 2 <= days_since_high <= 15: # 回落中
+                        pullback_pct = ((curr_p - last_20_high) / last_20_high) * 100
+                        if -15 <= pullback_pct <= -1:
+                            # 企穩 10 EMA 附近
+                            if ema10 * 0.98 <= curr_p <= ema10 * 1.04:
+                                swing_low = df['Low'].iloc[-days_since_high:].min()
+                                found.append({
+                                    'Ticker': t, 'Price': curr_p, 'High': last_20_high,
+                                    'Low': swing_low, 'Pullback': pullback_pct, 'EMA10': ema10,
+                                    'Days Since High': days_since_high
+                                })
+            
+            st.session_state.e_scanned_stocks = sorted(found, key=lambda x: x['Pullback'], reverse=True)
 
-    if st.session_state.pullback_scanned_stocks:
-        st.success(f"🎉 雷達掃描完畢！成功捕捉 {len(st.session_state.pullback_scanned_stocks)} 隻正在健康回測嘅潛力股！")
-        
-        for p in st.session_state.pullback_scanned_stocks:
+    if st.session_state.e_scanned_stocks:
+        st.success(f"🎉 捕捉到 {len(st.session_state.e_scanned_stocks)} 隻健康回測中嘅目標！")
+        for p in st.session_state.e_scanned_stocks:
             st.markdown(f"""
             <div class='pullback-card'>
                 <div style='display:flex; justify-content:space-between; align-items:center;'>
                     <span style='font-size:1.8rem; font-weight:bold; color:white;'>🎯 [{p['Ticker']}]</span>
-                    <span style='font-size:1.2rem; font-weight:bold; color:#00FFCC;'>現價: ${p['Current Price']:.2f}</span>
+                    <span style='font-size:1.2rem; font-weight:bold; color:#00FFCC;'>現價: ${p['Price']:.2f}</span>
                 </div>
                 <hr style='border-color:#444; margin:10px 0;'>
                 <div style='display:flex; justify-content:space-between;'>
-                    <span>📈 前高阻力 (海龜買入點): <b style='color:#00FFCC;'>${p['Recent High']:.2f}</b> <span style='font-size:0.9rem;'>({p['Days Since High']} 日前)</span></span>
-                    <span>📉 回落幅度: <b style='color:#FF4B4B;'>{p['Pullback %']:.1f}%</b></span>
+                    <span>📈 前高阻力 (海龜買入點): <b style='color:#00FFCC;'>${p['High']:.2f}</b> <span style='font-size:0.9rem;'>({p['Days Since High']} 日前)</span></span>
+                    <span>📉 回落幅度: <b style='color:#FF4B4B;'>{p['Pullback']:.1f}%</b></span>
                 </div>
                 <div style='display:flex; justify-content:space-between; margin-top:5px;'>
                     <span>🛡️ 極限防守 (10 EMA): <b style='color:orange;'>${p['EMA10']:.2f}</b></span>
-                    <span>🛑 N字波谷底 (海龜止損): <b style='color:#FF00FF;'>${p['Swing Low']:.2f}</b></span>
+                    <span>🛑 N字波谷底 (海龜止損): <b style='color:#FF00FF;'>${p['Low']:.2f}</b></span>
                 </div>
             </div>
             """, unsafe_allow_html=True)
-            
-        st.write("---")
-        selected_pullback = st.selectbox("🎯 選擇目標查看「海龜回測戰術圖表」", [s['Ticker'] for s in st.session_state.pullback_scanned_stocks])
         
-        if selected_pullback:
-            sel_data = next((item for item in st.session_state.pullback_scanned_stocks if item["Ticker"] == selected_pullback), None)
-            
+        st.write("---")
+        sel = st.selectbox("🎯 選擇目標查看 X 光戰術圖", [s['Ticker'] for s in st.session_state.e_scanned_stocks])
+        if sel:
+            p_data = next(x for x in st.session_state.e_scanned_stocks if x['Ticker'] == sel)
             with st.spinner("正在為您繪製專屬海龜回測戰術圖表..."):
                 try:
-                    df = yf.Ticker(selected_pullback).history(period="6mo").dropna()
+                    df = yf.Ticker(sel).history(period="6mo").dropna()
                     df['MA50'] = df['Close'].rolling(50).mean()
                     df['EMA10'] = df['Close'].ewm(span=10, adjust=False).mean()
                     
                     fig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.75, 0.25], vertical_spacing=0.03)
                     dates = df.index.strftime('%Y-%m-%d')
                     
+                    # Row 1: K線 + MAs
                     fig.add_trace(go.Candlestick(x=dates, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'], name="K線"), row=1, col=1)
                     fig.add_trace(go.Scatter(x=dates, y=df['MA50'], mode='lines', name='50MA (黃實線)', line=dict(color='yellow', width=1.5)), row=1, col=1)
                     fig.add_trace(go.Scatter(x=dates, y=df['EMA10'], mode='lines', name='10 EMA (橙虛線)', line=dict(color='orange', width=2, dash='dot')), row=1, col=1)
                     
-                    fig.add_hline(y=sel_data['Recent High'], line_dash="dash", line_color="#00FFCC", annotation_text=f"🐢 海龜買入 (破前高): ${sel_data['Recent High']:.2f}", annotation_position="top left", annotation_font=dict(color="white", size=13), row=1, col=1)
-                    fig.add_hline(y=sel_data['Swing Low'], line_dash="solid", line_color="#FF00FF", annotation_text=f"🛑 海龜波谷止損: ${sel_data['Swing Low']:.2f}", annotation_position="bottom left", annotation_font=dict(color="white", size=13), row=1, col=1)
+                    # 畫 海龜買入線 同 海龜止損線
+                    fig.add_hline(y=p_data['High'], line_dash="dash", line_color="#00FFCC", annotation_text=f"🐢 海龜買入 (破前高): ${p_data['High']:.2f}", annotation_position="top left", annotation_font=dict(color="white", size=13), row=1, col=1)
+                    fig.add_hline(y=p_data['Low'], line_dash="solid", line_color="#FF00FF", annotation_text=f"🛑 海龜波谷止損: ${p_data['Low']:.2f}", annotation_position="bottom left", annotation_font=dict(color="white", size=13), row=1, col=1)
                     
+                    # 重貨區 HVN (Mode E 也顯示完美比例)
+                    counts, bins = np.histogram(df['Close'], bins=30, weights=df['Volume'])
+                    max_c = max(counts) if len(counts) > 0 and max(counts) > 0 else 1
+                    fig.add_trace(go.Bar(y=(bins[:-1]+bins[1:])/2, x=counts, orientation='h', marker_color='rgba(150,150,150,0.3)', name='重貨區', hoverinfo='skip', xaxis='x3', yaxis='y1'))
+
+                    # Row 2: 成交量
                     v_colors = ['#00FF00' if df['Close'].iloc[i] >= df['Open'].iloc[i] else '#FF0000' for i in range(len(df))]
                     fig.add_trace(go.Bar(x=dates, y=df['Volume'], marker_color=v_colors, name="成交量"), row=2, col=1)
                     
+                    # 圖表設定
                     fig.update_layout(template="plotly_dark", paper_bgcolor='#0e1117', plot_bgcolor='#111', height=650,
                                       hovermode='x unified',
                                       xaxis_rangeslider_visible=False, 
                                       xaxis=dict(type='category', showticklabels=False, showspikes=True, spikemode='across', spikecolor="white", spikethickness=1, spikedash='dot'), 
                                       xaxis2=dict(type='category', title="日期", showspikes=True, spikemode='across', spikecolor="white", spikethickness=1, spikedash='dot'), 
+                                      xaxis3=dict(overlaying='x1', anchor='y1', side='top', range=[0, max_c*4], showgrid=False, showticklabels=False),
                                       yaxis=dict(title="股價", showspikes=True, spikemode='across', spikecolor="white", spikethickness=1, spikedash='dot'), 
                                       yaxis2=dict(title="成交量", showticklabels=False),
                                       legend=dict(font=dict(color="white", size=13), orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
@@ -1173,5 +1199,4 @@ elif app_mode == "🌊 海龜回測加注雷達 (Mode E)":
                     
                     st.info("💡 爺爺戰術提示：請觀察上方圖表！如果見到回落期間綠色成交量縮減，並且企穩 10 EMA (橙虛線)，就係黃金加注點！一旦升穿前高阻力 (青色線)，海龜突破正式成立！跌穿波谷止損 (粉紅線) 則必須撤退！")
                 except Exception as e: st.error(f"繪圖出錯: {e}")
-    else:
-        st.warning("💤 雷達尚未掃描或未有符合條件標的，請按上方按鈕發射雷達。")
+    else: st.warning("💤 目前未有符合「RS>80 兼回測企穩 10 EMA」嘅標的。")
