@@ -4,7 +4,6 @@ import pandas as pd
 import numpy as np 
 import plotly.graph_objects as go 
 from plotly.subplots import make_subplots 
-# 👴 爺爺註：已經移走 scipy，改用 numpy 嚟計斜率，保證過關！
 
 # 1. 基礎設置 
 st.set_page_config(page_title="環球資產透維評估儀", layout="wide") 
@@ -812,7 +811,7 @@ elif "雷達" in app_mode and not "熱力圖" in app_mode and not "VCP" in app_m
     bench_sym = "SPY" if is_us else "^HSI"
     target_dict = (US_ETF_MAP if "ETF" in app_mode else US_STOCK_MAP) if is_us else (HK_ETF_MAP if "ETF" in app_mode else HK_STOCK_MAP)
     
-    s_choice = st.sidebar.selectbox("2. 選擇掃描範圍", ["🌐 啟 মাতৃ系大規模搜索"] + list(target_dict.keys()))
+    s_choice = st.sidebar.selectbox("2. 選擇掃描範圍", ["🌐 啟動全星系大規模搜索"] + list(target_dict.keys()))
     
     if st.sidebar.button("📡 發射撒網尋龍電波！"):
         bench_data = yf.Ticker(bench_sym).history(period="2y").dropna()
@@ -951,7 +950,6 @@ elif app_mode == "📈 VCP 形態戰術掃描 & 防守圖":
                         rs_line = df_aligned / b_aligned
                         recent_rs = rs_line.tail(50).values
                         days = np.arange(len(recent_rs))
-                        # 爺爺改用 numpy 嘅 polyfit，唔使裝 scipy！
                         slope, intercept = np.polyfit(days, recent_rs, 1)
                         if slope <= 0: continue
                         
@@ -1072,55 +1070,58 @@ elif app_mode == "📈 VCP 形態戰術掃描 & 防守圖":
                     curr_price = df_chart['Close'].iloc[-1]
                     risk_pct = ((curr_price - stop_loss) / curr_price) * 100 if curr_price > 0 else 0
                     
-                    fig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.75, 0.25], vertical_spacing=0.03)
+                    # 爺爺：呢度分開 3 個 subplot！上面 K線、中間成交量、底層 RS 線！
+                    fig = make_subplots(rows=3, cols=1, shared_xaxes=True, row_heights=[0.6, 0.2, 0.2], vertical_spacing=0.03)
                     dates = df_chart.index.strftime('%Y-%m-%d')
                     
-                    # 1. K線圖
+                    # 1. K線圖 (Row 1)
                     fig.add_trace(go.Candlestick(x=dates, open=df_chart['Open'], high=df_chart['High'], low=df_chart['Low'], close=df_chart['Close'], name="K線"), row=1, col=1)
                     
-                    # 2. 50MA
+                    # 2. 50MA (Row 1)
                     fig.add_trace(go.Scatter(x=dates, y=df_chart['MA50'], mode='lines', name='50 MA', line=dict(color='yellow', width=2)), row=1, col=1)
                     
-                    # 3. 買入線與止損線
+                    # 3. 買入線與止損線 (Row 1)
                     fig.add_hline(y=pivot_price, line_dash="dash", line_color="#00FFCC", annotation_text=f"🎯 買入 (Pivot): ${pivot_price:.2f}", annotation_position="top left", annotation_font=dict(color="#00FFCC"), row=1, col=1)
                     fig.add_hline(y=stop_loss, line_dash="solid", line_color="#FF4B4B", annotation_text=f"🛑 動態止損: ${stop_loss:.2f}", annotation_position="bottom left", annotation_font=dict(color="#FF4B4B"), row=1, col=1)
                     
-                    # 4. 成交量與星星 🌟
+                    # 4. 重貨區 Profile (Overlay at Row 1 using a secondary x-axis)
+                    max_c = max(counts) if len(counts) > 0 and max(counts) > 0 else 1
+                    fig.add_trace(go.Bar(y=(bins[:-1] + bins[1:]) / 2, x=counts, orientation='h', marker_color='rgba(255, 255, 255, 0.15)', name='重貨區 HVN', hoverinfo='skip'), row=1, col=1)
+                    fig.data[-1].update(xaxis='x4') # 將 HVN 綁定去 x4
+                    
+                    # 5. 成交量與星星 🌟 (Row 2)
                     colors = ['#00FF00' if df_chart['Close'].iloc[i] >= df_chart['Open'].iloc[i] else '#FF0000' for i in range(len(df_chart))]
-                    fig.add_trace(go.Bar(x=dates, y=df_chart['Volume'], marker_color=colors, name='成交量', yaxis='y2'), row=1, col=1)
+                    fig.add_trace(go.Bar(x=dates, y=df_chart['Volume'], marker_color=colors, name='成交量'), row=2, col=1)
                     
                     # 標示大戶掃貨星號
                     for i in range(len(df_chart)):
                         if df_chart['Close'].iloc[i] > df_chart['Open'].iloc[i] and df_chart['Volume'].iloc[i] > df_chart['Vol50'].iloc[i] * 1.5:
-                            fig.add_annotation(x=dates[i], y=df_chart['Volume'].iloc[i], text="🌟", showarrow=False, yref="y2", yanchor="bottom", font=dict(size=14), row=1, col=1)
+                            fig.add_annotation(x=dates[i], y=df_chart['Volume'].iloc[i], text="🌟", showarrow=False, yanchor="bottom", font=dict(size=14, color="#FFD700"), row=2, col=1)
                     
-                    # 5. RS 領先線 (Subplot)
+                    # 6. RS 領先線 (Row 3)
                     rs_dates = df_aligned.index.strftime('%Y-%m-%d')
-                    fig.add_trace(go.Scatter(x=rs_dates, y=rs_line, mode='lines', name='RS Line (對比大盤)', line=dict(color='#BC13FE', width=2)), row=2, col=1)
+                    fig.add_trace(go.Scatter(x=rs_dates, y=rs_line, mode='lines', name='RS Line (對比大盤)', line=dict(color='#BC13FE', width=2)), row=3, col=1)
                     
-                    # 黃金坑 紫星 🌟 預警
+                    # 黃金坑 紫星 🌟 預警 (Row 3)
                     recent_price_high = df_chart['Close'].tail(20).max()
                     recent_rs_high = rs_line.tail(20).max()
                     
                     if curr_price < recent_price_high * 0.98 and rs_line.iloc[-1] >= recent_rs_high * 0.99:
-                        fig.add_annotation(x=dates[-1], y=rs_line.iloc[-1], text="🌟", showarrow=False, font=dict(color="#BC13FE", size=20), row=2, col=1)
-                        fig.add_annotation(x=dates[-1], y=rs_line.iloc[-1], text="「領先大盤爆發」的起步點！", showarrow=True, ax=-50, ay=-30, font=dict(color="#BC13FE", size=10), row=2, col=1)
+                        fig.add_annotation(x=dates[-1], y=rs_line.iloc[-1], text="🌟", showarrow=False, font=dict(color="#BC13FE", size=20), row=3, col=1)
+                        fig.add_annotation(x=dates[-1], y=rs_line.iloc[-1], text="「領先大盤爆發」的起步點！", showarrow=True, ax=-50, ay=-30, font=dict(color="#BC13FE", size=10), row=3, col=1)
                         # 圖表左上角紅字
                         fig.add_annotation(x=0.02, y=0.98, xref="paper", yref="paper", text="🔥 極度強勢：突破在即", showarrow=False, font=dict(color="#FF4B4B", size=20, weight="bold"), row=1, col=1)
 
-                    # 重貨區 Profile (右側)
-                    max_c = max(counts) if len(counts) > 0 and max(counts) > 0 else 1
-                    fig.add_trace(go.Bar(y=(bins[:-1] + bins[1:]) / 2, x=counts, orientation='h', marker_color='rgba(255, 255, 255, 0.2)', name='重貨區 HVN', xaxis='x3', yaxis='y1'), row=1, col=1)
-
                     fig.update_layout(
-                        template="plotly_dark", paper_bgcolor='#0e1117', plot_bgcolor='#111', height=850,
-                        xaxis_rangeslider_visible=False, xaxis2_rangeslider_visible=False,
-                        xaxis=dict(type='category', showgrid=False, showticklabels=False),
-                        xaxis2=dict(type='category', showgrid=False, title="日期"),
-                        yaxis=dict(domain=[0.3, 1], showgrid=True, gridcolor='#333'),
-                        yaxis2=dict(domain=[0.3, 0.5], showgrid=False, showticklabels=False), # 成交量
-                        yaxis3=dict(domain=[0, 0.25], showgrid=True, gridcolor='#333', title="RS Rating"), # RS線
-                        xaxis3=dict(overlaying='x', side='top', range=[0, max_c*2], showgrid=False, showticklabels=False),
+                        template="plotly_dark", paper_bgcolor='#0e1117', plot_bgcolor='#111', height=950,
+                        xaxis_rangeslider_visible=False, 
+                        xaxis=dict(showticklabels=False), # 隱藏 K線圖日期
+                        xaxis2=dict(showticklabels=False), # 隱藏成交量日期
+                        xaxis3=dict(title="日期", type="category"), # 最底層 RS 線先顯示日期
+                        yaxis=dict(title="股價"),
+                        yaxis2=dict(title="成交量", showticklabels=False),
+                        yaxis3=dict(title="RS Rating", showticklabels=False),
+                        xaxis4=dict(overlaying='x', side='top', range=[0, max_c*4], showgrid=False, showticklabels=False), # 控制重貨區長度
                         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
                     )
                     
