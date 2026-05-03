@@ -9,10 +9,21 @@ import time
 # 1. 基礎設置 
 st.set_page_config(page_title="環球資產透維評估儀", layout="wide") 
 
-# 👴 爺爺已刪除所有干擾 Mode A 嘅毒藥 CSS，還原你最初嘅完美樣式！
+# 👴 爺爺精準狙擊 CSS：只針對 Radio 同 Selectbox 字體變白，保護黑底與舊邏輯！
 st.markdown("""
     <style>
     .stApp { background-color: #0e1117; color: white; }
+    
+    /* 🎯 解決主畫面 Radio 同 Selectbox 黑色字問題 */
+    div[data-testid="stRadio"] * { color: #FFFFFF !important; }
+    div[data-testid="stSelectbox"] * { color: #FFFFFF !important; }
+    div[data-testid="stWidgetLabel"] p, div[data-testid="stWidgetLabel"] span { color: #FFFFFF !important; font-size: 1.1rem !important; font-weight: bold !important; }
+    
+    div[data-testid="stSidebar"] * { color: white !important; }
+    div[data-testid="stMetricValue"] > div { color: #FFFFFF !important; font-size: 3rem !important; font-weight: 900 !important; }
+    div[data-testid="stMetricLabel"] > div { color: #00FFCC !important; font-size: 1.2rem !important; font-weight: bold !important; }
+    .bear-warning p, .bear-warning span { color: #FF0000 !important; }
+    
     .main-title { text-align: center; color: #FFD700 !important; font-size: 3.5rem; font-weight: 900; margin-bottom: 25px; }
     .cosmos-box { background-color: #000 !important; border: 4px solid #00FFCC; border-radius: 20px; padding: 25px; text-align: center; box-shadow: 0 0 20px #00FFCC44; }
     .cosmos-label { color: #00FFCC !important; font-size: 1.8rem; font-weight: bold; margin-bottom: 10px; }
@@ -137,7 +148,7 @@ US_STOCK_MAP = {
     "6. 通訊與網絡設備": "CSCO MSI JNPR ANET COMM ZBRA JNPR CIEN LITE VIAV ADTN CALX HLIT INFN NTGR ACIA EXTR CRDO FN CLFD".split(),
     "7. 互聯網平台內容": "META GOOGL PINS SNAP MATCH MTCH IAC OGI YELP BMBL BUMBLE GRND COMP ZIP TRUE CARG MTTR LEA GRPN".split(),
     "8. 媒體與影視娛樂": "NFLX DIS WBD PARA LYV SPOT SIRI ROKU NWSA NYT FOXA OMC IPG WPP NWS EVC NXST MEG TGNA SSP GTN SGA".split(),
-    "9. 電子商務與零售": "AMZN EBAY ETSY MELI SHOP PDD BABA JD SE CPNG W GMED CVNA FAIR FTCH CHWY OSTK REAL RVLV PRTS QRTEA POSH VIPS BZUN".split(),
+    "9. 電子商務與零售": "AMZN EBAY ETSY MELI SHOP PDD BABA JD SE CPNG W GMED CVNA FAIR FTCH CHWY OSTK REAL REAL RVLV PRTS QRTEA POSH VIPS BZUN".split(),
     "10. 傳統零售百貨": "WMT COST TGT DG DLTR KR SYY K DLTR BIG BBY BJ CFG SFM UNFI IMKTA SPTN ANDE VLGEA INTA GROC".split(),
     "11. 核心消費品": "PG KO PEP PM MO EL CL KDP GIS HSY KHC CPB MKC MDLZ SJM CAG STZ TSN K CPB KHC GIS HSY CPB SJM TAP BF.B CHD POST".split(),
     "12. 汽車製造商": "F GM STLA TM HMC RACE CARZ HOG WGO REV GOLF LCII WGO REVG SRG".split(),
@@ -181,6 +192,24 @@ US_STOCK_MAP = {
     "50. 超微型探索 (Micro)": "SOUN RXRX AI BBAI HIVE VLD IONQ BBAI CRDO NRDS INDI LUNA QBTS KTRA RGTI ARQQ INVZ".split()
 }
 
+HK_ETF_MAP = {
+    "H1. A股門戶/旗艦大盤": "2822.HK 3188.HK 3109.HK 2823.HK 2846.HK 3147.HK 2801.HK 3010.HK 3081.HK 3151.HK 3072.HK 3042.HK 2839.HK 3180.HK 2827.HK 3139.HK 3118.HK 2838.HK".split(),
+    "H2. 港股科技/AI/芯片": "3033.HK 3088.HK 9888.HK 3067.HK 3167.HK 3191.HK 7709.HK 9191.HK 3434.HK 3112.HK 3171.HK 3091.HK 3032.HK 3001.HK 3060.HK 2826.HK".split(),
+    "H3. A股及港股行業板塊": "3134.HK 2845.HK 9845.HK 3136.HK 3069.HK 3174.HK 2820.HK 3133.HK 3111.HK 3141.HK 3148.HK 3149.HK 2842.HK 3120.HK 2806.HK 3143.HK 3137.HK 3051.HK".split(),
+    "H4. 紅利收息/Covered Call": "3110.HK 3070.HK 3101.HK 3037.HK 3145.HK 3010.HK 3081.HK 3115.HK 3006.HK 3150.HK 3422.HK 3116.HK 3113.HK 3031.HK 3153.HK".split(),
+    "H5. 虛擬資產/加密貨幣": "3066.HK 3068.HK 3439.HK 3419.HK 3460.HK 3461.HK 3471.HK 3472.HK 3083.HK 3087.HK 3135.HK 3175.HK 7799.HK 7711.HK 7747.HK".split(),
+    "H6. 商品/債券/貨幣基金": "2840.HK 3030.HK 3152.HK 3192.HK 3196.HK 3161.HK 3071.HK 2812.HK 3140.HK 3181.HK 3187.HK 3189.HK 3192.HK 3117.HK 3011.HK 3119.HK".split(),
+    "H7. 槓桿/反向 (指數/商品)": "7200.HK 7226.HK 7205.HK 7299.HK 7266.HK 7500.HK 7522.HK 7552.HK 7300.HK 7333.HK 7348.HK 7233.HK 7248.HK 7288.HK 7231.HK".split()
+}
+
+US_ETF_MAP = {
+    "U1. Thematic 主題 A (1-70)": "BWET OIH LIT GSG XTL PDBC DBC SOXX FCG SLX IXC REMX ROKT FENY VDE AIS SMH XOP IYE XLE AIRR UFO XBI IDGT TAN DTCR ICLN XME KRE GRID IFRA PAVE XSMO XMMO KBWB VIS SPHB XLI SLYG IJK XSD IJT IVOG EXI ARTY URNM ROBO FXR IWM RSPT QTUM VBK IXN IWO VTWG ARKQ ARKX NUKZ URA NLR GNR GUNR SIL COPX GDX GDXJ IAU GLD IBB GDE QQQ VOX".split(),
+    "U2. Thematic 主題 B (71-140)": "FCOM ONEQ MLPX FBCG SPMO IVW SPYG XLK IGM QGRW FTEC VGT QTEC TDIV IYW AIQ XT FELG MGK VUG IWF IWY SCHG MAGS EMLP XLB KOMP BOTZ VAW SOYB AMLP BCI ARKG FTGC KBE CORN EUFN USRT RWR SPXT ICF SCHH NFRA RWO DFAR DIA IYJ REET FUTY VPU IYR VNQ FREL DFGR UTES IMCG FTC SLV XAR SILJ ITA WEAT PPLT VEGI MOO IGF TAGS VDC".split(),
+    "U3. Thematic 主題 C (141-214)": "FSTA XLP DBA FXU SPY IDU XLU XLRE CGW QQQE IYF XLC IAI JGRO FDIS VCR SHLD ARKK BLOK SPLV XLY FTXG IYK IXJ IYG PALL XHB BKCH ARKW LQD HYG VHT FHLC IYH XLV VNQI IYC QQEW ITB TLT FIW XLF VFH FNCL IWP CIBR HACK VOT FDN SKYY IHI PHO BIZD CANE BUG IGV GBTC BTC HODL FBTC ARKB BITB IBIT BITO ARKF ETHA".split(),
+    "U4. SPDR 核心板塊": "XLE XBI XLI XLK XLB XLP XLU XLRE XLC XLY XLV XLF".split(),
+    "U5. 全球國家/地區": "EWY EWZ ILF EIS EWT TUR ECH EFNL EWC EWP EWH EWI EPOL EPU EWW THD VNM EWM EWA EWJ EWN EWS EWQ EZA EWU EWL SPY KSA EWD EWG UAE QAT EPHE FXI EIDO INDA".split()
+}
+
 @st.cache_data(ttl=3600)
 def get_breadth_data(tickers):
     stats = {'20MA':0, '50MA':0, '150MA':0, '200MA':0, 'valid':0, 'above_50_list': [],
@@ -219,8 +248,6 @@ def get_breadth_data(tickers):
 
 # 3. 側邊欄控制
 st.sidebar.markdown("## 🛰️ 戰術控制台 (V160.0 全球旗艦版)")
-
-# 👴 爺爺新增：海龜回測加注雷達 (Mode E) 入選單
 app_mode = st.sidebar.radio("請選擇操作", [
     "🚀 個股深度透視", 
     "🛡️ 環球市底大師指揮塔", 
@@ -367,7 +394,6 @@ if app_mode == "🛡️ 環球市底大師指揮塔":
 
                 colors = ['#00FF00' if c_col[i] >= o_col[i] else '#FF0000' for i in range(len(clean_recent))]
                 fig.add_trace(go.Bar(x=dates, y=v_col, marker_color=colors, name='成交量'), row=2, col=1)
-                
                 counts, bins = np.histogram(c_col, bins=20, weights=v_col)
                 max_c = max(counts) if len(counts) > 0 and max(counts) > 0 else 1
                 fig.add_trace(go.Bar(y=(bins[:-1] + bins[1:]) / 2, x=counts, orientation='h', marker_color='rgba(0, 255, 204, 0.4)', name='蟹貨區', xaxis='x3', yaxis='y1'))
@@ -1019,7 +1045,7 @@ elif app_mode == "📈 VCP 形態戰術掃描 & 防守圖":
                 except Exception as e: st.error(f"繪圖出錯: {e}")
 
 # =========================================================================
-# 🌊 全新 Mode E：海龜回測加注雷達 (Pullback Scanner)
+# 🌊 全新 Mode E：海龜回測加注雷達 (Pullback Scanner) & 專屬圖表
 # =========================================================================
 elif app_mode == "🌊 海龜回測加注雷達 (Mode E)":
     st.markdown("<h1 class='main-title'>🌊 海龜回測加注雷達 (Pullback Scanner)</h1>", unsafe_allow_html=True)
@@ -1043,6 +1069,9 @@ elif app_mode == "🌊 海龜回測加注雷達 (Mode E)":
     
     with c_sec: s_choice = st.selectbox("3. 選擇掃描範圍", ["🌐 啟動全星系大規模搜索"] + list(target_dict.keys()))
 
+    if 'pullback_scanned_stocks' not in st.session_state:
+        st.session_state.pullback_scanned_stocks = []
+
     if st.button("📡 發射雷達！尋找健康回測中嘅金龍"):
         tickers_to_scan = list(set([t for sub in target_dict.values() for t in sub])) if "全星系" in s_choice else target_dict[s_choice]
         found_pullbacks = []
@@ -1052,32 +1081,23 @@ elif app_mode == "🌊 海龜回測加注雷達 (Mode E)":
             for idx, t in enumerate(tickers_to_scan):
                 pb.progress((idx + 1) / len(tickers_to_scan))
                 try:
-                    # 獲取過去 60 日數據
                     d = yf.Ticker(t).history(period="60d").dropna()
                     if len(d) > 50:
                         ma50 = d['Close'].rolling(50).mean().iloc[-1]
                         ema10 = d['Close'].ewm(span=10, adjust=False).mean().iloc[-1]
                         curr_p = d['Close'].iloc[-1]
                         
-                        # 條件 1：大趨勢必須向上 (股價 > 50MA)
                         if curr_p > ma50:
-                            # 搵過去 20 日最高位
                             last_20_highs = d['High'].tail(20)
                             recent_high = last_20_highs.max()
-                            high_idx = last_20_highs.argmax() # 0 到 19
+                            high_idx = last_20_highs.argmax()
                             days_since_high = 19 - high_idx
                             
-                            # 條件 2 & 3：必須係 2-15 日前創出新高，目前正在回落
                             if 2 <= days_since_high <= 15:
                                 pullback_pct = ((curr_p - recent_high) / recent_high) * 100
                                 
-                                # 回落幅度喺 -2% 到 -15% 之間 (健康洗盤)
                                 if -15 <= pullback_pct <= -2:
-                                    
-                                    # 條件 4：跌到 10 EMA 附近企穩 (-2% 至 +4% 範圍內)
                                     if ema10 * 0.98 <= curr_p <= ema10 * 1.04:
-                                        
-                                        # 計算波谷低位做止損
                                         swing_low = d['Low'].iloc[-days_since_high:].min()
                                         
                                         found_pullbacks.append({
@@ -1092,28 +1112,69 @@ elif app_mode == "🌊 海龜回測加注雷達 (Mode E)":
                     if idx % 10 == 0: time.sleep(0.1)
                 except: pass
 
-        if found_pullbacks:
-            st.success(f"🎉 雷達掃描完畢！成功捕捉 {len(found_pullbacks)} 隻正在健康回測嘅潛力股！")
-            
-            for p in sorted(found_pullbacks, key=lambda x: x['Pullback %'], reverse=True):
-                st.markdown(f"""
-                <div class='pullback-card'>
-                    <div style='display:flex; justify-content:space-between; align-items:center;'>
-                        <span style='font-size:1.8rem; font-weight:bold; color:white;'>🎯 [{p['Ticker']}]</span>
-                        <span style='font-size:1.2rem; font-weight:bold; color:#00FFCC;'>現價: ${p['Current Price']:.2f}</span>
-                    </div>
-                    <hr style='border-color:#444; margin:10px 0;'>
-                    <div style='display:flex; justify-content:space-between;'>
-                        <span>📈 前高阻力 (海龜買入點): <b style='color:#00FFCC;'>${p['Recent High']:.2f}</b> <span style='font-size:0.9rem;'>({p['Days Since High']} 日前)</span></span>
-                        <span>📉 回落幅度: <b style='color:#FF4B4B;'>{p['Pullback %']:.1f}%</b></span>
-                    </div>
-                    <div style='display:flex; justify-content:space-between; margin-top:5px;'>
-                        <span>🛡️ 極限防守 (10 EMA): <b style='color:orange;'>${p['EMA10']:.2f}</b></span>
-                        <span>🛑 N字波谷底 (海龜止損): <b style='color:#BC13FE;'>${p['Swing Low']:.2f}</b></span>
-                    </div>
+        st.session_state.pullback_scanned_stocks = sorted(found_pullbacks, key=lambda x: x['Pullback %'], reverse=True)
+
+    if st.session_state.pullback_scanned_stocks:
+        st.success(f"🎉 雷達掃描完畢！成功捕捉 {len(st.session_state.pullback_scanned_stocks)} 隻正在健康回測嘅潛力股！")
+        
+        for p in st.session_state.pullback_scanned_stocks:
+            st.markdown(f"""
+            <div class='pullback-card'>
+                <div style='display:flex; justify-content:space-between; align-items:center;'>
+                    <span style='font-size:1.8rem; font-weight:bold; color:white;'>🎯 [{p['Ticker']}]</span>
+                    <span style='font-size:1.2rem; font-weight:bold; color:#00FFCC;'>現價: ${p['Current Price']:.2f}</span>
                 </div>
-                """, unsafe_allow_html=True)
-                
-            st.info("💡 爺爺戰術提示：將上面有興趣嘅 Ticker Copy 返去「🚀 個股深度透視」睇圖，如果見到綠色成交量縮減，並且企穩 10 EMA，就係黃金加注點！一旦升穿前高阻力，海龜突破正式成立！")
-        else:
-            st.warning("💤 雷達掃描完畢，目前未有符合「極限企穩 10 EMA 兼且健康回落」條件嘅標的。大市可能太波動或者剛處於單邊升勢。")
+                <hr style='border-color:#444; margin:10px 0;'>
+                <div style='display:flex; justify-content:space-between;'>
+                    <span>📈 前高阻力 (海龜買入點): <b style='color:#00FFCC;'>${p['Recent High']:.2f}</b> <span style='font-size:0.9rem;'>({p['Days Since High']} 日前)</span></span>
+                    <span>📉 回落幅度: <b style='color:#FF4B4B;'>{p['Pullback %']:.1f}%</b></span>
+                </div>
+                <div style='display:flex; justify-content:space-between; margin-top:5px;'>
+                    <span>🛡️ 極限防守 (10 EMA): <b style='color:orange;'>${p['EMA10']:.2f}</b></span>
+                    <span>🛑 N字波谷底 (海龜止損): <b style='color:#FF00FF;'>${p['Swing Low']:.2f}</b></span>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+        st.write("---")
+        selected_pullback = st.selectbox("🎯 選擇目標查看「海龜回測戰術圖表」", [s['Ticker'] for s in st.session_state.pullback_scanned_stocks])
+        
+        if selected_pullback:
+            sel_data = next((item for item in st.session_state.pullback_scanned_stocks if item["Ticker"] == selected_pullback), None)
+            
+            with st.spinner("正在為您繪製專屬海龜回測戰術圖表..."):
+                try:
+                    df = yf.Ticker(selected_pullback).history(period="6mo").dropna()
+                    df['MA50'] = df['Close'].rolling(50).mean()
+                    df['EMA10'] = df['Close'].ewm(span=10, adjust=False).mean()
+                    
+                    fig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.75, 0.25], vertical_spacing=0.03)
+                    dates = df.index.strftime('%Y-%m-%d')
+                    
+                    # Row 1: K線 + MAs
+                    fig.add_trace(go.Candlestick(x=dates, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'], name="K線"), row=1, col=1)
+                    fig.add_trace(go.Scatter(x=dates, y=df['MA50'], mode='lines', name='50MA (黃實線)', line=dict(color='yellow', width=1.5)), row=1, col=1)
+                    fig.add_trace(go.Scatter(x=dates, y=df['EMA10'], mode='lines', name='10 EMA (橙虛線)', line=dict(color='orange', width=2, dash='dot')), row=1, col=1)
+                    
+                    # 畫 海龜買入線 同 海龜止損線
+                    fig.add_hline(y=sel_data['Recent High'], line_dash="dash", line_color="#00FFCC", annotation_text=f"🐢 海龜買入 (破前高): ${sel_data['Recent High']:.2f}", annotation_position="top left", annotation_font=dict(color="white", size=13), row=1, col=1)
+                    fig.add_hline(y=sel_data['Swing Low'], line_dash="solid", line_color="#FF00FF", annotation_text=f"🛑 海龜波谷止損: ${sel_data['Swing Low']:.2f}", annotation_position="bottom left", annotation_font=dict(color="white", size=13), row=1, col=1)
+                    
+                    # Row 2: 成交量
+                    v_colors = ['#00FF00' if df['Close'].iloc[i] >= df['Open'].iloc[i] else '#FF0000' for i in range(len(df))]
+                    fig.add_trace(go.Bar(x=dates, y=df['Volume'], marker_color=v_colors, name="成交量"), row=2, col=1)
+                    
+                    fig.update_layout(template="plotly_dark", paper_bgcolor='#0e1117', plot_bgcolor='#111', height=650,
+                                      hovermode='x unified',
+                                      xaxis_rangeslider_visible=False, 
+                                      xaxis=dict(type='category', showticklabels=False, showspikes=True, spikemode='across', spikecolor="white", spikethickness=1, spikedash='dot'), 
+                                      xaxis2=dict(type='category', title="日期", showspikes=True, spikemode='across', spikecolor="white", spikethickness=1, spikedash='dot'), 
+                                      yaxis=dict(title="股價", showspikes=True, spikemode='across', spikecolor="white", spikethickness=1, spikedash='dot'), 
+                                      yaxis2=dict(title="成交量", showticklabels=False),
+                                      legend=dict(font=dict(color="white", size=13), orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
+                    st.plotly_chart(fig, use_container_width=True)
+                    
+                    st.info("💡 爺爺戰術提示：請觀察上方圖表！如果見到回落期間綠色成交量縮減，並且企穩 10 EMA (橙虛線)，就係黃金加注點！一旦升穿前高阻力 (青色線)，海龜突破正式成立！跌穿波谷止損 (粉紅線) 則必須撤退！")
+                except Exception as e: st.error(f"繪圖出錯: {e}")
+    else:
+        st.warning("💤 雷達尚未掃描或未有符合條件標的，請按上方按鈕發射雷達。")
