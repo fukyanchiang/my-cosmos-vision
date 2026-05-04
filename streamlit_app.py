@@ -9,7 +9,7 @@ import time
 # 1. 基礎設置 
 st.set_page_config(page_title="環球資產透維評估儀", layout="wide") 
 
-# 👴 爺爺精準 CSS V170：修復白底白字問題！白框內用黑字，黑底用白字！
+# 👴 爺爺精準 CSS：主畫面文字變白，白底元件(框)變黑字，保護側邊欄！
 st.markdown("""
     <style>
     .stApp { background-color: #0e1117; color: white; }
@@ -61,6 +61,9 @@ st.markdown("""
 
 # ----------------- 🛡️ 抗封鎖引擎 -----------------
 def smart_fetch(ticker_sym, period="1y"):
+    """
+    自帶休息時間嘅數據獲取器，避開 Yahoo Finance 嘅 Too Many Requests
+    """
     try:
         time.sleep(0.3) 
         data = yf.Ticker(ticker_sym).history(period=period)
@@ -294,146 +297,9 @@ if app_mode in ["🚀 個股深度透視", "🛡️ 環球市底大師指揮塔"
     show_s_ma200 = st.sidebar.checkbox("200日線 (終極牛熊)", value=False)
 
 # =========================================================================
-# 🛡️ 模式 B：環球市底大師指揮塔 
-# =========================================================================
-if app_mode == "🛡️ 環球市底大師指揮塔":
-    st.markdown("<h1 class='main-title'>🛡️ 環球市底大師指揮塔</h1>", unsafe_allow_html=True)
-    
-    st.markdown("<span style='color:white; font-size:16px; font-weight:bold;'>請選擇大盤陣營：</span>", unsafe_allow_html=True)
-    market_choice = st.radio("", ["🇭🇰 港股市寬系統", "🇺🇸 美股市寬系統"], horizontal=True, label_visibility="collapsed")
-    
-    st.markdown("<span style='color:white; font-size:16px; font-weight:bold;'>請選擇指數：</span>", unsafe_allow_html=True)
-    if "港股" in market_choice: idx_choice = st.radio("", ["恒指", "科指"], horizontal=True, label_visibility="collapsed")
-    else: idx_choice = st.radio("", ["道指", "標指", "納市", "IWM"], horizontal=True, label_visibility="collapsed")
-    st.write("---")
-    
-    HSI_71 = (HK_STOCK_MAP["1. 互聯網巨頭"] + HK_STOCK_MAP["5. 國有大行與金融"] + HK_STOCK_MAP["10. 房地產開發"] + HK_STOCK_MAP["13. 核心消費與餐飲"])[:71]
-    TECH_30 = (HK_STOCK_MAP["1. 互聯網巨頭"] + HK_STOCK_MAP["2. 半導體與芯片"] + HK_STOCK_MAP["12. 消費電子硬件"])[:30]
-    DOW_30 = "AAPL MSFT UNH JNJ XOM JPM V PG HD CVX MRK KO ABBV BAC AVGO PEP TMO COST CSCO MCD CRM DIS LIN ABT ACN AMD WFC NFLX INTC CAT".split()
-    SPX_80 = (DOW_30 + US_STOCK_MAP["2. AI與大數據雲端"] + US_STOCK_MAP["11. 核心消費品"] + US_STOCK_MAP["22. 商業銀行巨頭"])[:80]
-    NDX_43 = (US_STOCK_MAP["2. AI與大數據雲端"] + US_STOCK_MAP["1. 半導體設備與設計"] + US_STOCK_MAP["6. 通訊與網絡設備"])[:43]
-    IWM_32 = (US_STOCK_MAP["49. 小型爆發精選"] + US_STOCK_MAP["50. 超微型探索 (Micro)"])[:32]
-
-    if "恒指" in idx_choice: ticker_sym = "2800.HK"; b_tickers = HSI_71 
-    elif "科指" in idx_choice: ticker_sym = "3032.HK"; b_tickers = TECH_30
-    elif "道指" in idx_choice: ticker_sym = "DIA"; b_tickers = DOW_30
-    elif "標指" in idx_choice: ticker_sym = "SPY"; b_tickers = SPX_80
-    elif "納市" in idx_choice: ticker_sym = "QQQ"; b_tickers = NDX_43
-    else: ticker_sym = "IWM"; b_tickers = IWM_32
-
-    with st.spinner(f"⏳ 大宗師正在計算市寬數據... 請稍候 ☕🚀"):
-        try:
-            idx_df = smart_fetch(ticker_sym, period="2y")
-            if not idx_df.empty:
-                idx_df['20MA'] = idx_df['Close'].rolling(20).mean()
-                idx_df['50MA'] = idx_df['Close'].rolling(50).mean()
-                idx_df['150MA'] = idx_df['Close'].rolling(150).mean()
-                idx_df['200MA'] = idx_df['Close'].rolling(200).mean()
-                
-                clean_recent = idx_df.tail(250).copy()
-                dates = clean_recent.index.strftime('%Y-%m-%d')
-                
-                if len(clean_recent) > 150:
-                    curr_50 = clean_recent['50MA'].iloc[-1]
-                    curr_150 = clean_recent['150MA'].iloc[-1]
-                    past_150 = clean_recent['150MA'].iloc[-10] 
-                    if curr_50 < curr_150 and curr_150 < past_150:
-                        st.markdown("<div class='bear-warning'>🚨 警告：已進入熊市 (10周線跌穿30周線，且30周線向下) 🚨</div>", unsafe_allow_html=True)
-                
-                b_stats = get_breadth_data(b_tickers)
-                v_count = b_stats['valid']
-                
-                st.markdown(f"### 🌊 {idx_choice} - 內部成份股市寬健康度")
-                st.markdown(f"<div style='color: white; font-size:1.1rem; margin-bottom:15px;'>（系統真實成功掃描：<b style='color:#00FFCC;'>{v_count}</b> 隻核心成份股）</div>", unsafe_allow_html=True)
-                
-                st.markdown(f"""
-                <div style='display: flex; justify-content: space-between; text-align: center; background-color: #111; padding: 20px; border-radius: 15px;'>
-                    <div><span style='color: #00FFCC; font-size: 1.2rem; font-weight: bold;'>20市寬線之上</span><br><span style='color: white; font-size: 3rem; font-weight: 900;'>{(b_stats['20MA']/v_count)*100:.1f}%</span></div>
-                    <div><span style='color: #00FFCC; font-size: 1.2rem; font-weight: bold;'>50市寬線之上</span><br><span style='color: white; font-size: 3rem; font-weight: 900;'>{(b_stats['50MA']/v_count)*100:.1f}%</span></div>
-                    <div><span style='color: #00FFCC; font-size: 1.2rem; font-weight: bold;'>150市寬線之上</span><br><span style='color: white; font-size: 3rem; font-weight: 900;'>{(b_stats['150MA']/v_count)*100:.1f}%</span></div>
-                    <div><span style='color: #00FFCC; font-size: 1.2rem; font-weight: bold;'>200市寬線之上</span><br><span style='color: white; font-size: 3rem; font-weight: 900;'>{(b_stats['200MA']/v_count)*100:.1f}%</span></div>
-                </div>
-                """, unsafe_allow_html=True)
-
-                st.markdown("<h4 style='color:#FFF; margin-top:20px; margin-bottom:5px;'>📊 最近 20 日市寬變化趨勢</h4>", unsafe_allow_html=True)
-                fig_trend = go.Figure()
-                
-                x_dates = clean_recent.index[-20:].strftime('%m-%d').tolist()
-                if len(x_dates) < 20: 
-                    x_dates = [f"D{i}" for i in range(-19, 1)]
-                
-                y_20 = [(v/v_count)*100 for v in b_stats['hist_20MA']]
-                y_50 = [(v/v_count)*100 for v in b_stats['hist_50MA']]
-                y_150 = [(v/v_count)*100 for v in b_stats['hist_150MA']]
-                y_200 = [(v/v_count)*100 for v in b_stats['hist_200MA']]
-
-                fig_trend.add_trace(go.Scatter(x=x_dates, y=y_20, mode='lines+markers', name='20市寬線', line=dict(color='white', width=2)))
-                fig_trend.add_trace(go.Scatter(x=x_dates, y=y_50, mode='lines+markers', name='50市寬線', line=dict(color='yellow', width=2)))
-                fig_trend.add_trace(go.Scatter(x=x_dates, y=y_150, mode='lines+markers', name='150市寬線', line=dict(color='cyan', width=2)))
-                fig_trend.add_trace(go.Scatter(x=x_dates, y=y_200, mode='lines+markers', name='200市寬線', line=dict(color='magenta', width=2)))
-                
-                fig_trend.add_annotation(x=x_dates[-1], y=y_20[-1], text="20市寬", showarrow=False, xanchor="left", xshift=10, font=dict(color="white", size=12))
-                fig_trend.add_annotation(x=x_dates[-1], y=y_50[-1], text="50市寬", showarrow=False, xanchor="left", xshift=10, font=dict(color="yellow", size=12))
-                fig_trend.add_annotation(x=x_dates[-1], y=y_150[-1], text="150市寬", showarrow=False, xanchor="left", xshift=10, font=dict(color="cyan", size=12))
-                fig_trend.add_annotation(x=x_dates[-1], y=y_200[-1], text="200市寬", showarrow=False, xanchor="left", xshift=10, font=dict(color="magenta", size=12))
-
-                fig_trend.update_layout(
-                    template="plotly_dark", paper_bgcolor='#0e1117', plot_bgcolor='#111', height=300,
-                    margin=dict(l=20, r=60, t=10, b=20), 
-                    xaxis=dict(title="", showgrid=True, gridcolor='#333', type='category'),
-                    yaxis=dict(title="市寬 %", range=[0, 105], showgrid=True, gridcolor='#333'),
-                    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
-                )
-                st.plotly_chart(fig_trend, use_container_width=True, config={'displayModeBar': False})
-
-                st.write("")
-                fig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.7, 0.3], vertical_spacing=0.05)
-                
-                o_col = clean_recent['Open'].values; c_col = clean_recent['Close'].values
-                h_col = clean_recent['High'].values; l_col = clean_recent['Low'].values
-                v_col = clean_recent['Volume'].values
-
-                if show_b_idx: fig.add_trace(go.Candlestick(x=dates, open=o_col, high=h_col, low=l_col, close=c_col, name=f'{ticker_sym} 基準指數'), row=1, col=1)
-                else: fig.add_trace(go.Scatter(x=dates, y=c_col, mode='lines', name='隱藏基準', line=dict(color='rgba(255,255,255,0)')), row=1, col=1)
-
-                if show_b_ma20: fig.add_trace(go.Scatter(x=dates, y=clean_recent['20MA'], mode='lines', name='20市寬線', line=dict(color='white', width=1.5, dash='dot')), row=1, col=1)
-                if show_b_ma50: fig.add_trace(go.Scatter(x=dates, y=clean_recent['50MA'], mode='lines', name='50市寬線', line=dict(color='yellow', width=1.5, dash='dot')), row=1, col=1)
-                
-                if show_b_ma150: 
-                    fig.add_trace(go.Scatter(x=dates, y=clean_recent['150MA'], mode='lines', name='150市寬線', line=dict(color='cyan', width=2, dash='dot')), row=1, col=1)
-                    if len(clean_recent) > 10 and clean_recent['150MA'].iloc[-1] < clean_recent['150MA'].iloc[-10]:
-                        fig.add_annotation(x=dates[-1], y=clean_recent['150MA'].iloc[-1], ax=0, ay=-40, xref="x", yref="y", showarrow=True, arrowhead=3, arrowsize=2, arrowwidth=3, arrowcolor="red", text="⬇")
-
-                if show_b_ma200: 
-                    fig.add_trace(go.Scatter(x=dates, y=clean_recent['200MA'], mode='lines', name='200市寬線', line=dict(color='magenta', width=2, dash='dot')), row=1, col=1)
-                    if len(clean_recent) > 10 and clean_recent['200MA'].iloc[-1] < clean_recent['200MA'].iloc[-10]:
-                        fig.add_annotation(x=dates[-1], y=clean_recent['200MA'].iloc[-1], ax=0, ay=-40, xref="x", yref="y", showarrow=True, arrowhead=3, arrowsize=2, arrowwidth=3, arrowcolor="red", text="⬇")
-
-                colors = ['#00FF00' if c_col[i] >= o_col[i] else '#FF0000' for i in range(len(clean_recent))]
-                fig.add_trace(go.Bar(x=dates, y=v_col, marker_color=colors, name='成交量'), row=2, col=1)
-                counts, bins = np.histogram(c_col, bins=20, weights=v_col)
-                max_c = max(counts) if len(counts) > 0 and max(counts) > 0 else 1
-                fig.add_trace(go.Bar(y=(bins[:-1] + bins[1:]) / 2, x=counts, orientation='h', marker_color='rgba(0, 255, 204, 0.4)', name='蟹貨區', xaxis='x3', yaxis='y1'))
-
-                fig.update_layout(
-                    template="plotly_dark", paper_bgcolor='#0e1117', plot_bgcolor='#0e1117', height=750, 
-                    showlegend=True, legend=dict(font=dict(color="white"), orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-                    xaxis_rangeslider_visible=False, xaxis=dict(type='category', showgrid=False), 
-                    yaxis=dict(showgrid=True, gridcolor='#333'), xaxis3=dict(overlaying='x', side='top', range=[0, max_c*1.1], showgrid=False, showticklabels=False)
-                )
-                st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
-
-                if ("科指" in idx_choice or "道指" in idx_choice) and b_stats['above_50_list']:
-                    st.markdown(f"<h3 style='color: white;'>🏆 逆市名單 ({idx_choice.split(' ')[0]}) - 企穩 50天線之上</h3>", unsafe_allow_html=True)
-                    cols = st.columns(6)
-                    for i, t in enumerate(b_stats['above_50_list'][:30]):
-                        cols[i % 6].info(t)
-        except Exception as e: st.error(f"⚠️ 數據載入失敗：{e}")
-
-# =========================================================================
 # 🚀 模式 A：個股深度透視 
 # =========================================================================
-elif app_mode == "🚀 個股深度透視":
+if app_mode == "🚀 個股深度透視":
     ticker = st.sidebar.text_input("🚀 輸入資產代號", "6869.HK").upper()
 
     with st.spinner(f"⏳ 系統正在切換引擎，重新為您下載海量數據及繪製摩訶圖... 請稍候 ☕🚀"):
@@ -817,6 +683,143 @@ elif app_mode == "🚀 個股深度透視":
         except Exception as e: st.error(f"渲染錯誤: {e}")
 
 # =========================================================================
+# 🛡️ 模式 B：環球市底大師指揮塔 
+# =========================================================================
+elif app_mode == "🛡️ 環球市底大師指揮塔":
+    st.markdown("<h1 class='main-title'>🛡️ 環球市底大師指揮塔</h1>", unsafe_allow_html=True)
+    
+    st.markdown("<span style='color:white; font-size:16px; font-weight:bold;'>請選擇大盤陣營：</span>", unsafe_allow_html=True)
+    market_choice = st.radio("", ["🇭🇰 港股市寬系統", "🇺🇸 美股市寬系統"], horizontal=True, label_visibility="collapsed")
+    
+    st.markdown("<span style='color:white; font-size:16px; font-weight:bold;'>請選擇指數：</span>", unsafe_allow_html=True)
+    if "港股" in market_choice: idx_choice = st.radio("", ["恒指", "科指"], horizontal=True, label_visibility="collapsed")
+    else: idx_choice = st.radio("", ["道指", "標指", "納市", "IWM"], horizontal=True, label_visibility="collapsed")
+    st.write("---")
+    
+    HSI_71 = (HK_STOCK_MAP["1. 互聯網巨頭"] + HK_STOCK_MAP["5. 國有大行與金融"] + HK_STOCK_MAP["10. 房地產開發"] + HK_STOCK_MAP["13. 核心消費與餐飲"])[:71]
+    TECH_30 = (HK_STOCK_MAP["1. 互聯網巨頭"] + HK_STOCK_MAP["2. 半導體與芯片"] + HK_STOCK_MAP["12. 消費電子硬件"])[:30]
+    DOW_30 = "AAPL MSFT UNH JNJ XOM JPM V PG HD CVX MRK KO ABBV BAC AVGO PEP TMO COST CSCO MCD CRM DIS LIN ABT ACN AMD WFC NFLX INTC CAT".split()
+    SPX_80 = (DOW_30 + US_STOCK_MAP["2. AI與大數據雲端"] + US_STOCK_MAP["11. 核心消費品"] + US_STOCK_MAP["22. 商業銀行巨頭"])[:80]
+    NDX_43 = (US_STOCK_MAP["2. AI與大數據雲端"] + US_STOCK_MAP["1. 半導體設備與設計"] + US_STOCK_MAP["6. 通訊與網絡設備"])[:43]
+    IWM_32 = (US_STOCK_MAP["49. 小型爆發精選"] + US_STOCK_MAP["50. 超微型探索 (Micro)"])[:32]
+
+    if "恒指" in idx_choice: ticker_sym = "2800.HK"; b_tickers = HSI_71 
+    elif "科指" in idx_choice: ticker_sym = "3032.HK"; b_tickers = TECH_30
+    elif "道指" in idx_choice: ticker_sym = "DIA"; b_tickers = DOW_30
+    elif "標指" in idx_choice: ticker_sym = "SPY"; b_tickers = SPX_80
+    elif "納市" in idx_choice: ticker_sym = "QQQ"; b_tickers = NDX_43
+    else: ticker_sym = "IWM"; b_tickers = IWM_32
+
+    with st.spinner(f"⏳ 大宗師正在計算市寬數據... 請稍候 ☕🚀"):
+        try:
+            idx_df = smart_fetch(ticker_sym, period="2y")
+            if not idx_df.empty:
+                idx_df['20MA'] = idx_df['Close'].rolling(20).mean()
+                idx_df['50MA'] = idx_df['Close'].rolling(50).mean()
+                idx_df['150MA'] = idx_df['Close'].rolling(150).mean()
+                idx_df['200MA'] = idx_df['Close'].rolling(200).mean()
+                
+                clean_recent = idx_df.tail(250).copy()
+                dates = clean_recent.index.strftime('%Y-%m-%d')
+                
+                if len(clean_recent) > 150:
+                    curr_50 = clean_recent['50MA'].iloc[-1]
+                    curr_150 = clean_recent['150MA'].iloc[-1]
+                    past_150 = clean_recent['150MA'].iloc[-10] 
+                    if curr_50 < curr_150 and curr_150 < past_150:
+                        st.markdown("<div class='bear-warning'>🚨 警告：已進入熊市 (10周線跌穿30周線，且30周線向下) 🚨</div>", unsafe_allow_html=True)
+                
+                b_stats = get_breadth_data(b_tickers)
+                v_count = b_stats['valid']
+                
+                st.markdown(f"### 🌊 {idx_choice} - 內部成份股市寬健康度")
+                st.markdown(f"<div style='color: white; font-size:1.1rem; margin-bottom:15px;'>（系統真實成功掃描：<b style='color:#00FFCC;'>{v_count}</b> 隻核心成份股）</div>", unsafe_allow_html=True)
+                
+                st.markdown(f"""
+                <div style='display: flex; justify-content: space-between; text-align: center; background-color: #111; padding: 20px; border-radius: 15px;'>
+                    <div><span style='color: #00FFCC; font-size: 1.2rem; font-weight: bold;'>20市寬線之上</span><br><span style='color: white; font-size: 3rem; font-weight: 900;'>{(b_stats['20MA']/v_count)*100:.1f}%</span></div>
+                    <div><span style='color: #00FFCC; font-size: 1.2rem; font-weight: bold;'>50市寬線之上</span><br><span style='color: white; font-size: 3rem; font-weight: 900;'>{(b_stats['50MA']/v_count)*100:.1f}%</span></div>
+                    <div><span style='color: #00FFCC; font-size: 1.2rem; font-weight: bold;'>150市寬線之上</span><br><span style='color: white; font-size: 3rem; font-weight: 900;'>{(b_stats['150MA']/v_count)*100:.1f}%</span></div>
+                    <div><span style='color: #00FFCC; font-size: 1.2rem; font-weight: bold;'>200市寬線之上</span><br><span style='color: white; font-size: 3rem; font-weight: 900;'>{(b_stats['200MA']/v_count)*100:.1f}%</span></div>
+                </div>
+                """, unsafe_allow_html=True)
+
+                st.markdown("<h4 style='color:#FFF; margin-top:20px; margin-bottom:5px;'>📊 最近 20 日市寬變化趨勢</h4>", unsafe_allow_html=True)
+                fig_trend = go.Figure()
+                
+                x_dates = clean_recent.index[-20:].strftime('%m-%d').tolist()
+                if len(x_dates) < 20: 
+                    x_dates = [f"D{i}" for i in range(-19, 1)]
+                
+                y_20 = [(v/v_count)*100 for v in b_stats['hist_20MA']]
+                y_50 = [(v/v_count)*100 for v in b_stats['hist_50MA']]
+                y_150 = [(v/v_count)*100 for v in b_stats['hist_150MA']]
+                y_200 = [(v/v_count)*100 for v in b_stats['hist_200MA']]
+
+                fig_trend.add_trace(go.Scatter(x=x_dates, y=y_20, mode='lines+markers', name='20市寬線', line=dict(color='white', width=2)))
+                fig_trend.add_trace(go.Scatter(x=x_dates, y=y_50, mode='lines+markers', name='50市寬線', line=dict(color='yellow', width=2)))
+                fig_trend.add_trace(go.Scatter(x=x_dates, y=y_150, mode='lines+markers', name='150市寬線', line=dict(color='cyan', width=2)))
+                fig_trend.add_trace(go.Scatter(x=x_dates, y=y_200, mode='lines+markers', name='200市寬線', line=dict(color='magenta', width=2)))
+                
+                fig_trend.add_annotation(x=x_dates[-1], y=y_20[-1], text="20市寬", showarrow=False, xanchor="left", xshift=10, font=dict(color="white", size=12))
+                fig_trend.add_annotation(x=x_dates[-1], y=y_50[-1], text="50市寬", showarrow=False, xanchor="left", xshift=10, font=dict(color="yellow", size=12))
+                fig_trend.add_annotation(x=x_dates[-1], y=y_150[-1], text="150市寬", showarrow=False, xanchor="left", xshift=10, font=dict(color="cyan", size=12))
+                fig_trend.add_annotation(x=x_dates[-1], y=y_200[-1], text="200市寬", showarrow=False, xanchor="left", xshift=10, font=dict(color="magenta", size=12))
+
+                fig_trend.update_layout(
+                    template="plotly_dark", paper_bgcolor='#0e1117', plot_bgcolor='#111', height=300,
+                    margin=dict(l=20, r=60, t=10, b=20), 
+                    xaxis=dict(title="", showgrid=True, gridcolor='#333', type='category'),
+                    yaxis=dict(title="市寬 %", range=[0, 105], showgrid=True, gridcolor='#333'),
+                    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+                )
+                st.plotly_chart(fig_trend, use_container_width=True, config={'displayModeBar': False})
+
+                st.write("")
+                fig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.7, 0.3], vertical_spacing=0.05)
+                
+                o_col = clean_recent['Open'].values; c_col = clean_recent['Close'].values
+                h_col = clean_recent['High'].values; l_col = clean_recent['Low'].values
+                v_col = clean_recent['Volume'].values
+
+                if show_b_idx: fig.add_trace(go.Candlestick(x=dates, open=o_col, high=h_col, low=l_col, close=c_col, name=f'{ticker_sym} 基準指數'), row=1, col=1)
+                else: fig.add_trace(go.Scatter(x=dates, y=c_col, mode='lines', name='隱藏基準', line=dict(color='rgba(255,255,255,0)')), row=1, col=1)
+
+                if show_b_ma20: fig.add_trace(go.Scatter(x=dates, y=clean_recent['20MA'], mode='lines', name='20市寬線', line=dict(color='white', width=1.5, dash='dot')), row=1, col=1)
+                if show_b_ma50: fig.add_trace(go.Scatter(x=dates, y=clean_recent['50MA'], mode='lines', name='50市寬線', line=dict(color='yellow', width=1.5, dash='dot')), row=1, col=1)
+                
+                if show_b_ma150: 
+                    fig.add_trace(go.Scatter(x=dates, y=clean_recent['150MA'], mode='lines', name='150市寬線', line=dict(color='cyan', width=2, dash='dot')), row=1, col=1)
+                    if len(clean_recent) > 10 and clean_recent['150MA'].iloc[-1] < clean_recent['150MA'].iloc[-10]:
+                        fig.add_annotation(x=dates[-1], y=clean_recent['150MA'].iloc[-1], ax=0, ay=-40, xref="x", yref="y", showarrow=True, arrowhead=3, arrowsize=2, arrowwidth=3, arrowcolor="red", text="⬇")
+
+                if show_b_ma200: 
+                    fig.add_trace(go.Scatter(x=dates, y=clean_recent['200MA'], mode='lines', name='200市寬線', line=dict(color='magenta', width=2, dash='dot')), row=1, col=1)
+                    if len(clean_recent) > 10 and clean_recent['200MA'].iloc[-1] < clean_recent['200MA'].iloc[-10]:
+                        fig.add_annotation(x=dates[-1], y=clean_recent['200MA'].iloc[-1], ax=0, ay=-40, xref="x", yref="y", showarrow=True, arrowhead=3, arrowsize=2, arrowwidth=3, arrowcolor="red", text="⬇")
+
+                colors = ['#00FF00' if c_col[i] >= o_col[i] else '#FF0000' for i in range(len(clean_recent))]
+                fig.add_trace(go.Bar(x=dates, y=v_col, marker_color=colors, name='成交量'), row=2, col=1)
+                counts, bins = np.histogram(c_col, bins=20, weights=v_col)
+                max_c = max(counts) if len(counts) > 0 and max(counts) > 0 else 1
+                fig.add_trace(go.Bar(y=(bins[:-1] + bins[1:]) / 2, x=counts, orientation='h', marker_color='rgba(0, 255, 204, 0.4)', name='蟹貨區', xaxis='x3', yaxis='y1'))
+
+                fig.update_layout(
+                    template="plotly_dark", paper_bgcolor='#0e1117', plot_bgcolor='#0e1117', height=750, 
+                    showlegend=True, legend=dict(font=dict(color="white"), orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+                    xaxis_rangeslider_visible=False, xaxis=dict(type='category', showgrid=False), 
+                    yaxis=dict(showgrid=True, gridcolor='#333'), xaxis3=dict(overlaying='x', side='top', range=[0, max_c*1.1], showgrid=False, showticklabels=False)
+                )
+                st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+
+                if ("科指" in idx_choice or "道指" in idx_choice) and b_stats['above_50_list']:
+                    st.markdown(f"<h3 style='color: white;'>🏆 逆市名單 ({idx_choice.split(' ')[0]}) - 企穩 50天線之上</h3>", unsafe_allow_html=True)
+                    cols = st.columns(6)
+                    for i, t in enumerate(b_stats['above_50_list'][:30]):
+                        cols[i % 6].info(t)
+        except Exception as e: st.error(f"⚠️ 數據載入失敗：{e}")
+
+# =========================================================================
 # 🔍 模式 C/F/G：起步尋龍雷達 (個股/ETF)
 # =========================================================================
 elif "雷達" in app_mode and "Mode E" not in app_mode:
@@ -856,7 +859,7 @@ elif "雷達" in app_mode and "Mode E" not in app_mode:
                         
                         if t_strat == "🔥 極致新高 (ATH)":
                             if (curr_p / ath) < 0.93: continue
-                        else: # 潛龍伏躍
+                        else: 
                             if not (0.75 <= (curr_p / ath) <= 0.90): continue
 
                         tp = (d['High']+d['Low']+d['Close'])/3; nf = tp*d['Volume']*np.where(d['Close']>d['Close'].shift(1).fillna(d['Close']),1,-1)
