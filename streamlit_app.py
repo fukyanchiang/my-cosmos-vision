@@ -9,19 +9,27 @@ import time
 # 1. 基礎設置 
 st.set_page_config(page_title="環球資產透維評估儀", layout="wide") 
 
-# 👴 爺爺精準 CSS：主畫面文字變白，保護側邊欄白底黑字，確保黑色背景
+# 👴 爺爺精準 CSS V170：修復白底白字問題！白框內用黑字，黑底用白字！
 st.markdown("""
     <style>
     .stApp { background-color: #0e1117; color: white; }
     
-    /* 🎯 狙擊主畫面 (stMain) 嘅選項字體變白色，絕對唔影響 stSidebar (側邊欄) */
-    section[data-testid="stMain"] div[data-testid="stRadio"] * { color: #FFFFFF !important; }
-    section[data-testid="stMain"] div[data-testid="stSelectbox"] * { color: #FFFFFF !important; }
+    /* 🎯 標題/標籤文字 (Radio上方、Selectbox上方) 設為白色 */
     section[data-testid="stMain"] div[data-testid="stWidgetLabel"] p, 
     section[data-testid="stMain"] div[data-testid="stWidgetLabel"] span { color: #FFFFFF !important; font-size: 1.1rem !important; font-weight: bold !important; }
     
+    /* 🎯 Radio 選項的文字設為白色 */
+    section[data-testid="stMain"] div[data-testid="stRadio"] label div[data-testid="stMarkdownContainer"] p { color: #FFFFFF !important; }
+
+    /* 🚀 關鍵修復：白底框框（Selectbox下拉選單、Button按鈕、TextInput輸入框）裡面的字強制變黑色！ */
+    section[data-testid="stMain"] div[data-baseweb="select"] span { color: #000000 !important; font-weight: bold !important; }
+    section[data-testid="stMain"] div[data-baseweb="select"] ul li { color: #000000 !important; }
+    section[data-testid="stMain"] button p { color: #000000 !important; font-weight: 900 !important; font-size: 1.1rem !important; }
+    section[data-testid="stMain"] div[data-baseweb="input"] input { color: #000000 !important; font-weight: bold !important; }
+    
     /* 側邊欄樣式補強 (確保喺白底時字係黑色) */
     section[data-testid="stSidebar"] div[data-testid="stWidgetLabel"] p { color: #31333F !important; }
+    section[data-testid="stSidebar"] div[data-testid="stRadio"] label div[data-testid="stMarkdownContainer"] p { color: #31333F !important; }
 
     .main-title { text-align: center; color: #FFD700 !important; font-size: 3.5rem; font-weight: 900; margin-bottom: 25px; }
     .cosmos-box { background-color: #000 !important; border: 4px solid #00FFCC; border-radius: 20px; padding: 25px; text-align: center; box-shadow: 0 0 20px #00FFCC44; }
@@ -50,6 +58,18 @@ st.markdown("""
     .pullback-card { border-left: 8px solid #BC13FE; background-color: #1a0024; padding: 15px; margin-bottom: 10px; border-radius: 8px; }
     </style>
     """, unsafe_allow_html=True)
+
+# ----------------- 🛡️ 抗封鎖引擎 -----------------
+def smart_fetch(ticker_sym, period="1y"):
+    try:
+        time.sleep(0.3) 
+        data = yf.Ticker(ticker_sym).history(period=period)
+        if data.empty:
+            time.sleep(1.0) 
+            data = yf.Ticker(ticker_sym).history(period=period)
+        return data.dropna(subset=['Close', 'Volume', 'High', 'Low', 'Open'])
+    except:
+        return pd.DataFrame()
 
 # ----------------- 🛠️ 核心引擎函數 -----------------
 def safe_n(val, alt=50.0): 
@@ -244,7 +264,7 @@ def get_breadth_data(tickers):
     return stats
 
 # ----------------- 🔘 側邊欄控制 -----------------
-st.sidebar.markdown("## 🛰️ 戰術控制台 (V168.0)")
+st.sidebar.markdown("## 🛰️ 戰術控制台 (V170.0)")
 app_mode = st.sidebar.radio("請選擇操作", [
     "🚀 個股深度透視", 
     "🛡️ 環球市底大師指揮塔", 
@@ -303,7 +323,7 @@ if app_mode == "🛡️ 環球市底大師指揮塔":
 
     with st.spinner(f"⏳ 大宗師正在計算市寬數據... 請稍候 ☕🚀"):
         try:
-            idx_df = yf.Ticker(ticker_sym).history(period="2y").dropna(subset=['Close', 'Volume'])
+            idx_df = smart_fetch(ticker_sym, period="2y")
             if not idx_df.empty:
                 idx_df['20MA'] = idx_df['Close'].rolling(20).mean()
                 idx_df['50MA'] = idx_df['Close'].rolling(50).mean()
@@ -419,11 +439,11 @@ elif app_mode == "🚀 個股深度透視":
     with st.spinner(f"⏳ 系統正在切換引擎，重新為您下載海量數據及繪製摩訶圖... 請稍候 ☕🚀"):
         try:
             asset = yf.Ticker(ticker); info = asset.info
-            df = asset.history(period="2y").dropna(subset=['Close', 'Volume'])
-            spy = yf.Ticker("SPY").history(period="2y").dropna(subset=['Close'])
+            df = smart_fetch(ticker, period="2y")
+            spy = smart_fetch("SPY", period="2y")
             
             b_sym_plot = "2800.HK" if ".HK" in ticker else "SPY"
-            b_df_plot = yf.Ticker(b_sym_plot).history(period="2y").dropna()
+            b_df_plot = smart_fetch(b_sym_plot, period="2y")
             if not b_df_plot.empty:
                 b_df_plot['20MA'] = b_df_plot['Close'].rolling(20).mean().bfill()
                 b_df_plot['50MA'] = b_df_plot['Close'].rolling(50).mean().bfill()
@@ -802,7 +822,6 @@ elif app_mode == "🚀 個股深度透視":
 elif "雷達" in app_mode and "Mode E" not in app_mode:
     st.markdown(f"<h1 class='main-title'>{app_mode}</h1>", unsafe_allow_html=True)
     
-    # 👴 爺爺新掣：Mode C 雷達加入雙戰術
     c_mkt, c_sec, c_strat = st.columns([1, 1, 1.5])
     if app_mode == "🔍 千龍起步尋龍雷達 (個股)":
         with c_mkt: m_choice = st.radio("1. 選擇市場", ["🇺🇸 美股", "🇭🇰 港股"])
@@ -820,43 +839,44 @@ elif "雷達" in app_mode and "Mode E" not in app_mode:
     with c_strat: t_strat = st.radio("3. 戰術過濾 (機變)", ["🔥 極致新高 (ATH)", "🐉 潛龍伏躍 (10-20% 空間)"])
     
     if st.button("📡 發射撒網尋龍電波！"):
-        bench_data = yf.Ticker(bench_sym).history(period="2y").dropna()
+        bench_data = smart_fetch(bench_sym, period="2y")
         tickers_to_scan = list(set([t for sub in target_dict.values() for t in sub])) if "全星系" in s_choice else target_dict[s_choice]
         
         found = False; pb = st.progress(0)
-        for idx, t in enumerate(tickers_to_scan):
-            pb.progress((idx + 1) / len(tickers_to_scan))
-            try:
-                d = yf.Ticker(t).history(period="63d").dropna()
-                d_full = yf.Ticker(t).history(period="1y").dropna()
-                if len(d) > 40 and len(d_full) > 100:
-                    curr_p = d['Close'].iloc[-1]
-                    ath = d_full['High'].tail(252).max()
-                    
-                    # 戰術過濾
-                    if t_strat == "🔥 極致新高 (ATH)":
-                        if (curr_p / ath) < 0.93: continue
-                    else: # 潛龍伏躍
-                        if not (0.75 <= (curr_p / ath) <= 0.90): continue
+        with st.spinner("⏳ 慢速引擎過濾中，請稍候..."):
+            for idx, t in enumerate(tickers_to_scan):
+                pb.progress((idx + 1) / len(tickers_to_scan))
+                if idx > 0 and idx % 10 == 0: time.sleep(1.0)
+                try:
+                    d_full = smart_fetch(t, period="1y")
+                    if len(d_full) > 100:
+                        d = d_full.tail(63)
+                        curr_p = d['Close'].iloc[-1]
+                        ath = d_full['High'].tail(252).max()
+                        
+                        if t_strat == "🔥 極致新高 (ATH)":
+                            if (curr_p / ath) < 0.93: continue
+                        else: # 潛龍伏躍
+                            if not (0.75 <= (curr_p / ath) <= 0.90): continue
 
-                    tp = (d['High']+d['Low']+d['Close'])/3; nf = tp*d['Volume']*np.where(d['Close']>d['Close'].shift(1).fillna(d['Close']),1,-1)
-                    net_flow_20 = nf.tail(20).sum(); conc_20 = (abs(nf.tail(20)).max()/abs(nf.tail(20)).sum())*100
-                    obv = (np.sign(d['Close'].diff())*d['Volume']).fillna(0).cumsum()
-                    obv_curr = obv.iloc[-1]-obv.iloc[-21]; obv_prev = obv.iloc[-21]-obv.iloc[-41]
-                    obv_pct = (obv_curr-obv_prev)/abs(obv_prev)*100 if obv_prev!=0 else 0
-                    p_trend = d['Close'].iloc[-1]-d['Close'].iloc[-21]; state = 9
-                    if p_trend>=0: state = 1 if obv_pct>20 else 2
-                    else: state = 7 if obv_pct>20 else 8
-                    
-                    crs = 50+((curr_p/d['Close'].iloc[-63])-(bench_data['Close'].iloc[-1]/bench_data['Close'].iloc[-63]))*100 if len(d)>60 else 50
-                    ej = (d['Volume'].tail(21).mean()/max(d['Volume'].tail(252).mean() if len(d)>200 else d['Volume'].mean(),1))*100
-                    se = 50+(((curr_p/d['Close'].iloc[-5])-1)*1200)
+                        tp = (d['High']+d['Low']+d['Close'])/3; nf = tp*d['Volume']*np.where(d['Close']>d['Close'].shift(1).fillna(d['Close']),1,-1)
+                        net_flow_20 = nf.tail(20).sum(); conc_20 = (abs(nf.tail(20)).max()/abs(nf.tail(20)).sum())*100
+                        obv = (np.sign(d['Close'].diff())*d['Volume']).fillna(0).cumsum()
+                        obv_curr = obv.iloc[-1]-obv.iloc[-21]; obv_prev = obv.iloc[-21]-obv.iloc[-41]
+                        obv_pct = (obv_curr-obv_prev)/abs(obv_prev)*100 if obv_prev!=0 else 0
+                        p_trend = d['Close'].iloc[-1]-d['Close'].iloc[-21]; state = 9
+                        if p_trend>=0: state = 1 if obv_pct>20 else 2
+                        else: state = 7 if obv_pct>20 else 8
+                        
+                        crs = 50+((curr_p/d['Close'].iloc[-63])-(bench_data['Close'].iloc[-1]/bench_data['Close'].iloc[-63]))*100 if len(d)>60 else 50
+                        ej = (d['Volume'].tail(21).mean()/max(d['Volume'].tail(252).mean() if len(d)>200 else d['Volume'].mean(),1))*100
+                        se = 50+(((curr_p/d['Close'].iloc[-5])-1)*1200)
 
-                    if net_flow_20 > 0 and conc_20 < 50 and state in [1, 2, 7, 8, 9]:
-                        if se > 75 and ej > 85 and crs > 52:
-                            found = True
-                            st.markdown(f"<div class='scan-card-fire'><h2>🎯 {t} | 符合大戶佈局！</h2><p>💰 資金流: {net_flow_20/1e8:.1f}億 | 🎯 集中度: {conc_20:.1f}% | 🌊 OBV: {state}<br>⚡ SE: {se:.1f} | 🔋 EJ: {ej:.1f} | 📈 RS: {crs:.1f}</p></div>", unsafe_allow_html=True)
-            except: pass
+                        if net_flow_20 > 0 and conc_20 < 50 and state in [1, 2, 7, 8, 9]:
+                            if se > 75 and ej > 85 and crs > 52:
+                                found = True
+                                st.markdown(f"<div class='scan-card-fire'><h2>🎯 {t} | 符合大戶佈局！</h2><p>💰 資金流: {net_flow_20/1e8:.1f}億 | 🎯 集中度: {conc_20:.1f}% | 🌊 OBV: {state}<br>⚡ SE: {se:.1f} | 🔋 EJ: {ej:.1f} | 📈 RS: {crs:.1f}</p></div>", unsafe_allow_html=True)
+                except: pass
         if not found: st.warning("💤 雷達掃描完畢，目前未有起飛目標。(此過濾條件為潛龍必勝模式，要求大戶真實佈局)")
 
 # =========================================================================
@@ -867,13 +887,13 @@ elif "熱力圖" in app_mode:
     m_view = st.sidebar.radio("選擇星系", ["🇺🇸 美股陣列", "🇭🇰 港股陣列"])
     is_us = "美股" in m_view; bench_sym = "SPY" if is_us else "^HSI"
     target_map = (US_ETF_MAP if "ETF" in app_mode else US_STOCK_MAP) if is_us else (HK_ETF_MAP if "ETF" in app_mode else HK_STOCK_MAP)
-    with st.spinner('拔河排名計算中...'):
+    with st.spinner('拔河排名計算中，慢速防封鎖引擎已啟動...'):
         try:
-            bench_df = yf.Ticker(bench_sym).history(period="60d")['Close'].dropna(); results = []
+            bench_df = smart_fetch(bench_sym, period="60d")['Close'].dropna(); results = []
             for name, tickers in target_map.items():
-                for t in tickers:
+                for idx, t in enumerate(tickers):
                     try:
-                        d = yf.Ticker(t).history(period="60d")['Close'].dropna()
+                        d = smart_fetch(t, period="60d")['Close'].dropna()
                         if len(d) >= 20:
                             rs = 50 + ((d.iloc[-1]/d.iloc[-20]) - (bench_df.iloc[-1]/bench_df.iloc[-20])) * 100
                             results.append({"版塊": name, "RS強弱": round(rs, 1)}); break
@@ -910,8 +930,6 @@ elif app_mode == "📈 VCP 形態戰術掃描 & 防守圖":
     else: target_dict = US_STOCK_MAP if is_us else HK_STOCK_MAP
     
     with c_sec: s_choice = st.selectbox("3. 選擇掃描範圍", ["🌐 啟動全星系大規模搜索"] + list(target_dict.keys()))
-    
-    # 👴 爺爺新掣：VCP 戰術過濾
     with c_strat: vcp_strat = st.radio("4. 戰術過濾 (機變)", ["🔥 極致新高 (ATH)", "🐉 潛龍伏躍 (10-20% 空間)"])
 
     if 'vcp_scanned_stocks' not in st.session_state:
@@ -922,20 +940,20 @@ elif app_mode == "📈 VCP 形態戰術掃描 & 防守圖":
         found_stocks = []
         pb = st.progress(0)
         
-        with st.spinner("⏳ 爺爺正在幫你對比大盤 RS 同尋找大戶足跡..."):
+        with st.spinner("⏳ 慢速防封鎖引擎已啟動，正在對比大盤 RS 同尋找大戶足跡..."):
             try:
-                bench_df = yf.Ticker(bench_sym).history(period="1y")['Close'].dropna()
+                bench_df = smart_fetch(bench_sym, period="1y")['Close'].dropna()
                 yearly_returns = {}
                 valid_dfs = {}
                 for idx, t in enumerate(tickers_to_scan):
                     pb.progress((idx + 1) / len(tickers_to_scan))
+                    if idx > 0 and idx % 10 == 0: time.sleep(1.0)
                     try:
-                        df_t = yf.Ticker(t).history(period="1y").dropna(subset=['Close', 'Volume', 'High', 'Low', 'Open'])
+                        df_t = smart_fetch(t, period="1y")
                         if len(df_t) > 150:
                             ret = (df_t['Close'].iloc[-1] / df_t['Close'].iloc[0]) - 1
                             yearly_returns[t] = ret
                             valid_dfs[t] = df_t
-                            if idx % 5 == 0: time.sleep(0.1)
                     except: continue
 
                 if yearly_returns:
@@ -948,21 +966,17 @@ elif app_mode == "📈 VCP 形態戰術掃描 & 防守圖":
                         curr = df_vcp.iloc[-1]
                         ath = df_vcp['High'].tail(252).max()
                         
-                        # 趨勢過濾
                         if not (curr['Close'] > df_vcp['MA50'].iloc[-1] and df_vcp['MA50'].iloc[-1] > df_vcp['MA150'].iloc[-1]): continue
                         
-                        # 戰術過濾
                         if vcp_strat == "🔥 極致新高 (ATH)":
                             if not (df_vcp['MA150'].iloc[-1] > df_vcp['MA200'].iloc[-1]): continue
                             if (curr['Close'] / ath) < 0.93: continue
-                        else: # 潛龍伏躍
+                        else:
                             if not (0.75 <= (curr['Close'] / ath) <= 0.90): continue
 
-                        # RS Rating
                         rs_rating = int((all_rets[all_rets <= ret].count() / len(all_rets)) * 99)
                         if rs_rating < 80: continue
                         
-                        # 大戶標記
                         df_vcp['Vol50'] = df_vcp['Volume'].rolling(50).mean()
                         whale_count = len(df_vcp.tail(10)[(df_vcp.tail(10)['Close'] > df_vcp.tail(10)['Open']) & (df_vcp.tail(10)['Volume'] > df_vcp.tail(10)['Vol50'] * 1.5)])
                         
@@ -989,8 +1003,8 @@ elif app_mode == "📈 VCP 形態戰術掃描 & 防守圖":
             
             with st.spinner("正在繪製 K線、重貨區 HVN 及 RS 領先線..."):
                 try:
-                    df = yf.Ticker(selected_stock).history(period="6mo").dropna()
-                    b_df = yf.Ticker(bench_sym).history(period="6mo")['Close'].dropna()
+                    df = smart_fetch(selected_stock, period="6mo")
+                    b_df = smart_fetch(bench_sym, period="6mo")['Close']
                     df['MA50'] = df['Close'].rolling(50).mean()
                     df['Vol50'] = df['Volume'].rolling(50).mean()
                     df['EMA10'] = df['Close'].ewm(span=10, adjust=False).mean()
@@ -998,7 +1012,6 @@ elif app_mode == "📈 VCP 形態戰術掃描 & 防守圖":
                     df_a, b_a = df['Close'].align(b_df, join='inner')
                     rs_line = (df_a / b_a).reindex(df.index).ffill().bfill() 
                     
-                    # HVN 重貨區完美比例
                     counts, bins = np.histogram(df['Close'], bins=25, weights=df['Volume'])
                     hvn_price = (bins[np.argmax(counts)] + bins[np.argmax(counts)+1]) / 2
                     stop_loss = hvn_price * 0.985
@@ -1084,18 +1097,18 @@ elif app_mode == "🌊 海龜回測加注雷達 (Mode E)":
         found = []
         pb = st.progress(0)
         
-        with st.spinner("⏳ 雷達正在過濾「去弱留強」 N 字加注點..."):
+        with st.spinner("⏳ 雷達正在慢速穩定過濾「去弱留強」 N 字加注點..."):
             yearly_returns = {}
             valid_dfs = {}
             for idx, t in enumerate(tickers):
                 pb.progress((idx + 1) / len(tickers))
+                if idx > 0 and idx % 10 == 0: time.sleep(1.0)
                 try:
-                    df_t = yf.Ticker(t).history(period="1y").dropna(subset=['Close', 'Volume', 'High', 'Low', 'Open'])
+                    df_t = smart_fetch(t, period="1y")
                     if len(df_t) > 150:
                         ret = (df_t['Close'].iloc[-1] / df_t['Close'].iloc[0]) - 1
                         yearly_returns[t] = ret
                         valid_dfs[t] = df_t
-                        if idx % 5 == 0: time.sleep(0.05)
                 except: continue
             
             if yearly_returns:
@@ -1121,7 +1134,7 @@ elif app_mode == "🌊 海龜回測加注雷達 (Mode E)":
                         if rs_rating < 80: continue
                     else: # 🐉 潛龍初醒
                         if not (0.75 <= (curr_p / ath) <= 0.92): continue 
-                        if rs_rating < 70: continue # 潛龍允許 RS 稍低，但不可太弱
+                        if rs_rating < 70: continue
 
                     # 3. N字回測過濾
                     last_20_high = df['High'].tail(20).max()
@@ -1168,7 +1181,7 @@ elif app_mode == "🌊 海龜回測加注雷達 (Mode E)":
             p_data = next(x for x in st.session_state.e_scanned_stocks if x['Ticker'] == sel)
             with st.spinner("正在為您繪製專屬海龜回測戰術圖表..."):
                 try:
-                    df = yf.Ticker(sel).history(period="6mo").dropna()
+                    df = smart_fetch(sel, period="6mo")
                     df['MA50'] = df['Close'].rolling(50).mean()
                     df['EMA10'] = df['Close'].ewm(span=10, adjust=False).mean()
                     
