@@ -9,19 +9,27 @@ import time
 # 1. 基礎設置 
 st.set_page_config(page_title="環球資產透維評估儀", layout="wide") 
 
-# 👴 爺爺精準 CSS：主畫面文字變白，保護側邊欄白底黑字，確保黑色背景
+# 👴 爺爺精準 CSS V170：修復白底白字問題！白框內用黑字，黑底用白字！
 st.markdown("""
     <style>
     .stApp { background-color: #0e1117; color: white; }
     
-    /* 🎯 狙擊主畫面 (stMain) 嘅選項字體變白色，絕對唔影響 stSidebar (側邊欄) */
-    section[data-testid="stMain"] div[data-testid="stRadio"] * { color: #FFFFFF !important; }
-    section[data-testid="stMain"] div[data-testid="stSelectbox"] * { color: #FFFFFF !important; }
+    /* 🎯 標題/標籤文字 (Radio上方、Selectbox上方) 設為白色 */
     section[data-testid="stMain"] div[data-testid="stWidgetLabel"] p, 
     section[data-testid="stMain"] div[data-testid="stWidgetLabel"] span { color: #FFFFFF !important; font-size: 1.1rem !important; font-weight: bold !important; }
     
+    /* 🎯 Radio 選項的文字設為白色 */
+    section[data-testid="stMain"] div[data-testid="stRadio"] label div[data-testid="stMarkdownContainer"] p { color: #FFFFFF !important; }
+
+    /* 🚀 關鍵修復：白底框框（Selectbox下拉選單、Button按鈕、TextInput輸入框）裡面的字強制變黑色！ */
+    section[data-testid="stMain"] div[data-baseweb="select"] span { color: #000000 !important; font-weight: bold !important; }
+    section[data-testid="stMain"] div[data-baseweb="select"] ul li { color: #000000 !important; }
+    section[data-testid="stMain"] button p { color: #000000 !important; font-weight: 900 !important; font-size: 1.1rem !important; }
+    section[data-testid="stMain"] div[data-baseweb="input"] input { color: #000000 !important; font-weight: bold !important; }
+    
     /* 側邊欄樣式補強 (確保喺白底時字係黑色) */
     section[data-testid="stSidebar"] div[data-testid="stWidgetLabel"] p { color: #31333F !important; }
+    section[data-testid="stSidebar"] div[data-testid="stRadio"] label div[data-testid="stMarkdownContainer"] p { color: #31333F !important; }
 
     .main-title { text-align: center; color: #FFD700 !important; font-size: 3.5rem; font-weight: 900; margin-bottom: 25px; }
     .cosmos-box { background-color: #000 !important; border: 4px solid #00FFCC; border-radius: 20px; padding: 25px; text-align: center; box-shadow: 0 0 20px #00FFCC44; }
@@ -51,16 +59,13 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# ----------------- 🛡️ 抗封鎖引擎 (新增) -----------------
+# ----------------- 🛡️ 抗封鎖引擎 -----------------
 def smart_fetch(ticker_sym, period="1y"):
-    """
-    自帶休息時間嘅數據獲取器，避開 Yahoo Finance 嘅 Too Many Requests
-    """
     try:
-        time.sleep(0.3) # 每次拉數據前硬性休息 0.3 秒
+        time.sleep(0.3) 
         data = yf.Ticker(ticker_sym).history(period=period)
         if data.empty:
-            time.sleep(1.0) # 失敗就抖 1 秒再試
+            time.sleep(1.0) 
             data = yf.Ticker(ticker_sym).history(period=period)
         return data.dropna(subset=['Close', 'Volume', 'High', 'Low', 'Open'])
     except:
@@ -259,7 +264,7 @@ def get_breadth_data(tickers):
     return stats
 
 # ----------------- 🔘 側邊欄控制 -----------------
-st.sidebar.markdown("## 🛰️ 戰術控制台 (V169.0)")
+st.sidebar.markdown("## 🛰️ 戰術控制台 (V170.0)")
 app_mode = st.sidebar.radio("請選擇操作", [
     "🚀 個股深度透視", 
     "🛡️ 環球市底大師指揮塔", 
@@ -318,7 +323,7 @@ if app_mode == "🛡️ 環球市底大師指揮塔":
 
     with st.spinner(f"⏳ 大宗師正在計算市寬數據... 請稍候 ☕🚀"):
         try:
-            idx_df = yf.Ticker(ticker_sym).history(period="2y").dropna(subset=['Close', 'Volume'])
+            idx_df = smart_fetch(ticker_sym, period="2y")
             if not idx_df.empty:
                 idx_df['20MA'] = idx_df['Close'].rolling(20).mean()
                 idx_df['50MA'] = idx_df['Close'].rolling(50).mean()
@@ -434,11 +439,11 @@ elif app_mode == "🚀 個股深度透視":
     with st.spinner(f"⏳ 系統正在切換引擎，重新為您下載海量數據及繪製摩訶圖... 請稍候 ☕🚀"):
         try:
             asset = yf.Ticker(ticker); info = asset.info
-            df = asset.history(period="2y").dropna(subset=['Close', 'Volume'])
-            spy = yf.Ticker("SPY").history(period="2y").dropna(subset=['Close'])
+            df = smart_fetch(ticker, period="2y")
+            spy = smart_fetch("SPY", period="2y")
             
             b_sym_plot = "2800.HK" if ".HK" in ticker else "SPY"
-            b_df_plot = yf.Ticker(b_sym_plot).history(period="2y").dropna()
+            b_df_plot = smart_fetch(b_sym_plot, period="2y")
             if not b_df_plot.empty:
                 b_df_plot['20MA'] = b_df_plot['Close'].rolling(20).mean().bfill()
                 b_df_plot['50MA'] = b_df_plot['Close'].rolling(50).mean().bfill()
@@ -781,7 +786,7 @@ elif app_mode == "🚀 個股深度透視":
                 v_card(v5, "EV/EBITDA", safe_s(info, ['enterpriseToEbitda'], "x"), "N/A", "企業估值")
                 v_card(v6, "股息率", safe_s(info, ['dividendYield', 'yield'], "%"), "N/A", "回報率")
                 
-                v7.markdown(f"<div class='val-box'><div class='val-label'>Beta 敏感度</div><div class='val-focus' style='margin-top:20px;'>{get_beta(info, df, spy)}</div><div style='color:#FFA500; font-size:0.9rem; margin-top:15px;'>對大盤聯 পণ্ডিত性</div></div>", unsafe_allow_html=True)
+                v7.markdown(f"<div class='val-box'><div class='val-label'>Beta 敏感度</div><div class='val-focus' style='margin-top:20px;'>{get_beta(info, df, spy)}</div><div style='color:#FFA500; font-size:0.9rem; margin-top:15px;'>對大盤聯動性</div></div>", unsafe_allow_html=True)
                 v8.markdown(f"<div class='val-box'><div class='val-label'>@ (Alpha) 超額回報</div><div class='val-focus' style='margin-top:20px;'>{get_alpha(get_beta(info, df, spy), df, spy)}</div><div style='color:#FFA500; font-size:0.9rem; margin-top:15px;'>大盤外表現</div></div>", unsafe_allow_html=True)
                 
                 hv_v = get_volatility(df)
