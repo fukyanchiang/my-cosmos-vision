@@ -866,30 +866,69 @@ elif app_mode == "🛡️ 環球市底大師指揮塔":
         except Exception as e: st.error(f"⚠️ 數據載入失敗：{e}")
 
 # =========================================================================
-# 📡 熱力圖 Mode 
+# 📡 拔河熱力圖 (分揀 5日/20日 + ETF 260/113 隻全拆解究極排行榜)
 # =========================================================================
 elif "熱力圖" in app_mode:
     st.markdown(f"<h1 class='main-title'>{app_mode}</h1>", unsafe_allow_html=True)
-    m_view = st.sidebar.radio("選擇星系", ["🇺🇸 美股陣列", "🇭🇰 港股陣列"])
-    is_us = "美股" in m_view; bench_sym = "SPY" if is_us else "^HSI"
-    target_map = (US_ETF_MAP if "ETF" in app_mode else US_STOCK_MAP) if is_us else (HK_ETF_MAP if "ETF" in app_mode else HK_STOCK_MAP)
-    with st.spinner('拔河排名計算中，慢速防封鎖引擎已啟動...'):
-        try:
-            bench_df = smart_fetch(bench_sym, period="60d")['Close'].dropna(); results = []
-            for name, tickers in target_map.items():
-                for idx, t in enumerate(tickers):
+    is_etf = "ETF" in app_mode
+    m_view = st.sidebar.radio("🌌 選擇星系", ["🇺🇸 美股陣列", "🇭🇰 港股陣列"])
+    lookback = st.sidebar.selectbox("⏰ 戰術時間窗", [5, 20], index=1)
+    is_us = "美股" in m_view
+    bench_sym = "SPY" if is_us else "^HSI"
+    target_map = (US_ETF_MAP if is_etf else US_STOCK_MAP) if is_us else (HK_ETF_MAP if is_etf else HK_STOCK_MAP)
+    
+    if is_etf:
+        all_items = list(set([t for sub in target_map.values() for t in sub]))
+        label_text = f"正在掃描 {'260' if is_us else '113'} 隻精選 ETF..."
+        chart_title = f"{'美股' if is_us else '港股'} ETF 究極龍虎榜 ({lookback}日)"
+        chart_height = 3000 if is_us else 1500
+    else:
+        all_items = list(target_map.keys()) 
+        label_text = "正在計算板塊力水..."
+        chart_title = f"{'美股 50 大' if is_us else '港股 22 大'} 板塊拔河圖 ({lookback}日)"
+        chart_height = 1200 if is_us else 700
+
+    if st.button(f"📡 啟動全星系 {lookback}日 拔河掃描！"):
+        with st.spinner(label_text):
+            try:
+                bench_df = smart_fetch(bench_sym, period="60d")['Close'].dropna()
+                results = []
+                pb = st.progress(0)
+                
+                for idx, item in enumerate(all_items):
+                    pb.progress((idx+1)/len(all_items))
+                    # ETF 取自身代號，個股板塊取第一個代表代號
+                    target_ticker = item if is_etf else target_map[item][0]
+                    
                     try:
-                        d = smart_fetch(t, period="60d")['Close'].dropna()
-                        if len(d) >= 20:
-                            rs = 50 + ((d.iloc[-1]/d.iloc[-20]) - (bench_df.iloc[-1]/bench_df.iloc[-20])) * 100
-                            results.append({"版塊": name, "RS強弱": round(rs, 1)}); break
+                        d = smart_fetch(target_ticker, period="60d")['Close'].dropna()
+                        if len(d) >= lookback and len(bench_df) >= lookback:
+                            rs = 50 + ((d.iloc[-1]/d.iloc[-lookback]) - (bench_df.iloc[-1]/bench_df.iloc[-lookback])) * 100
+                            results.append({"項目": item, "RS強弱": round(rs, 1)})
                     except: continue
-            if results:
-                df_rs = pd.DataFrame(results).sort_values("RS強弱", ascending=True)
-                fig = go.Figure(go.Bar(x=df_rs["RS強弱"], y=df_rs["版塊"], orientation='h', marker=dict(color=df_rs["RS強弱"], colorscale='Portland')))
-                fig.update_layout(template="plotly_dark", paper_bgcolor='#0e1117', plot_bgcolor='#0e1117', font=dict(color='white'), height=700)
-                st.plotly_chart(fig, use_container_width=True, theme=None, config={'displayModeBar': False})
-        except: pass
+                
+                if results:
+                    df_rs = pd.DataFrame(results).sort_values("RS強弱", ascending=True)
+                    fig = go.Figure(go.Bar(
+                        x=df_rs["RS強弱"], 
+                        y=df_rs["項目"], 
+                        orientation='h', 
+                        marker=dict(color=df_rs["RS強弱"], colorscale='Portland')
+                    ))
+                    fig.update_layout(
+                        template="plotly_dark", 
+                        height=chart_height, 
+                        title=chart_title,
+                        xaxis=dict(title=f"RS 強度 (50為基準) - {lookback}日"), 
+                        margin=dict(l=20, r=20, t=50, b=20),
+                        paper_bgcolor='#0e1117', 
+                        plot_bgcolor='#0e1117', 
+                        font=dict(color='white')
+                    )
+                    st.plotly_chart(fig, use_container_width=True, theme=None, config={'displayModeBar': False})
+                else:
+                    st.warning("💤 無法獲取足夠數據繪製圖表。")
+            except Exception as e: st.error(f"拔河失敗: {e}")
 
 # =========================================================================
 # 🔍 模式 C/F/G：起步尋龍雷達 (🌟 修改點 2: 加 💰 爆發判定)
