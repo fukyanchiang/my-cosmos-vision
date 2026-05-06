@@ -60,6 +60,7 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # ----------------- 🛡️ 抗封鎖引擎 -----------------
+@st.cache_data(ttl=3600)  # 爺爺強力緩存：記住1小時，唔使次次問Yahoo
 def smart_fetch(ticker_sym, period="1y"):
     """
     自帶休息時間嘅數據獲取器，避開 Yahoo Finance 嘅 Too Many Requests
@@ -267,7 +268,7 @@ def get_breadth_data(tickers):
     return stats
 
 # ----------------- 🔘 側邊欄控制 -----------------
-st.sidebar.markdown("## 🛰️ 戰術控制台 (V170.0)")
+st.sidebar.markdown("## 🛰️ 戰術控制台 (V173.0)")
 app_mode = st.sidebar.radio("請選擇操作", [
     "🚀 個股深度透視", 
     "🛡️ 環球市底大師指揮塔", 
@@ -301,160 +302,201 @@ if app_mode in ["🚀 個股深度透視", "🛡️ 環球市底大師指揮塔"
 # =========================================================================
 if app_mode == "🚀 個股深度透視":
     ticker = st.sidebar.text_input("🚀 輸入資產代號", "6869.HK").upper()
-
-    with st.spinner(f"⏳ 系統正在切換引擎，重新為您下載海量數據及繪製摩訶圖... 請稍候 ☕🚀"):
-        try:
-            asset = yf.Ticker(ticker); info = asset.info
-            df = smart_fetch(ticker, period="2y")
-            spy = smart_fetch("SPY", period="2y")
-            
-            b_sym_plot = "2800.HK" if ".HK" in ticker else "SPY"
-            b_df_plot = smart_fetch(b_sym_plot, period="2y")
-            if not b_df_plot.empty:
-                b_df_plot['20MA'] = b_df_plot['Close'].rolling(20).mean().bfill()
-                b_df_plot['50MA'] = b_df_plot['Close'].rolling(50).mean().bfill()
-                b_df_plot['150MA'] = b_df_plot['Close'].rolling(150).mean().bfill()
-                b_df_plot['200MA'] = b_df_plot['Close'].rolling(200).mean().bfill()
-
-            if not df.empty:
-                if df.index.tz is not None: df.index = df.index.tz_localize(None)
-                df.index = df.index.normalize()
-                if spy.index.tz is not None: spy.index = spy.index.tz_localize(None)
-                spy.index = spy.index.normalize()
-                curr_p = df['Close'].iloc[-1]
+    analyze_btn = st.sidebar.button("🔍 確認透視")
+    
+    if 'mode_a_ticker' not in st.session_state: st.session_state.mode_a_ticker = ""
+    if analyze_btn: st.session_state.mode_a_ticker = ticker
+    
+    if st.session_state.mode_a_ticker != "":
+        ticker_to_use = st.session_state.mode_a_ticker
+        with st.spinner(f"⏳ 系統正在切換引擎，重新為您下載海量數據及繪製摩訶圖... 請稍候 ☕🚀"):
+            try:
+                asset = yf.Ticker(ticker_to_use); info = asset.info
+                df = smart_fetch(ticker_to_use, period="2y")
+                spy = smart_fetch("SPY", period="2y")
                 
-                asset_name = info.get('shortName', info.get('longName', ''))
-                industry_str = f" | {info.get('sector', 'N/A')} - {info.get('industry', 'N/A')}" if info.get('sector') else ""
-                name_html = f"<span style='font-size: 1.8rem; color: #AAAAAA; font-weight: 500; margin-left: 15px;'>{asset_name}{industry_str}</span>" if asset_name else ""
-                
-                st.markdown(f"""<div class='main-title' style='margin-bottom:10px;'>環球資產透維評估儀 [{ticker}]{name_html}</div>""", unsafe_allow_html=True)
-                
-                ath_val = info.get('fiftyTwoWeekHigh', curr_p)
-                dist_ath = ((curr_p / ath_val) - 1) * 100 if ath_val and ath_val > 0 else 0
-                
-                df['50MA_strat'] = df['Close'].rolling(50).mean().bfill()
-                ma50_bias = ((curr_p / df['50MA_strat'].iloc[-1]) - 1) * 100 if df['50MA_strat'].iloc[-1] > 0 else 0
-                
-                st.markdown(f"""
-                <div style='display: flex; gap: 15px; margin-bottom: 25px;'>
-                    <div class='red-bar' style='flex: 1; background-color: #310000; border: 2px solid #FF4B4B; padding: 15px; font-size: 1.8rem;'>🎯 巔峰收復進度：距離 52周高位 [ {dist_ath:.1f}% ]</div>
-                    <div class='red-bar' style='flex: 1; background-color: #002222; border: 2px solid #00FFCC; padding: 15px; font-size: 1.8rem;'>⚖️ 地心引力監控：偏離 50日線 [ {ma50_bias:+.1f}% ]</div>
-                </div>
-                """, unsafe_allow_html=True)
-                
-                st.markdown(f"""<div style='text-align: center; color: #00FFCC; font-size: 1.2rem; font-weight: bold; margin-bottom: 25px; padding: 10px; background-color: rgba(0, 255, 204, 0.1); border-radius: 8px; border: 1px dashed #00FFCC;'>🛡️ 必勝潛伏方程式：COSMOS-RS (星系強弱) > 52, EJ 錢流底氣 > 85, 短期能量 > 75, 最近 20 日主力資金池淨額是正數買入，OBV 大戶籌碼流入或觀望，資金部署集中度是分散</div>""", unsafe_allow_html=True)
+                b_sym_plot = "2800.HK" if ".HK" in ticker_to_use else "SPY"
+                b_df_plot = smart_fetch(b_sym_plot, period="2y")
+                if not b_df_plot.empty:
+                    b_df_plot['20MA'] = b_df_plot['Close'].rolling(20).mean().bfill()
+                    b_df_plot['50MA'] = b_df_plot['Close'].rolling(50).mean().bfill()
+                    b_df_plot['150MA'] = b_df_plot['Close'].rolling(150).mean().bfill()
+                    b_df_plot['200MA'] = b_df_plot['Close'].rolling(200).mean().bfill()
 
-                c_tail = df['Close'].tail(125); days = np.arange(len(c_tail))
-                slope, intercept = np.polyfit(days, c_tail, 1); pred = intercept + slope * len(days)
-                mom = (curr_p / pred) if pred > 0 else 1.0; v_ann = max(0.001, c_tail.pct_change().std() * np.sqrt(252))
-                cx_val = safe_n(((slope * 252) / c_tail.mean() / v_ann) * 29 * mom, 50.0)
-
-                spy_aligned = spy['Close'].reindex(df.index).ffill().bfill() 
-                crs_val = safe_n(50 + ((curr_p / df['Close'].iloc[-63]) - (spy_aligned.iloc[-1] / spy_aligned.iloc[-63])) * 100, 50.0) if len(df) > 63 else 50.0
-                v21 = df['Volume'].tail(21).mean(); v252 = df['Volume'].tail(252).mean(); cej_s = safe_n((v21 / max(v252, 1)) * 100, 50.0)
-                se_s = safe_n(50 + (((curr_p / df['Close'].iloc[-5]) - 1) * 1200), 50.0) if len(df) > 5 else 50.0
-
-                def get_trend_stats(metric):
-                    try:
-                        if len(df) < 25: return "N/A", "#888"
-                        if metric == "RS":
-                            past_p = df['Close'].iloc[-20]; past_spy = spy_aligned.iloc[-20]
-                            past_bench = df['Close'].iloc[-83] if len(df) > 83 else df['Close'].iloc[0]
-                            past_bench_spy = spy_aligned.iloc[-83] if len(spy_aligned) > 83 else spy_aligned.iloc[0]
-                            past = 50 + ((past_p / past_bench) - (past_spy / past_bench_spy)) * 100
-                            diff = crs_val - past
-                        elif metric == "EJ":
-                            v_past_21 = df['Volume'].iloc[-41:-20].mean()
-                            v_past_252 = df['Volume'].iloc[-273:-20].mean() if len(df) > 280 else df['Volume'].iloc[:-20].mean()
-                            past = (v_past_21 / max(v_past_252, 1)) * 100
-                            diff = cej_s - past
-                        else: past = 50 + (((df['Close'].iloc[-20] / df['Close'].iloc[-25]) - 1) * 1200); diff = se_s - past
-                        color = "#00FF00" if diff >= 0 else "#FF4B4B"
-                        return f"{'+' if diff>=0 else ''}{diff:.1f}%", color
-                    except: return "N/A", "#888"
-
-                def get_pulse_fig(pulse_vals):
-                    try:
-                        colors = ['#00FFCC' if v >= 0 else '#FF4B4B' for v in pulse_vals]
-                        fig = go.Figure(go.Bar(x=list(range(len(pulse_vals))), y=pulse_vals, marker_color=colors, hoverinfo='skip'))
-                        fig.update_layout(height=130, margin=dict(l=0,r=0,t=5,b=0), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', xaxis=dict(visible=False, fixedrange=True), yaxis=dict(visible=False, fixedrange=True), showlegend=False)
-                        return fig
-                    except: return go.Figure().update_layout(height=130, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', xaxis=dict(visible=False), yaxis=dict(visible=False))
-
-                # =======================================================
-                # 🚀 QUANTUM_X 八大護國神磚！
-                # =======================================================
-                q_asset = int(min(100, max(0, safe_n(info.get('returnOnEquity', 0.1)*300 + 50, 75))))
-                q_trend = int(min(100, max(0, crs_val)))
-                q_power = int(min(100, max(0, cx_val * 1.5)))
-                q_money = int(min(100, max(0, cej_s)))
-                q_sent  = int(min(100, max(0, se_s)))
-                q_total = int((q_asset + q_trend + q_power + q_money + q_sent) / 5)
-                q_pivot = df['Close'].tail(120).mean() if not df.empty else 0
-                q_vol_ratio = df['Volume'].iloc[-1] / max(1, df['Volume'].tail(20).mean()) if not df.empty else 0
-
-                st.markdown("<div style='margin-bottom: 20px;'>", unsafe_allow_html=True)
-                qc1, qc2, qc3, qc4 = st.columns(4)
-                def q_card(col, icon, title, val, suffix=""):
-                    col.markdown(f"""
-                    <div style='background-color:#111; border-radius:10px; padding:15px; border:1px solid #00FFCC; margin-bottom:15px; box-shadow: 0 0 10px rgba(0,255,204,0.2);'>
-                        <div style='color:#00FFCC; font-size:1.1rem; font-weight:bold; margin-bottom:8px;'>{icon} {title}</div>
-                        <div style='color:white; font-size:2.2rem; font-weight:900;'>{val}{suffix}</div>
+                if not df.empty:
+                    if df.index.tz is not None: df.index = df.index.tz_localize(None)
+                    df.index = df.index.normalize()
+                    if spy.index.tz is not None: spy.index = spy.index.tz_localize(None)
+                    spy.index = spy.index.normalize()
+                    curr_p = df['Close'].iloc[-1]
+                    
+                    asset_name = info.get('shortName', info.get('longName', ''))
+                    industry_str = f" | {info.get('sector', 'N/A')} - {info.get('industry', 'N/A')}" if info.get('sector') else ""
+                    name_html = f"<span style='font-size: 1.8rem; color: #AAAAAA; font-weight: 500; margin-left: 15px;'>{asset_name}{industry_str}</span>" if asset_name else ""
+                    
+                    st.markdown(f"""<div class='main-title' style='margin-bottom:10px;'>環球資產透維評估儀 [{ticker_to_use}]{name_html}</div>""", unsafe_allow_html=True)
+                    
+                    ath_val = info.get('fiftyTwoWeekHigh', curr_p)
+                    dist_ath = ((curr_p / ath_val) - 1) * 100 if ath_val and ath_val > 0 else 0
+                    
+                    df['50MA_strat'] = df['Close'].rolling(50).mean().bfill()
+                    ma50_bias = ((curr_p / df['50MA_strat'].iloc[-1]) - 1) * 100 if df['50MA_strat'].iloc[-1] > 0 else 0
+                    
+                    st.markdown(f"""
+                    <div style='display: flex; gap: 15px; margin-bottom: 25px;'>
+                        <div class='red-bar' style='flex: 1; background-color: #310000; border: 2px solid #FF4B4B; padding: 15px; font-size: 1.8rem;'>🎯 巔峰收復進度：距離 52周高位 [ {dist_ath:.1f}% ]</div>
+                        <div class='red-bar' style='flex: 1; background-color: #002222; border: 2px solid #00FFCC; padding: 15px; font-size: 1.8rem;'>⚖️ 地心引力監控：偏離 50日線 [ {ma50_bias:+.1f}% ]</div>
                     </div>
                     """, unsafe_allow_html=True)
+                    
+                    st.markdown(f"""<div style='text-align: center; color: #00FFCC; font-size: 1.2rem; font-weight: bold; margin-bottom: 25px; padding: 10px; background-color: rgba(0, 255, 204, 0.1); border-radius: 8px; border: 1px dashed #00FFCC;'>🛡️ 必勝潛伏方程式：COSMOS-RS (星系強弱) > 52, EJ 錢流底氣 > 85, 短期能量 > 75, 最近 20 日主力資金池淨額是正數買入，OBV 大戶籌碼流入或觀望，資金部署集中度是分散</div>""", unsafe_allow_html=True)
 
-                q_card(qc1, "🏢", "資產質量", f"{q_asset}/100")
-                q_card(qc2, "📈", "趨勢強度", f"{q_trend}/100")
-                q_card(qc3, "⚡", "動能 (Power)", f"{q_power}/100")
-                q_card(qc4, "🐋", "大資金", f"{q_money}/100")
+                    c_tail = df['Close'].tail(125); days = np.arange(len(c_tail))
+                    slope, intercept = np.polyfit(days, c_tail, 1); pred = intercept + slope * len(days)
+                    mom = (curr_p / pred) if pred > 0 else 1.0; v_ann = max(0.001, c_tail.pct_change().std() * np.sqrt(252))
+                    cx_val = safe_n(((slope * 252) / c_tail.mean() / v_ann) * 29 * mom, 50.0)
 
-                qc5, qc6, qc7, qc8 = st.columns(4)
-                q_card(qc5, "🎭", "市場情緒", f"{q_sent}/100")
-                q_card(qc6, "🏆", "綜合總分", f"{q_total}/100")
-                q_card(qc7, "🏛️", "歷史中軸價", f"${q_pivot:.2f}")
-                q_card(qc8, "💰", "成交比率", f"{q_vol_ratio:.1f}x")
-                st.markdown("</div>", unsafe_allow_html=True)
-                
-                c1, c2, c3 = st.columns([1, 1.2, 1.6])
-                with c1: st.markdown(f"""<div class='cosmos-box' style='height: 460px; display:flex; flex-direction:column; justify-content:center;'><div class='cosmos-label'>COSMOS-X (天體動能)</div><div class='cosmos-value'>{cx_val:.1f}</div></div>""", unsafe_allow_html=True)
-                with c2:
-                    stat_rs, col_rs = get_trend_stats("RS")
-                    st.markdown(f"""<div class='cosmos-box' style='border-color:#FFD700; height: 330px; display:flex; flex-direction:column; justify-content:center;'><div class='cosmos-label' style='font-size:1.6rem;'>COSMOS-RS (星系強弱)</div><div class='cosmos-value' style='font-size:4rem;'>{crs_val:.1f}</div><div style='color:{col_rs}; font-size:1.5rem; font-weight:bold; margin-top:15px;'>20日推力: {stat_rs}</div></div>""", unsafe_allow_html=True)
-                    pulse_df = df.tail(21).copy(); rs_line = pulse_df['Close'] / spy_aligned.tail(21); rs_pulse_vals = rs_line.pct_change().tail(20).fillna(0).values * 600
-                    st.plotly_chart(get_pulse_fig(rs_pulse_vals), use_container_width=True, theme=None, config={'displayModeBar': False})
-                with c3:
-                    def draw_triad_bar(val, color):
-                        lit = int((min(120, val)/120)*21); html = f"<div class='bar-group-container' style='margin:0;'>"
-                        for g in range(7):
-                            html += "<div class='bar-triad'>"
-                            for i in range(3):
-                                idx = g*3+i; c_code = "#FF4B4B" if idx<6 else ("#FFD700" if idx<12 else color)
-                                html += f"<div class='ej-seg' style='height:14px; width:12px; background-color:{c_code if idx < lit else '#222'}; opacity:{1 if idx < lit else 0.1};'></div>"
-                            html += "</div>"
-                        return html + "</div>"
-                    avg_vol = df['Volume'].tail(252).mean() or 1
-                    stat_ej, col_ej = get_trend_stats("EJ")
-                    st.markdown(f"""<div class='cosmos-box' style='border-color:#00FFFF; padding: 15px; height: 100px; display:flex; flex-direction:column; justify-content:center;'><div style='display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:5px;'><span style='color:#00FFFF; font-size:1.4rem; font-weight:bold;'>EJ 錢流底氣: {cej_s:.1f}%</span><span style='color:{col_ej}; font-size:1.2rem; font-weight:bold;'>20日吸金: {stat_ej}</span></div>{draw_triad_bar(cej_s, "#00FFFF")}</div>""", unsafe_allow_html=True)
-                    vol_ratio = (pulse_df['Volume'].tail(20) / avg_vol).values; direction = np.where(pulse_df['Close'].tail(20) >= pulse_df['Open'].tail(20), 1, -1); ej_pulse_vals = vol_ratio * direction * 50 
-                    st.plotly_chart(get_pulse_fig(ej_pulse_vals), use_container_width=True, theme=None, config={'displayModeBar': False})
-                    stat_se, col_se = get_trend_stats("SE")
-                    st.markdown(f"""<div class='cosmos-box' style='border-color:#FF00FF; padding: 15px; height: 100px; display:flex; flex-direction:column; justify-content:center; margin-top:0px;'><div style='display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:5px;'><span style='color:#FF00FF; font-size:1.4rem; font-weight:bold;'>短期能量 BAR: {se_s:.1f}%</span><span style='color:{col_se}; font-size:1.2rem; font-weight:bold;'>20日動能: {stat_se}</span></div>{draw_triad_bar(se_s, "#FF00FF")}</div>""", unsafe_allow_html=True)
-                    se_pulse_vals = pulse_df['Close'].pct_change().tail(20).fillna(0).values * 200
-                    st.plotly_chart(get_pulse_fig(se_pulse_vals), use_container_width=True, theme=None, config={'displayModeBar': False})
+                    spy_aligned = spy['Close'].reindex(df.index).ffill().bfill() 
+                    if len(df) > 0:
+                        lookback_idx = -63 if len(df) >= 63 else 0
+                        base_p = df['Close'].iloc[lookback_idx]
+                        base_spy = spy_aligned.iloc[lookback_idx] if len(spy_aligned) > 0 else 1
+                        crs_val = safe_n(50 + ((curr_p / base_p) - (spy_aligned.iloc[-1] / base_spy)) * 100, 50.0)
+                    else:
+                        crs_val = 50.0
+
+                    v21 = df['Volume'].tail(21).mean(); v252 = df['Volume'].tail(252).mean(); cej_s = safe_n((v21 / max(v252, 1)) * 100, 50.0)
+                    if len(df) > 0:
+                        se_lookback = -5 if len(df) >= 5 else 0
+                        se_s = safe_n(50 + (((curr_p / df['Close'].iloc[se_lookback]) - 1) * 1200), 50.0)
+                    else:
+                        se_s = 50.0
+
+                    def get_trend_stats(metric):
+                        try:
+                            is_new = len(df) < 40
+                            if metric == "RS":
+                                past_lookback = -20 if len(df) >= 20 else 0
+                                past_bench_idx = -83 if len(df) >= 83 else 0
+                                past_p = df['Close'].iloc[past_lookback]; past_spy = spy_aligned.iloc[past_lookback]
+                                past_bench = df['Close'].iloc[past_bench_idx] 
+                                past_bench_spy = spy_aligned.iloc[past_bench_idx] if len(spy_aligned) > 0 else 1
+                                past = 50 + ((past_p / past_bench) - (past_spy / past_bench_spy)) * 100
+                                diff = crs_val - past
+                            elif metric == "EJ":
+                                v_past_21 = df['Volume'].iloc[-41:-20].mean() if len(df) > 20 else df['Volume'].mean()
+                                v_past_252 = df['Volume'].iloc[-273:-20].mean() if len(df) > 280 else (df['Volume'].iloc[:-20].mean() if len(df) > 20 else df['Volume'].mean())
+                                past = (v_past_21 / max(v_past_252, 1)) * 100
+                                diff = cej_s - past
+                            else: 
+                                p_lookback = -20 if len(df) >= 20 else 0
+                                p_base = -25 if len(df) >= 25 else 0
+                                past = 50 + (((df['Close'].iloc[p_lookback] / df['Close'].iloc[p_base]) - 1) * 1200)
+                                diff = se_s - past
+                            color = "#00FF00" if diff >= 0 else "#FF4B4B"
+                            res_str = f"{'+' if diff>=0 else ''}{diff:.1f}%"
+                            if is_new: res_str += " (累積中)"
+                            return res_str, color
+                        except: return "數據累積中", "#888"
+
+                    def get_pulse_fig(pulse_vals):
+                        try:
+                            colors = ['#00FFCC' if v >= 0 else '#FF4B4B' for v in pulse_vals]
+                            fig = go.Figure(go.Bar(x=list(range(len(pulse_vals))), y=pulse_vals, marker_color=colors, hoverinfo='skip'))
+                            fig.update_layout(height=130, margin=dict(l=0,r=0,t=5,b=0), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', xaxis=dict(visible=False, fixedrange=True), yaxis=dict(visible=False, fixedrange=True), showlegend=False)
+                            return fig
+                        except: return go.Figure().update_layout(height=130, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', xaxis=dict(visible=False), yaxis=dict(visible=False))
+
+                    # =======================================================
+                    # 🚀 QUANTUM_X 八大護國神磚！
+                    # =======================================================
+                    q_asset = int(min(100, max(0, safe_n(info.get('returnOnEquity', 0.1)*300 + 50, 75))))
+                    q_trend = int(min(100, max(0, crs_val)))
+                    q_power = int(min(100, max(0, cx_val * 1.5)))
+                    q_money = int(min(100, max(0, cej_s)))
+                    q_sent  = int(min(100, max(0, se_s)))
+                    q_total = int((q_asset + q_trend + q_power + q_money + q_sent) / 5)
+                    q_pivot = df['Close'].tail(120).mean() if not df.empty else 0
+                    q_vol_ratio = df['Volume'].iloc[-1] / max(1, df['Volume'].tail(20).mean()) if not df.empty else 0
+
+                    st.markdown("<div style='margin-bottom: 20px;'>", unsafe_allow_html=True)
+                    qc1, qc2, qc3, qc4 = st.columns(4)
+                    def q_card(col, icon, title, val, suffix=""):
+                        col.markdown(f"""
+                        <div style='background-color:#111; border-radius:10px; padding:15px; border:1px solid #00FFCC; margin-bottom:15px; box-shadow: 0 0 10px rgba(0,255,204,0.2);'>
+                            <div style='color:#00FFCC; font-size:1.1rem; font-weight:bold; margin-bottom:8px;'>{icon} {title}</div>
+                            <div style='color:white; font-size:2.2rem; font-weight:900;'>{val}{suffix}</div>
+                        </div>
+                        """, unsafe_allow_html=True)
+
+                    q_card(qc1, "🏢", "資產質量", f"{q_asset}/100")
+                    q_card(qc2, "📈", "趨勢強度", f"{q_trend}/100")
+                    q_card(qc3, "⚡", "動能 (Power)", f"{q_power}/100")
+                    q_card(qc4, "🐋", "大資金", f"{q_money}/100")
+
+                    qc5, qc6, qc7, qc8 = st.columns(4)
+                    q_card(qc5, "🎭", "市場情緒", f"{q_sent}/100")
+                    q_card(qc6, "🏆", "綜合總分", f"{q_total}/100")
+                    q_card(qc7, "🏛️", "歷史中軸價", f"${q_pivot:.2f}")
+                    q_card(qc8, "💰", "成交比率", f"{q_vol_ratio:.1f}x")
+                    st.markdown("</div>", unsafe_allow_html=True)
+                    
+                    c1, c2, c3 = st.columns([1, 1.2, 1.6])
+                    with c1: st.markdown(f"""<div class='cosmos-box' style='height: 460px; display:flex; flex-direction:column; justify-content:center;'><div class='cosmos-label'>COSMOS-X (天體動能)</div><div class='cosmos-value'>{cx_val:.1f}</div></div>""", unsafe_allow_html=True)
+                    with c2:
+                        stat_rs, col_rs = get_trend_stats("RS")
+                        st.markdown(f"""<div class='cosmos-box' style='border-color:#FFD700; height: 330px; display:flex; flex-direction:column; justify-content:center;'><div class='cosmos-label' style='font-size:1.6rem;'>COSMOS-RS (星系強弱)</div><div class='cosmos-value' style='font-size:4rem;'>{crs_val:.1f}</div><div style='color:{col_rs}; font-size:1.5rem; font-weight:bold; margin-top:15px;'>20日推力: {stat_rs}</div></div>""", unsafe_allow_html=True)
+                        pulse_df = df.tail(21).copy(); rs_line = pulse_df['Close'] / spy_aligned.tail(21); rs_pulse_vals = rs_line.pct_change().tail(20).fillna(0).values * 600
+                        st.plotly_chart(get_pulse_fig(rs_pulse_vals), use_container_width=True, theme=None, config={'displayModeBar': False})
+                    with c3:
+                        def draw_triad_bar(val, color):
+                            lit = int((min(120, val)/120)*21); html = f"<div class='bar-group-container' style='margin:0;'>"
+                            for g in range(7):
+                                html += "<div class='bar-triad'>"
+                                for i in range(3):
+                                    idx = g*3+i; c_code = "#FF4B4B" if idx<6 else ("#FFD700" if idx<12 else color)
+                                    html += f"<div class='ej-seg' style='height:14px; width:12px; background-color:{c_code if idx < lit else '#222'}; opacity:{1 if idx < lit else 0.1};'></div>"
+                                html += "</div>"
+                            return html + "</div>"
+                        avg_vol = df['Volume'].tail(252).mean() or 1
+                        stat_ej, col_ej = get_trend_stats("EJ")
+                        st.markdown(f"""<div class='cosmos-box' style='border-color:#00FFFF; padding: 15px; height: 100px; display:flex; flex-direction:column; justify-content:center;'><div style='display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:5px;'><span style='color:#00FFFF; font-size:1.4rem; font-weight:bold;'>EJ 錢流底氣: {cej_s:.1f}%</span><span style='color:{col_ej}; font-size:1.2rem; font-weight:bold;'>20日吸金: {stat_ej}</span></div>{draw_triad_bar(cej_s, "#00FFFF")}</div>""", unsafe_allow_html=True)
+                        vol_ratio = (pulse_df['Volume'].tail(20) / avg_vol).values; direction = np.where(pulse_df['Close'].tail(20) >= pulse_df['Open'].tail(20), 1, -1); ej_pulse_vals = vol_ratio * direction * 50 
+                        st.plotly_chart(get_pulse_fig(ej_pulse_vals), use_container_width=True, theme=None, config={'displayModeBar': False})
+                        stat_se, col_se = get_trend_stats("SE")
+                        st.markdown(f"""<div class='cosmos-box' style='border-color:#FF00FF; padding: 15px; height: 100px; display:flex; flex-direction:column; justify-content:center; margin-top:0px;'><div style='display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:5px;'><span style='color:#FF00FF; font-size:1.4rem; font-weight:bold;'>短期能量 BAR: {se_s:.1f}%</span><span style='color:{col_se}; font-size:1.2rem; font-weight:bold;'>20日動能: {stat_se}</span></div>{draw_triad_bar(se_s, "#FF00FF")}</div>""", unsafe_allow_html=True)
+                        se_pulse_vals = pulse_df['Close'].pct_change().tail(20).fillna(0).values * 200
+                        st.plotly_chart(get_pulse_fig(se_pulse_vals), use_container_width=True, theme=None, config={'displayModeBar': False})
 
                 try:
                     mf_df = df.tail(41).copy(); mf_df['Typical_Price'] = (mf_df['High'] + mf_df['Low'] + mf_df['Close']) / 3
                     mf_df['Net_Flow'] = mf_df['Typical_Price'] * mf_df['Volume'] * np.where(mf_df['Close'] > mf_df['Close'].shift(1).fillna(mf_df['Close']), 1, -1)
                     mf_df['OBV_Daily'] = (np.sign(mf_df['Close'].diff()) * mf_df['Volume']).fillna(0); mf_df['OBV'] = mf_df['OBV_Daily'].cumsum()
-                    curr_20d_flow = mf_df['Net_Flow'].tail(20).sum(); prev_20d_flow = mf_df['Net_Flow'].iloc[-40:-20].sum()
+                    
+                    curr_tail = min(20, len(mf_df))
+                    curr_20d_flow = mf_df['Net_Flow'].tail(curr_tail).sum()
+                    prev_20d_flow = mf_df['Net_Flow'].iloc[-(curr_tail*2):-curr_tail].sum() if len(mf_df) > curr_tail else 0
+                    
                     if abs(curr_20d_flow) >= 1e8: flow_str = f"{'+' if curr_20d_flow>0 else ''}${curr_20d_flow/1e8:.1f} 億"
                     elif abs(curr_20d_flow) >= 1e6: flow_str = f"{'+' if curr_20d_flow>0 else ''}${curr_20d_flow/1e6:.1f} M (百萬)"
                     else: flow_str = f"{'+' if curr_20d_flow>0 else ''}${curr_20d_flow:,.0f}"
                     flow_color = "#00FF00" if curr_20d_flow > 0 else "#FF4B4B"
+                    
                     mf_pct = (curr_20d_flow - prev_20d_flow) / abs(prev_20d_flow) * 100 if prev_20d_flow != 0 else 0
-                    obv_curr_val = mf_df['OBV'].iloc[-1] - mf_df['OBV'].iloc[-21]; obv_prev_val = mf_df['OBV'].iloc[-21] - mf_df['OBV'].iloc[-41] if len(mf_df) > 40 else 1
-                    price_trend = mf_df['Close'].iloc[-1] - mf_df['Close'].iloc[-21]; obv_pct = (obv_curr_val - obv_prev_val) / abs(obv_prev_val) * 100 if obv_prev_val != 0 else 0
-                    obv_total_vol = mf_df['Volume'].tail(20).sum() or 1
+                    mf_pct = min(999.0, max(-999.0, mf_pct))
+                    
+                    obv_curr_val = mf_df['OBV'].iloc[-1] - mf_df['OBV'].iloc[-curr_tail] if len(mf_df) >= curr_tail else mf_df['OBV'].iloc[-1] - mf_df['OBV'].iloc[0]
+                    if len(mf_df) > curr_tail:
+                        prev_idx = max(0, len(mf_df) - (curr_tail * 2))
+                        obv_prev_val = mf_df['OBV'].iloc[-curr_tail] - mf_df['OBV'].iloc[prev_idx]
+                    else:
+                        obv_prev_val = 1
+                    
+                    price_trend = mf_df['Close'].iloc[-1] - mf_df['Close'].iloc[-curr_tail] if len(mf_df) >= curr_tail else mf_df['Close'].iloc[-1] - mf_df['Close'].iloc[0]
+                    obv_pct = (obv_curr_val - obv_prev_val) / abs(obv_prev_val) * 100 if obv_prev_val != 0 else 0
+                    obv_pct = min(999.0, max(-999.0, obv_pct))
+                    
+                    obv_total_vol = mf_df['Volume'].tail(curr_tail).sum() or 1
                     if abs(obv_curr_val) / obv_total_vol < 0.02: trend_str, trend_color, obv_state = "9. 🧊 資金膠著盤整 (觀望)", "#888888", 9
                     else:
                         if price_trend >= 0:
@@ -471,11 +513,19 @@ if app_mode == "🚀 個股深度透視":
                             else:
                                 if obv_pct > 20: trend_str, trend_color, obv_state = "7. 🐉 底部分歧掃貨 (量價強烈背離 - 大吉兆)", "#00FFCC", 7
                                 else: trend_str, trend_color, obv_state = "8. 🐲 底部分歧掃貨 (量價背離 - 吉兆)", "#00FFCC", 8
-                    daily_abs_flow = abs(mf_df['Net_Flow'].tail(20)); total_abs_flow = daily_abs_flow.sum() or 1; conc_pct = (daily_abs_flow.max() / total_abs_flow) * 100
+                    
+                    daily_abs_flow = abs(mf_df['Net_Flow'].tail(curr_tail)); total_abs_flow = daily_abs_flow.sum() or 1; conc_pct = (daily_abs_flow.max() / total_abs_flow) * 100
+                    
+                    data_warning = ""
+                    if len(df) < 40:
+                        data_warning = "<div style='color:#FFA500; text-align:center; margin-bottom:10px; font-weight:bold;'>⚠️ 數據累積中：此資產上市不足 40 日，部分資金變化比率乃與首日比較。</div>"
+                    
                     if conc_pct > 35: conc_level, conc_color, conc_note = "⚡ 高度集中", "#FF4B4B", "（高度集中 / 突發一棍買入，可能是想令散戶跟風）" if curr_20d_flow > 0 else "（高度集中 / 突發一棍掟貨，可能引發恐慌）"
                     elif conc_pct > 15: conc_level, conc_color, conc_note = "🌿 正常分佈", "#FFD700", "（沒有特別想偷偷買，就是公開正常買入）" if curr_20d_flow > 0 else "（公開正常沽出）"
                     else: conc_level, conc_color, conc_note = "💎 穩定分散", "#00FFCC", "（不想被人知道偷偷買入）" if curr_20d_flow > 0 else "（不想被人知道偷偷派發）"
+                    
                     st.write(""); st.markdown("<h3 style='color:#FFF; margin-bottom:10px;'>🌊 獨家解密：20日主力資金池淨額 (Money Flow & OBV)</h3>", unsafe_allow_html=True)
+                    if data_warning: st.markdown(data_warning, unsafe_allow_html=True)
                     st.markdown("<div style='background-color:#000; border-radius:15px; padding:20px; border: 2px solid #333;'>", unsafe_allow_html=True)
                     mc1, mc2 = st.columns(2)
                     with mc1:
@@ -680,7 +730,7 @@ if app_mode == "🚀 個股深度透視":
                         shares = row.get('Shares', 0); calc_pct = (shares/total_shares); val_m = row.get('Value', 0)/1e6
                         st.markdown(f"<div class='whale-row'><span class='whale-n'>{row['Holder']}</span><span class='whale-a'>持有 {shares:,.0f} 股 | 佔比 {calc_pct:.2%} | 市值 ${val_m:.1f}M</span></div>", unsafe_allow_html=True)
                 st.markdown("</div>", unsafe_allow_html=True)
-        except Exception as e: st.error(f"渲染錯誤: {e}")
+            except Exception as e: st.error(f"渲染錯誤: {e}")
 
 # =========================================================================
 # 🛡️ 模式 B：環球市底大師指揮塔 
