@@ -13,21 +13,13 @@ st.set_page_config(page_title="環球資產透維評估儀", layout="wide")
 st.markdown("""
     <style>
     .stApp { background-color: #0e1117; color: white; }
-    
-    /* 🎯 標題/標籤文字 (Radio上方、Selectbox上方) 設為白色 */
     section[data-testid="stMain"] div[data-testid="stWidgetLabel"] p, 
     section[data-testid="stMain"] div[data-testid="stWidgetLabel"] span { color: #FFFFFF !important; font-size: 1.1rem !important; font-weight: bold !important; }
-    
-    /* 🎯 Radio 選項的文字設為白色 */
     section[data-testid="stMain"] div[data-testid="stRadio"] label div[data-testid="stMarkdownContainer"] p { color: #FFFFFF !important; }
-
-    /* 🚀 關鍵修復：白底框框（Selectbox下拉選單、Button按鈕、TextInput輸入框）裡面的字強制變黑色！ */
     section[data-testid="stMain"] div[data-baseweb="select"] span { color: #000000 !important; font-weight: bold !important; }
     section[data-testid="stMain"] div[data-baseweb="select"] ul li { color: #000000 !important; }
     section[data-testid="stMain"] button p { color: #000000 !important; font-weight: 900 !important; font-size: 1.1rem !important; }
     section[data-testid="stMain"] div[data-baseweb="input"] input { color: #000000 !important; font-weight: bold !important; }
-    
-    /* 側邊欄樣式補強 (確保喺白底時字係黑色) */
     section[data-testid="stSidebar"] div[data-testid="stWidgetLabel"] p { color: #31333F !important; }
     section[data-testid="stSidebar"] div[data-testid="stRadio"] label div[data-testid="stMarkdownContainer"] p { color: #31333F !important; }
 
@@ -59,10 +51,9 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# ----------------- 🛡️ 強力緩存引擎 (1 小時緩存) -----------------
+# ----------------- 🛡️ 強力緩存引擎 (Caching) -----------------
 @st.cache_data(ttl=3600)
 def smart_fetch(ticker_sym, period="1y"):
-    """自帶休息時間嘅數據獲取器，並緩存 1 小時"""
     try:
         time.sleep(0.3) 
         data = yf.Ticker(ticker_sym).history(period=period)
@@ -70,40 +61,29 @@ def smart_fetch(ticker_sym, period="1y"):
             time.sleep(1.0) 
             data = yf.Ticker(ticker_sym).history(period=period)
         return data.dropna(subset=['Close', 'Volume', 'High', 'Low', 'Open'])
-    except:
-        return pd.DataFrame()
-
-@st.cache_data(ttl=3600)
-def smart_fetch_info(ticker_sym):
-    try:
-        time.sleep(0.3)
-        return yf.Ticker(ticker_sym).info
-    except: return {}
-
-@st.cache_data(ttl=3600)
-def smart_fetch_holders(ticker_sym):
-    try:
-        time.sleep(0.3)
-        holders = yf.Ticker(ticker_sym).institutional_holders
-        return holders if holders is not None else pd.DataFrame()
     except: return pd.DataFrame()
 
 @st.cache_data(ttl=3600)
-def smart_fetch_iv(ticker_sym):
+def get_all_data(ticker_sym):
+    """將 info, holders, iv 綁成一個緩存，避免被 Yahoo 當機械人 Block！"""
     try:
         time.sleep(0.3)
         asset = yf.Ticker(ticker_sym)
-        options = asset.options
-        if not options: return "N/A"
-        chain = asset.option_chain(options[0])
-        calls = chain.calls
-        if calls.empty: return "N/A"
-        mid_idx = len(calls) // 2
-        iv = calls.iloc[mid_idx]['impliedVolatility']
-        return f"{iv * 100:.1f}%"
-    except: return "N/A"
+        info = asset.info
+        try: holders = asset.institutional_holders
+        except: holders = None
+        iv = "N/A"
+        try:
+            options = asset.options
+            if options:
+                chain = asset.option_chain(options[0])
+                if not chain.calls.empty:
+                    mid_idx = len(chain.calls) // 2
+                    iv = f"{chain.calls.iloc[mid_idx]['impliedVolatility'] * 100:.1f}%"
+        except: pass
+        return info, holders, iv
+    except: return {}, None, "N/A"
 
-# 👴 OBV 百分比 Cap 死保險絲
 def cap_pct(val):
     try:
         v = float(val)
@@ -326,14 +306,14 @@ if app_mode in ["🚀 個股深度透視", "🛡️ 環球市底大師指揮塔"
 # =========================================================================
 if app_mode == "🚀 個股深度透視":
     ticker = st.sidebar.text_input("🚀 輸入資產代號", "6869.HK").upper()
-    # 🌟 修改點 3: 確認透視掣，唔撳唔拉數
+    
+    # 🌟 修改點 3: 加番 「🔍 確認透視」 掣
     run_a = st.sidebar.button("🔍 確認透視")
 
     if run_a:
         with st.spinner(f"⏳ 系統正在切換引擎，重新為您下載海量數據及繪製摩訶圖... 請稍候 ☕🚀"):
             try:
-                asset = yf.Ticker(ticker)
-                info = smart_fetch_info(ticker)
+                info, holders, iv_val = get_all_data(ticker)
                 df = smart_fetch(ticker, period="2y")
                 spy = smart_fetch("SPY", period="2y")
                 
@@ -383,15 +363,14 @@ if app_mode == "🚀 個股深度透視":
                     v21 = df['Volume'].tail(21).mean(); v252 = df['Volume'].tail(252).mean(); cej_s = safe_n((v21 / max(v252, 1)) * 100, 50.0)
                     se_s = safe_n(50 + (((curr_p / df['Close'].iloc[-min(5, len(df))]) - 1) * 1200), 50.0)
 
-                    # 🌟 修改點 5 & 6: 新股防 N/A + 提示
+                    # 🌟 修改點 5 & 6: 上市不足提醒 + 同第一日比
                     def get_trend_stats(metric):
                         try:
                             if len(df) < 5: return "數據累積中", "#888"
                             compare_idx = min(20, len(df)-1)
                             if metric == "RS":
                                 past_p = df['Close'].iloc[-compare_idx]; past_spy = spy_aligned.iloc[-compare_idx]
-                                past_bench = df['Close'].iloc[-min(83, len(df))] 
-                                past_bench_spy = spy_aligned.iloc[-min(83, len(spy_aligned))]
+                                past_bench = df['Close'].iloc[0]; past_bench_spy = spy_aligned.iloc[0]
                                 past = 50 + ((past_p / past_bench) - (past_spy / past_bench_spy)) * 100
                                 diff = cap_pct(crs_val - past)
                             elif metric == "EJ":
@@ -399,11 +378,11 @@ if app_mode == "🚀 個股深度透視":
                                 past = (v_past_21 / max(v252, 1)) * 100
                                 diff = cap_pct(cej_s - past)
                             else: 
-                                past = 50 + (((df['Close'].iloc[-compare_idx] / df['Close'].iloc[-min(compare_idx+5, len(df))]) - 1) * 1200)
+                                past = 50 + (((df['Close'].iloc[-compare_idx] / df['Close'].iloc[0]) - 1) * 1200)
                                 diff = cap_pct(se_s - past)
                             color = "#00FF00" if diff >= 0 else "#FF4B4B"
                             return f"{'+' if diff>=0 else ''}{diff:.1f}%", color
-                        except: return "數據累積中", "#888"
+                        except: return "N/A", "#888"
 
                     def get_pulse_fig(pulse_vals):
                         try:
@@ -475,27 +454,23 @@ if app_mode == "🚀 個股深度透視":
                         st.plotly_chart(get_pulse_fig(se_pulse_vals), use_container_width=True, theme=None, config={'displayModeBar': False})
 
                 try:
-                    mf_df = df.copy(); mf_df['Typical_Price'] = (mf_df['High'] + mf_df['Low'] + mf_df['Close']) / 3
+                    mf_df = df.tail(41).copy(); mf_df['Typical_Price'] = (mf_df['High'] + mf_df['Low'] + mf_df['Close']) / 3
                     mf_df['Net_Flow'] = mf_df['Typical_Price'] * mf_df['Volume'] * np.where(mf_df['Close'] > mf_df['Close'].shift(1).fillna(mf_df['Close']), 1, -1)
                     mf_df['OBV_Daily'] = (np.sign(mf_df['Close'].diff()) * mf_df['Volume']).fillna(0); mf_df['OBV'] = mf_df['OBV_Daily'].cumsum()
-                    curr_20d_flow = mf_df['Net_Flow'].tail(20).sum(); prev_20d_flow = mf_df['Net_Flow'].iloc[-40:-20].sum() if len(mf_df) > 20 else 0
+                    curr_20d_flow = mf_df['Net_Flow'].tail(20).sum(); prev_20d_flow = mf_df['Net_Flow'].iloc[-40:-20].sum()
                     if abs(curr_20d_flow) >= 1e8: flow_str = f"{'+' if curr_20d_flow>0 else ''}${curr_20d_flow/1e8:.1f} 億"
                     elif abs(curr_20d_flow) >= 1e6: flow_str = f"{'+' if curr_20d_flow>0 else ''}${curr_20d_flow/1e6:.1f} M (百萬)"
                     else: flow_str = f"{'+' if curr_20d_flow>0 else ''}${curr_20d_flow:,.0f}"
                     flow_color = "#00FF00" if curr_20d_flow > 0 else "#FF4B4B"
                     
-                    # 🌟 修改點 4: OBV 變化百分比 Cap 死
                     mf_pct = cap_pct((curr_20d_flow - prev_20d_flow) / abs(prev_20d_flow + 1) * 100)
-                    
                     compare_idx = min(20, len(mf_df)-1)
                     obv_curr_val = mf_df['OBV'].iloc[-1] - mf_df['OBV'].iloc[-compare_idx]; 
                     obv_prev_val = mf_df['OBV'].iloc[-compare_idx] - mf_df['OBV'].iloc[0] if len(mf_df) > compare_idx else 1
-                    
-                    # 🌟 修改點 4: OBV 變化百分比 Cap 死
                     obv_pct = cap_pct((obv_curr_val - obv_prev_val) / abs(obv_prev_val + 1) * 100)
-                    
                     price_trend = mf_df['Close'].iloc[-1] - mf_df['Close'].iloc[-compare_idx]
                     obv_total_vol = mf_df['Volume'].tail(20).sum() or 1
+                    
                     if abs(obv_curr_val) / obv_total_vol < 0.02: trend_str, trend_color, obv_state = "9. 🧊 資金膠著盤整 (觀望)", "#888888", 9
                     else:
                         if price_trend >= 0:
@@ -697,11 +672,10 @@ if app_mode == "🚀 個股深度透視":
                 v8.markdown(f"<div class='val-box'><div class='val-label'>@ (Alpha) 超額回報</div><div class='val-focus' style='margin-top:20px;'>{get_alpha(get_beta(info, df, spy), df, spy)}</div><div style='color:#FFA500; font-size:0.9rem; margin-top:15px;'>大盤外表現</div></div>", unsafe_allow_html=True)
                 
                 hv_v = get_volatility(df)
-                iv_v = smart_fetch_iv(ticker)
                 iv_warning = ""
-                if iv_v != 'N/A' and hv_v != 'N/A':
+                if iv_val != 'N/A' and hv_v != 'N/A':
                     try:
-                        if float(iv_v[:-1]) > float(hv_v[:-1]):
+                        if float(iv_val[:-1]) > float(hv_v[:-1]):
                             iv_warning = '[ IV > HV 期權溢價中 ]'
                     except: pass
 
@@ -709,15 +683,14 @@ if app_mode == "🚀 個股深度透視":
                 <div class='val-box'>
                     <div class='val-label'>🌪️ 波動率雙併 (Risk)</div>
                     <div class='val-text' style='margin-top:15px;'>年化 (HV): <span class='val-focus'>{hv_v}</span></div>
-                    <div class='val-text'>隱含 (IV): <span class='val-focus'>{iv_v}</span></div>
+                    <div class='val-text'>隱含 (IV): <span class='val-focus'>{iv_val}</span></div>
                     <div style='color:#FFA500; font-size:0.8rem; margin-top:10px;'>{iv_warning}</div>
                 </div>
                 """, unsafe_allow_html=True)
 
-                # 🧙 爺爺誓死保護：名家持倉 (保證一條毛都冇少！)
+                # 🧙 爺爺誓死保護：名家持倉 100% 復活
                 st.markdown("<div class='whale-box'><div style='color:#FFD700; font-size:2.2rem; font-weight:bold; text-align:center;'>🧙 90 大名家：真實申報持倉</div>", unsafe_allow_html=True)
                 total_shares = info.get('sharesOutstanding', 1)
-                holders = smart_fetch_holders(ticker) 
                 if holders is not None and not holders.empty and 'Holder' in holders.columns:
                     for _, row in holders.head(8).iterrows():
                         shares = row.get('Shares', 0); calc_pct = (shares/total_shares); val_m = row.get('Value', 0)/1e6
@@ -865,7 +838,7 @@ elif app_mode == "🛡️ 環球市底大師指揮塔":
         except Exception as e: st.error(f"⚠️ 數據載入失敗：{e}")
 
 # =========================================================================
-# 🔍 模式 C/F/G：起步尋龍雷達 (個股/ETF) (🌟 修改點 1: 掃股邏輯原汁原味)
+# 🔍 模式 C/F/G：起步尋龍雷達 (個股/ETF) (🌟 修改點 1: 完美保留上圖邏輯)
 # =========================================================================
 elif "雷達" in app_mode and "Mode E" not in app_mode:
     st.markdown(f"<h1 class='main-title'>{app_mode}</h1>", unsafe_allow_html=True)
@@ -891,7 +864,7 @@ elif "雷達" in app_mode and "Mode E" not in app_mode:
         tickers_to_scan = list(set([t for sub in target_dict.values() for t in sub])) if "全星系" in s_choice else target_dict[s_choice]
         
         found = False; pb = st.progress(0)
-        with st.spinner("⏳ 慢速引擎過濾中，請稍候..."):
+        with st.spinner("⏳ 慢速防封鎖引擎過濾中，請稍候..."):
             for idx, t in enumerate(tickers_to_scan):
                 pb.progress((idx + 1) / len(tickers_to_scan))
                 if idx > 0 and idx % 10 == 0: time.sleep(1.0)
@@ -908,22 +881,22 @@ elif "雷達" in app_mode and "Mode E" not in app_mode:
                             if not (0.75 <= (curr_p / ath) <= 0.90): continue
 
                         tp = (d['High']+d['Low']+d['Close'])/3; nf = tp*d['Volume']*np.where(d['Close']>d['Close'].shift(1).fillna(d['Close']),1,-1)
-                        net_flow_20 = nf.tail(20).sum(); conc_20 = (abs(nf.tail(20)).max()/abs(nf.tail(20)).sum())*100
+                        net_flow_20 = nf.tail(20).sum(); conc_20 = (abs(nf.tail(20)).max()/max(abs(nf.tail(20)).sum(), 1))*100
                         obv = (np.sign(d['Close'].diff())*d['Volume']).fillna(0).cumsum()
                         obv_curr = obv.iloc[-1]-obv.iloc[-21]; obv_prev = obv.iloc[-21]-obv.iloc[-41]
-                        obv_pct = (obv_curr-obv_prev)/abs(obv_prev)*100 if obv_prev!=0 else 0
+                        obv_pct = cap_pct((obv_curr-obv_prev)/max(abs(obv_prev), 1)*100)
                         p_trend = d['Close'].iloc[-1]-d['Close'].iloc[-21]; state = 9
                         if p_trend>=0: state = 1 if obv_pct>20 else 2
                         else: state = 7 if obv_pct>20 else 8
                         
-                        crs = 50+((curr_p/d['Close'].iloc[-63])-(bench_data['Close'].iloc[-1]/bench_data['Close'].iloc[-63]))*100 if len(d)>60 else 50
-                        ej = (d['Volume'].tail(21).mean()/max(d['Volume'].tail(252).mean() if len(d)>200 else d['Volume'].mean(),1))*100
-                        se = 50+(((curr_p/d['Close'].iloc[-5])-1)*1200)
+                        crs = safe_n(50+((curr_p/d['Close'].iloc[-min(63, len(d))])-(bench_data['Close'].iloc[-1]/bench_data['Close'].iloc[-min(63, len(bench_data))]))*100)
+                        ej = safe_n((d['Volume'].tail(21).mean()/max(d['Volume'].tail(252).mean() if len(d)>200 else d['Volume'].mean(),1))*100)
+                        se = safe_n(50+(((curr_p/d['Close'].iloc[-min(5, len(d))])-1)*1200))
 
-                        if net_flow_20 > 0 and conc_20 < 50 and state in [1, 2, 7, 8, 9]:
-                            if se > 75 and ej > 85 and crs > 52:
-                                found = True
-                                st.markdown(f"<div class='scan-card-fire'><h2>🎯 {t} | 符合大戶佈局！</h2><p>💰 資金流: {net_flow_20/1e8:.1f}億 | 🎯 集中度: {conc_20:.1f}% | 🌊 OBV: {state}<br>⚡ SE: {se:.1f} | 🔋 EJ: {ej:.1f} | 📈 RS: {crs:.1f}</p></div>", unsafe_allow_html=True)
+                        # 🌟 修改點 1: 完美保留大戶掃貨邏輯！
+                        if net_flow_20 > 0 and conc_20 < 50 and state in [1, 2, 7, 8, 9] and se > 75 and ej > 85 and crs > 52:
+                            found = True
+                            st.markdown(f"<div class='scan-card-fire'><h2>🎯 {t} | 符合大戶佈局！</h2><p>💰 資金流: {net_flow_20/1e8:.1f}億 | 🎯 集中度: {conc_20:.1f}% | 🌊 OBV: {state}<br>⚡ SE: {se:.1f} | 🔋 EJ: {ej:.1f} | 📈 RS: {crs:.1f}</p></div>", unsafe_allow_html=True)
                 except: pass
         if not found: st.warning("💤 雷達掃描完畢，目前未有起飛目標。(此過濾條件為潛龍必勝模式，要求大戶真實佈局)")
 
