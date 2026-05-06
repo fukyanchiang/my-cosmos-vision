@@ -5,6 +5,9 @@ import numpy as np
 import plotly.graph_objects as go 
 from plotly.subplots import make_subplots 
 import time
+import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 # 1. 基礎設置 
 st.set_page_config(page_title="環球資產透維評估儀", layout="wide") 
@@ -59,18 +62,36 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# ----------------- 🛡️ 抗封鎖引擎 -----------------
-@st.cache_data(ttl=3600)  # 爺爺強力緩存：記住1小時，唔使次次問Yahoo
+# ----------------- 🛡️ 抗封鎖引擎 (終極防禦版) -----------------
+@st.cache_resource
+def get_session():
+    session = requests.Session()
+    retry = Retry(total=3, backoff_factor=1, status_forcelist=[429, 500, 502, 503, 504])
+    adapter = HTTPAdapter(max_retries=retry)
+    session.mount('http://', adapter)
+    session.mount('https://', adapter)
+    session.headers.update({'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'})
+    return session
+
+@st.cache_data(ttl=3600)
+def get_cached_info(ticker_sym):
+    try: return yf.Ticker(ticker_sym, session=get_session()).info
+    except: return {}
+
+@st.cache_data(ttl=3600)
+def get_holders(ticker_sym):
+    try: return yf.Ticker(ticker_sym, session=get_session()).institutional_holders
+    except: return pd.DataFrame()
+
+@st.cache_data(ttl=3600)  
 def smart_fetch(ticker_sym, period="1y"):
-    """
-    自帶休息時間嘅數據獲取器，避開 Yahoo Finance 嘅 Too Many Requests
-    """
+    """自帶休息時間嘅數據獲取器，避開 Yahoo Finance 嘅 Too Many Requests"""
     try:
         time.sleep(0.3) 
-        data = yf.Ticker(ticker_sym).history(period=period)
+        data = yf.Ticker(ticker_sym, session=get_session()).history(period=period)
         if data.empty:
             time.sleep(1.0) 
-            data = yf.Ticker(ticker_sym).history(period=period)
+            data = yf.Ticker(ticker_sym, session=get_session()).history(period=period)
         return data.dropna(subset=['Close', 'Volume', 'High', 'Low', 'Open'])
     except:
         return pd.DataFrame()
@@ -122,8 +143,10 @@ def get_volatility(df):
         return f"{vol * 100:.1f}%"
     except: return "N/A"
 
-def get_iv(asset):
+@st.cache_data(ttl=3600)
+def get_iv(ticker_sym):
     try:
+        asset = yf.Ticker(ticker_sym, session=get_session())
         options = asset.options
         if not options: return "N/A"
         chain = asset.option_chain(options[0])
@@ -238,9 +261,10 @@ def get_breadth_data(tickers):
     if not tickers: 
         stats['valid'] = 1
         return stats
+    session = get_session()
     for t in tickers:
         try:
-            c = yf.Ticker(t).history(period="1y")['Close'].dropna()
+            c = yf.Ticker(t, session=session).history(period="1y")['Close'].dropna()
             n = len(c)
             if n < 50: continue
             
@@ -311,7 +335,8 @@ if app_mode == "🚀 個股深度透視":
         ticker_to_use = st.session_state.mode_a_ticker
         with st.spinner(f"⏳ 系統正在切換引擎，重新為您下載海量數據及繪製摩訶圖... 請稍候 ☕🚀"):
             try:
-                asset = yf.Ticker(ticker_to_use); info = asset.info
+                info = get_cached_info(ticker_to_use)
+                asset = yf.Ticker(ticker_to_use)
                 df = smart_fetch(ticker_to_use, period="2y")
                 spy = smart_fetch("SPY", period="2y")
                 
@@ -706,7 +731,7 @@ if app_mode == "🚀 個股深度透視":
                 v8.markdown(f"<div class='val-box'><div class='val-label'>@ (Alpha) 超額回報</div><div class='val-focus' style='margin-top:20px;'>{get_alpha(get_beta(info, df, spy), df, spy)}</div><div style='color:#FFA500; font-size:0.9rem; margin-top:15px;'>大盤外表現</div></div>", unsafe_allow_html=True)
                 
                 hv_v = get_volatility(df)
-                iv_v = get_iv(asset)
+                iv_v = get_iv(ticker_to_use)
                 iv_warning = ""
                 if iv_v != 'N/A' and hv_v != 'N/A':
                     try:
@@ -724,7 +749,7 @@ if app_mode == "🚀 個股深度透視":
                 """, unsafe_allow_html=True)
 
                 st.markdown("<div class='whale-box'><div style='color:#FFD700; font-size:2.2rem; font-weight:bold; text-align:center;'>🧙 90 大名家：真實申報持倉</div>", unsafe_allow_html=True)
-                total_shares = info.get('sharesOutstanding', 1); holders = asset.institutional_holders
+                total_shares = info.get('sharesOutstanding', 1); holders = get_holders(ticker_to_use)
                 if holders is not None and not holders.empty and 'Holder' in holders.columns:
                     for _, row in holders.head(8).iterrows():
                         shares = row.get('Shares', 0); calc_pct = (shares/total_shares); val_m = row.get('Value', 0)/1e6
