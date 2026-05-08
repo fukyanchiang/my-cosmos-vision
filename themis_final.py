@@ -43,7 +43,7 @@ st.markdown("""
     .scan-card-fire { border-left: 5px solid #00FFCC; background-color: #111; padding: 15px; margin-bottom: 10px; border-radius: 8px; }
     .scan-card-super { border-left: 8px solid #FF4B4B; background-color: #310000; padding: 15px; margin-bottom: 10px; border-radius: 8px; box-shadow: 0 0 15px #FF4B4B66; }
     .bear-warning { color: #FF0000 !important; font-size: 2.5rem; font-weight: 900; text-align: center; text-shadow: 2px 2px 5px #000; padding: 20px; border: 4px dashed red; background-color: #220000; margin: 20px 0; border-radius: 15px;}
-    .exit-radar { background-color: #2b0000; border: 2px solid #FF0000; padding: 15px; border-radius: 10px; margin-bottom: 25px;}
+    .exit-radar { background-color: #220000; border: 2px solid #FF0000; padding: 15px; border-radius: 10px; margin-top: 20px;}
     .pullback-card { border-left: 8px solid #BC13FE; background-color: #1a0024; padding: 15px; margin-bottom: 10px; border-radius: 8px; }
     </style>
     """, unsafe_allow_html=True)
@@ -55,7 +55,7 @@ def smart_fetch(ticker_sym, period="1y"):
         data = yf.Ticker(ticker_sym).history(period=period, auto_adjust=True)
         if data.empty:
             time.sleep(1.0) 
-            data = yf.Ticker(ticker_sym).history(period="max", auto_adjust=True)
+            data = yf.Ticker(ticker_sym).history(period=period, auto_adjust=True)
         return data.dropna(subset=['Close', 'Volume', 'High', 'Low', 'Open'])
     except: return pd.DataFrame()
 
@@ -63,9 +63,7 @@ def smart_fetch(ticker_sym, period="1y"):
 def get_all_data(ticker_sym):
     try:
         time.sleep(0.3); asset = yf.Ticker(ticker_sym); info = asset.info
-        try: 
-            holders = asset.institutional_holders
-            if not isinstance(holders, pd.DataFrame): holders = None
+        try: holders = asset.institutional_holders
         except: holders = None
         iv = "N/A"
         try:
@@ -85,6 +83,40 @@ def cap_pct(val):
         return max(-999.0, min(999.0, v)) if not np.isnan(v) and not np.isinf(v) else 0.0
     except: return 0.0
 
+def add_energy_subplots(fig, df, row_start):
+    # 第一層：買賣力度 (2層4色立體化)
+    var1 = df['Close'] - df['Low']
+    var2 = df['High'] - df['Close']
+    var3 = np.maximum(df['High'] - df['Low'], 0.001)
+    buyvol = np.where(var3 > 0, df['Volume'] * var1 / var3, 0)
+    sellvol = np.where(var3 > 0, df['Volume'] * var2 / var3, 0)
+    netvol = buyvol - sellvol
+    netma = pd.Series(netvol).rolling(10, min_periods=1).mean()
+    dates = df.index.strftime('%Y-%m-%d')
+    
+    # 總兵力底色 (暗色, 闊身)
+    fig.add_trace(go.Bar(x=dates, y=buyvol, marker_color='#808000', name='買盤背景', opacity=0.6, hoverinfo='skip'), row=row_start, col=1)
+    fig.add_trace(go.Bar(x=dates, y=-sellvol, marker_color='#800000', name='賣盤背景', opacity=0.6, hoverinfo='skip'), row=row_start, col=1)
+    # 淨勝方高光 (鮮色, 幼身疊加)
+    net_colors = ['#00FF00' if val > 0 else '#FF0000' for val in netvol]
+    fig.add_trace(go.Bar(x=dates, y=netvol, marker_color=net_colors, name='淨勝方', width=0.4), row=row_start, col=1)
+    fig.add_trace(go.Scatter(x=dates, y=netma, mode='lines', line=dict(color='white', width=2), name='氣脈10MA'), row=row_start, col=1)
+
+    # 第二層：王者能量雷達
+    v_ma = df['Volume'].rolling(20, min_periods=1).mean()
+    v_std = df['Volume'].rolling(20, min_periods=1).std().fillna(0)
+    v_upper = v_ma + (2.0 * v_std)
+    ma60 = df['Volume'].rolling(60, min_periods=1).mean()
+    roc = abs(df['Close'].pct_change()) * 100
+    is_burst = (df['Volume'] > v_upper) & (df['Volume'] > ma60 * 1.9) & (roc > 2.0)
+    burst_colors = ['#00FFFF' if (is_burst.iloc[i] and df['Close'].iloc[i] > df['Open'].iloc[i]) else ('#FF00FF' if is_burst.iloc[i] else 'rgba(136,136,136,0.3)') for i in range(len(df))]
+    fig.add_trace(go.Bar(x=dates, y=df['Volume'], marker_color=burst_colors, name='能量雷達'), row=row_start+1, col=1)
+
+    # 第三層：日波幅%
+    daily_change = df['Close'].pct_change() * 100
+    change_colors = ['#00FF00' if val >= 0 else '#FF0000' for val in daily_change]
+    fig.add_trace(go.Bar(x=dates, y=daily_change, marker_color=change_colors, name='日波幅%'), row=row_start+2, col=1)
+
 def safe_n(val, alt=50.0): 
     try: v = float(val); return v if not np.isnan(v) and not np.isinf(v) else alt
     except: return alt 
@@ -96,35 +128,6 @@ def safe_s(info, keys, suffix="", alt="N/A"):
             try: return f"{float(v):.2f}{suffix}"
             except: pass
     return alt 
-
-def add_energy_subplots(fig, df, row_start):
-    var1 = df['Close'] - df['Low']
-    var2 = df['High'] - df['Close']
-    var3 = np.maximum(df['High'] - df['Low'], 0.001)
-    buyvol = np.where(var3 > 0, df['Volume'] * var1 / var3, 0)
-    sellvol = np.where(var3 > 0, df['Volume'] * var2 / var3, 0)
-    netvol = buyvol - sellvol
-    netma = pd.Series(netvol).rolling(10, min_periods=1).mean()
-    dates = df.index.strftime('%Y-%m-%d')
-    
-    fig.add_trace(go.Bar(x=dates, y=buyvol, marker_color='#808000', name='買盤背景', opacity=0.6, hoverinfo='skip'), row=row_start, col=1)
-    fig.add_trace(go.Bar(x=dates, y=-sellvol, marker_color='#800000', name='賣盤背景', opacity=0.6, hoverinfo='skip'), row=row_start, col=1)
-    net_colors = ['#00FF00' if val > 0 else '#FF0000' for val in netvol]
-    fig.add_trace(go.Bar(x=dates, y=netvol, marker_color=net_colors, name='淨勝方', width=0.4), row=row_start, col=1)
-    fig.add_trace(go.Scatter(x=dates, y=netma, mode='lines', line=dict(color='white', width=2), name='氣脈10MA'), row=row_start, col=1)
-
-    v_ma = df['Volume'].rolling(20, min_periods=1).mean()
-    v_std = df['Volume'].rolling(20, min_periods=1).std().fillna(0)
-    v_upper = v_ma + (2.0 * v_std)
-    ma60 = df['Volume'].rolling(60, min_periods=1).mean()
-    roc = abs(df['Close'].pct_change().fillna(0)) * 100
-    is_burst = (df['Volume'] > v_upper) & (df['Volume'] > ma60 * 1.9) & (roc > 2.0)
-    burst_colors = ['#00FFFF' if (is_burst.iloc[i] and df['Close'].iloc[i] > df['Open'].iloc[i]) else ('#FF00FF' if is_burst.iloc[i] else 'rgba(136,136,136,0.3)') for i in range(len(df))]
-    fig.add_trace(go.Bar(x=dates, y=df['Volume'], marker_color=burst_colors, name='能量雷達'), row=row_start+1, col=1)
-
-    daily_change = df['Close'].pct_change().fillna(0) * 100
-    change_colors = ['#00FF00' if val >= 0 else '#FF0000' for val in daily_change]
-    fig.add_trace(go.Bar(x=dates, y=daily_change, marker_color=change_colors, name='日波幅%'), row=row_start+2, col=1)
 
 def get_beta(info, df, spy_df): 
     b = info.get('beta')
@@ -250,14 +253,6 @@ US_ETF_MAP = {
     "U5. 全球國家/地區": "EWY EWZ ILF EIS EWT TUR ECH EFNL EWC EWP EWH EWI EPOL EPU EWW THD VNM EWM EWA EWJ EWN EWS EWQ EZA EWU EWL SPY KSA EWD EWG UAE QAT EPHE FXI EIDO INDA".split()
 }
 
-# --- 🛡️ 守護神：6 大指數指揮塔名單 (定義在此，解決 NameError) ---
-HSI_71 = (HK_STOCK_MAP["1. 互聯網巨頭"] + HK_STOCK_MAP["5. 國有大行與金融"] + HK_STOCK_MAP["10. 房地產開發"] + HK_STOCK_MAP["13. 核心消費與餐飲"])[:71]
-TECH_30 = (HK_STOCK_MAP["1. 互聯網巨頭"] + HK_STOCK_MAP["2. 半導體與芯片"] + HK_STOCK_MAP["12. 消費電子硬件"])[:30]
-DOW_30 = "AAPL MSFT UNH JNJ XOM JPM V PG HD CVX MRK KO ABBV BAC AVGO PEP TMO COST CSCO MCD CRM DIS LIN ABT ACN AMD WFC NFLX INTC CAT".split()
-SPX_80 = (DOW_30 + US_STOCK_MAP["2. AI與大數據雲端"] + US_STOCK_MAP["11. 核心消費品"] + US_STOCK_MAP["22. 商業銀行巨頭"])[:80]
-NDX_43 = (US_STOCK_MAP["2. AI與大數據雲端"] + US_STOCK_MAP["1. 半導體設備與設計"] + US_STOCK_MAP["6. 通訊與網絡設備"])[:43]
-IWM_32 = (US_STOCK_MAP["49. 小型爆發精選"] + US_STOCK_MAP["50. 超微型探索 (Micro)"])[:32]
-
 @st.cache_data(ttl=3600)
 def get_breadth_data(tickers):
     stats = {'20MA':0, '50MA':0, '150MA':0, '200MA':0, 'valid':0, 'above_50_list': [], 'hist_20MA': [0]*20, 'hist_50MA': [0]*20, 'hist_150MA': [0]*20, 'hist_200MA': [0]*20}
@@ -265,7 +260,7 @@ def get_breadth_data(tickers):
     for t in tickers:
         try:
             c = smart_fetch(t, period="1y")['Close'].dropna(); n = len(c)
-            if n < 20: continue # 醫治 0100.hk 等新股：唔夠 20 日直接跳過，防 Error
+            if n < 50: continue
             curr = c.iloc[-1]
             if curr > c.tail(20).mean(): stats['20MA'] += 1
             if curr > c.tail(50).mean(): stats['50MA'] += 1; stats['above_50_list'].append(t)
@@ -275,10 +270,10 @@ def get_breadth_data(tickers):
                 end_idx = n - (19 - i)
                 if end_idx >= 20:
                     past_curr = c.iloc[end_idx - 1]
-                    if past_curr > c.iloc[max(0, end_idx-20):end_idx].mean(): stats['hist_20MA'][i] += 1
-                    if end_idx >= 50 and past_curr > c.iloc[max(0, end_idx-50):end_idx].mean(): stats['hist_50MA'][i] += 1
-                    if end_idx >= 150 and past_curr > c.iloc[max(0, end_idx-150):end_idx].mean(): stats['hist_150MA'][i] += 1
-                    if end_idx >= 200 and past_curr > c.iloc[max(0, end_idx-200):end_idx].mean(): stats['hist_200MA'][i] += 1
+                    if past_curr > c.iloc[end_idx-20:end_idx].mean(): stats['hist_20MA'][i] += 1
+                    if end_idx >= 50 and past_curr > c.iloc[end_idx-50:end_idx].mean(): stats['hist_50MA'][i] += 1
+                    if end_idx >= 150 and past_curr > c.iloc[end_idx-150:end_idx].mean(): stats['hist_150MA'][i] += 1
+                    if end_idx >= 200 and past_curr > c.iloc[end_idx-200:end_idx].mean(): stats['hist_200MA'][i] += 1
             stats['valid'] += 1
         except: pass
     stats['valid'] = max(1, stats['valid'])
@@ -340,20 +335,18 @@ if app_mode == "🚀 個股深度透視":
                 ma50_bias = ((curr_p / df['50MA_strat'].iloc[-1]) - 1) * 100 if df['50MA_strat'].iloc[-1] > 0 else 0
                 
                 st.markdown(f"""<div style='display: flex; gap: 15px; margin-bottom: 25px;'><div class='red-bar' style='flex: 1; background-color: #310000; border: 2px solid #FF4B4B; padding: 15px; font-size: 1.8rem;'>🎯 巔峰收復進度：距離 52周高位 [ {dist_ath:.1f}% ]</div><div class='red-bar' style='flex: 1; background-color: #002222; border: 2px solid #00FFCC; padding: 15px; font-size: 1.8rem;'>⚖️ 地心引力監控：偏離 50日線 [ {ma50_bias:+.1f}% ]</div></div>""", unsafe_allow_html=True)
-                st.markdown(f"""<div style='text-align: center; color: #00FFCC; font-size: 1.2rem; font-weight: bold; margin-bottom: 25px; padding: 10px; background-color: rgba(0, 255, 204, 0.1); border-radius: 8px; border: 1px dashed #00FFCC;'>🛡️ 必勝潛伏方程式：COSMOS-RS (星系強弱) > 60, EJ 錢流底氣 > 85, 短期能量 > 75, 最近 20 日主力資金池淨額是正數買入，OBV 大戶籌碼流入或觀望，資金部署集中度 < 70%，且無高追風險</div>""", unsafe_allow_html=True)
+                st.markdown(f"""<div style='text-align: center; color: #00FFCC; font-size: 1.2rem; font-weight: bold; margin-bottom: 25px; padding: 10px; background-color: rgba(0, 255, 204, 0.1); border-radius: 8px; border: 1px dashed #00FFCC;'>🛡️ 必勝潛伏方程式：COSMOS-RS (星系強弱) > 52, EJ 錢流底氣 > 85, 短期能量 > 75, 最近 20 日主力資金池淨額是正數買入，OBV 大戶籌碼流入或觀望，資金部署集中度是分散</div>""", unsafe_allow_html=True)
 
                 c_tail = df['Close'].tail(125); days = np.arange(len(c_tail))
                 if len(c_tail) > 1:
                     slope, intercept = np.polyfit(days, c_tail, 1); pred = intercept + slope * len(days)
                     mom = (curr_p / pred) if pred > 0 else 1.0; v_ann = max(0.001, c_tail.pct_change().std() * np.sqrt(252))
-                    cx_val = safe_n(50.0 + (((slope * 252) / c_tail.mean() / v_ann) * 20 * mom), 50.0)
+                    cx_val = safe_n(((slope * 252) / c_tail.mean() / v_ann) * 29 * mom, 50.0)
                 else: cx_val = 50.0
 
                 spy_aligned = spy['Close'].reindex(df.index).ffill().bfill() 
                 crs_val = safe_n(50 + ((curr_p / df['Close'].iloc[-min(63, len(df))]) - (spy_aligned.iloc[-1] / spy_aligned.iloc[-min(63, len(spy_aligned))])) * 100, 50.0)
-                
-                v21 = df['Volume'].tail(21).mean(); v252 = df['Volume'].tail(252).mean() if len(df) >= 252 else df['Volume'].mean()
-                cej_s = safe_n((v21 / max(v252, 0.001)) * 100, 50.0)
+                v21 = df['Volume'].tail(21).mean(); v252 = df['Volume'].tail(252).mean(); cej_s = safe_n((v21 / max(v252, 1)) * 100, 50.0)
                 se_s = safe_n(50 + (((curr_p / df['Close'].iloc[-max(1, min(5, len(df)-1))]) - 1) * 1200), 50.0)
 
                 def get_trend_stats(metric):
@@ -368,7 +361,7 @@ if app_mode == "🚀 個股深度透視":
                             diff = cap_pct(crs_val - past)
                         elif metric == "EJ":
                             v_past_21 = df['Volume'].iloc[-min(len(df)-1, compare_idx+21):-compare_idx].mean() if len(df) > compare_idx+21 else df['Volume'].iloc[0]
-                            past = (v_past_21 / max(v252, 0.001)) * 100
+                            past = (v_past_21 / max(v252, 1)) * 100
                             diff = cap_pct(cej_s - past)
                         else: 
                             past = 50 + (((df['Close'].iloc[-compare_idx] / df['Close'].iloc[-max(1, min(compare_idx+5, len(df)-1))]) - 1) * 1200)
@@ -445,15 +438,15 @@ if app_mode == "🚀 個股深度透視":
                             if obv_pct > 20: trend_str, trend_color, obv_state = "1. 👑 強烈流入", "#00FF00", 1
                             else: trend_str, trend_color, obv_state = "2. 📈 流入", "#00FF00", 2
                         else:
-                            if obv_pct < -20: trend_str, trend_color, obv_state = "5. 💣 資金高位撤離 (大兇兆)", "#FF4B4B", 5
-                            else: trend_str, trend_color, obv_state = "6. ⚠️ 資金高位撤離 (兇兆)", "#FF4B4B", 6
+                            if obv_pct < -20: trend_str, trend_color, obv_state = "5. 💣 資金高位撤離 (量價強烈背離 - 大兇兆)", "#FF4B4B", 5
+                            else: trend_str, trend_color, obv_state = "6. ⚠️ 資金高位撤離 (量價背離 - 兇兆)", "#FF4B4B", 6
                     else:
                         if obv_curr_val < 0:
                             if obv_pct < -20: trend_str, trend_color, obv_state = "3. 💀 大戶持續派發 (強烈流出)", "#FF4B4B", 3
                             else: trend_str, trend_color, obv_state = "4. 📉 大戶持續派發 (流出)", "#FF4B4B", 4
                         else:
-                            if obv_pct > 20: trend_str, trend_color, obv_state = "7. 🐉 底部分歧掃貨 (大吉兆)", "#00FFCC", 7
-                            else: trend_str, trend_color, obv_state = "8. 🐲 底部分歧掃貨 (吉兆)", "#00FFCC", 8
+                            if obv_pct > 20: trend_str, trend_color, obv_state = "7. 🐉 底部分歧掃貨 (量價強烈背離 - 大吉兆)", "#00FFCC", 7
+                            else: trend_str, trend_color, obv_state = "8. 🐲 底部分歧掃貨 (量價背離 - 吉兆)", "#00FFCC", 8
                 daily_abs_flow = abs(mf_df['Net_Flow'].tail(20)); total_abs_flow = daily_abs_flow.sum() or 1; conc_pct = (daily_abs_flow.max() / total_abs_flow) * 100
                 if conc_pct > 35: conc_level, conc_color, conc_note = "⚡ 高度集中", "#FF4B4B", "（突發買入或掟貨）"
                 elif conc_pct > 15: conc_level, conc_color, conc_note = "🌿 正常分佈", "#FFD700", "（公開正常進出）"
@@ -613,6 +606,13 @@ elif app_mode == "🛡️ 環球市底大師指揮塔":
     if "港股" in market_choice: idx_choice = st.radio("", ["恒指", "科指"], horizontal=True, label_visibility="collapsed")
     else: idx_choice = st.radio("", ["道指", "標指", "納市", "IWM"], horizontal=True, label_visibility="collapsed")
     st.write("---")
+    
+    HSI_71 = (HK_STOCK_MAP["1. 互聯網巨頭"] + HK_STOCK_MAP["5. 國有大行與金融"] + HK_STOCK_MAP["10. 房地產開發"] + HK_STOCK_MAP["13. 核心消費與餐飲"])[:71]
+    TECH_30 = (HK_STOCK_MAP["1. 互聯網巨頭"] + HK_STOCK_MAP["2. 半導體與芯片"] + HK_STOCK_MAP["12. 消費電子硬件"])[:30]
+    DOW_30 = "AAPL MSFT UNH JNJ XOM JPM V PG HD CVX MRK KO ABBV BAC AVGO PEP TMO COST CSCO MCD CRM DIS LIN ABT ACN AMD WFC NFLX INTC CAT".split()
+    SPX_80 = (DOW_30 + US_STOCK_MAP["2. AI與大數據雲端"] + US_STOCK_MAP["11. 核心消費品"] + US_STOCK_MAP["22. 商業銀行巨頭"])[:80]
+    NDX_43 = (US_STOCK_MAP["2. AI與大數據雲端"] + US_STOCK_MAP["1. 半導體設備與設計"] + US_STOCK_MAP["6. 通訊與網絡設備"])[:43]
+    IWM_32 = (US_STOCK_MAP["49. 小型爆發精選"] + US_STOCK_MAP["50. 超微型探索 (Micro)"])[:32]
 
     if "恒指" in idx_choice: ticker_sym = "2800.HK"; b_tickers = HSI_71 
     elif "科指" in idx_choice: ticker_sym = "3032.HK"; b_tickers = TECH_30
@@ -685,7 +685,7 @@ elif app_mode == "🛡️ 環球市底大師指揮塔":
                     for i, t in enumerate(b_stats['above_50_list'][:30]): cols[i % 6].info(t)
         except Exception as e: st.error(f"⚠️ 數據載入失敗：{e}")
 
-        # =========================================================================
+# =========================================================================
 # 📡 拔河熱力圖 
 # =========================================================================
 elif "熱力圖" in app_mode:
@@ -728,7 +728,7 @@ elif "熱力圖" in app_mode:
             except Exception as e: st.error(f"拔河失敗: {e}")
 
 # =========================================================================
-# 🔍 模式 C/F/G：起步尋龍雷達 (🌟 9 大兵法終極升級)
+# 🔍 模式 C/F/G：起步尋龍雷達 (🌟 Fix 3: 升級戰術圖表與三層能量指標)
 # =========================================================================
 elif "雷達" in app_mode and "Mode E" not in app_mode:
     st.markdown(f"<h1 class='main-title'>{app_mode}</h1>", unsafe_allow_html=True)
@@ -746,40 +746,31 @@ elif "雷達" in app_mode and "Mode E" not in app_mode:
     with c_sec: s_choice = st.selectbox("2. 選擇掃描範圍", ["🌐 啟動全星系大規模搜索"] + list(target_dict.keys()))
     with c_strat: t_strat = st.radio("3. 戰術過濾 (機變)", ["🔥 極致新高 (ATH)", "🐉 潛龍伏躍 (10-20% 空間)"])
     
-    if 'c_scanned_stocks' not in st.session_state: st.session_state.c_scanned_stocks = []
-    if 'c_scrap_stocks' not in st.session_state: st.session_state.c_scrap_stocks = []
+    if 'c_scanned_stocks' not in st.session_state:
+        st.session_state.c_scanned_stocks = []
 
-    if st.button("📡 發射 9 大兵法尋龍電波！"):
+    if st.button("📡 發射撒網尋龍電波！"):
         bench_data = smart_fetch(bench_sym, period="2y")
-        tickers_to_scan = list(set([t for sub in target_dict.values() for t in sub])) if "全星系" in s_choice else target_dict.get(s_choice, [])
-        found_stocks = []; scrap_stocks = []; sector_tally = {}
+        tickers_to_scan = list(set([t for sub in target_dict.values() for t in sub])) if "全星系" in s_choice else target_dict[s_choice]
+        found_stocks = []
         pb = st.progress(0)
-        
         with st.spinner("⏳ 慢速防封鎖引擎過濾中，請稍候..."):
             for idx, t in enumerate(tickers_to_scan):
                 pb.progress((idx + 1) / len(tickers_to_scan))
                 if idx > 0 and idx % 10 == 0: time.sleep(1.0)
                 try:
                     d_full = smart_fetch(t, period="1y")
+                    # 🌟 Fix 1: 0100.hk 醫治 (確保20日即可掃描)
                     if len(d_full) >= 20:
                         d = d_full.tail(63)
                         curr_p = d['Close'].iloc[-1]; ath = d_full['High'].tail(252).max()
-                        ma20 = d['Close'].rolling(20, min_periods=1).mean()
-                        
-                        # 🚨 戰損偵測：跌穿 20日線 (直接入廢紙簍)
-                        if curr_p < ma20.iloc[-1]:
-                            scrap_stocks.append({'Ticker': t, 'Price': curr_p})
-                            continue
-
                         if t_strat == "🔥 極致新高 (ATH)":
                             if (curr_p / ath) < 0.93: continue
                         else: 
                             if not (0.75 <= (curr_p / ath) <= 0.90): continue
 
                         tp = (d['High']+d['Low']+d['Close'])/3; nf = tp*d['Volume']*np.where(d['Close']>d['Close'].shift(1).fillna(d['Close']),1,-1)
-                        net_flow_20 = nf.tail(20).sum()
-                        conc_20 = (abs(nf.tail(20)).max()/max(abs(nf.tail(20)).sum(), 1))*100
-                        
+                        net_flow_20 = nf.tail(20).sum(); conc_20 = (abs(nf.tail(20)).max()/max(abs(nf.tail(20)).sum(), 1))*100
                         obv = (np.sign(d['Close'].diff())*d['Volume']).fillna(0).cumsum()
                         obv_curr = obv.iloc[-1]-obv.iloc[-21] if len(obv)>20 else obv.iloc[-1]-obv.iloc[0]
                         obv_prev = obv.iloc[-21]-obv.iloc[-41] if len(obv)>40 else 1
@@ -790,60 +781,29 @@ elif "雷達" in app_mode and "Mode E" not in app_mode:
                         else: state = 7 if obv_pct>20 else 8
                         
                         crs = safe_n(50+((curr_p/d['Close'].iloc[-max(1, min(63, len(d)-1))])-(bench_data['Close'].iloc[-1]/bench_data['Close'].iloc[-max(1, min(63, len(bench_data)-1))]))*100)
-                        v21 = d['Volume'].tail(21).mean(); v252 = d_full['Volume'].tail(252).mean() if len(d_full)>=252 else d_full['Volume'].mean()
-                        ej = safe_n((v21/max(v252, 0.001))*100)
+                        ej = safe_n((d['Volume'].tail(21).mean()/max(d['Volume'].tail(252).mean() if len(d)>200 else d['Volume'].mean(),1))*100)
                         se = safe_n(50+(((curr_p/d['Close'].iloc[-max(1, min(5, len(d)-1))])-1)*1200))
 
                         v_ma20 = d['Volume'].rolling(20, min_periods=1).mean()
                         v_std20 = d['Volume'].rolling(20, min_periods=1).std().fillna(0)
                         v_upper = v_ma20 + (2.0 * v_std20)
-                        ma60 = d['Volume'].rolling(60, min_periods=1).mean()
-                        roc = d['Close'].pct_change().fillna(0) * 100
-                        is_cyan = (d['Volume'] > v_upper) & (d['Volume'] > ma60 * 1.9) & (roc.abs() > 2.0) & (d['Close'] > d['Open'])
-                        
-                        # 💰 異動：最近 3 日內出現青柱
+                        v_ma60 = d['Volume'].rolling(60, min_periods=1).mean()
+                        roc = d['Close'].pct_change() * 100
+                        is_cyan = (d['Volume'] > v_upper) & (d['Volume'] > v_ma60 * 1.9) & (roc.abs() > 2.0) & (d['Close'] > d['Open'])
                         has_cyan_3d = is_cyan.tail(3).any()
-                        bias = ((curr_p / ma20.iloc[-1]) - 1) * 100
 
-                        if net_flow_20 > 0 and conc_20 < 70 and state in [1, 2, 7, 8, 9] and se > 75 and ej > 85 and crs > 60:
-                            sec_name = "其他板塊"
-                            if not is_etf:
-                                for s_key, s_list in target_dict.items():
-                                    if t in s_list:
-                                        sec_name = s_key.split('. ')[1] if '. ' in s_key else s_key
-                                        break
-                            sector_tally[sec_name] = sector_tally.get(sec_name, 0) + 1
-                            
+                        if net_flow_20 > 0 and conc_20 < 50 and state in [1, 2, 7, 8, 9] and se > 75 and ej > 85 and crs > 52:
                             found_stocks.append({
                                 'Ticker': t, 'RS Rating': crs, 'Tags': f"💰 異動" if has_cyan_3d else "",
-                                'se': se, 'ej': ej, 'net_flow_20': net_flow_20, 'conc_20': conc_20, 'state': state,
-                                'Sector': sec_name, 'Bias': bias
+                                'se': se, 'ej': ej, 'net_flow_20': net_flow_20, 'conc_20': conc_20, 'state': state
                             })
                 except: pass
-            
             st.session_state.c_scanned_stocks = sorted(found_stocks, key=lambda x: x['RS Rating'], reverse=True)
-            st.session_state.c_scrap_stocks = scrap_stocks
-
-    # 🚨 置頂顯示：戰損撤退名單 (紅框警告)
-    if st.session_state.get('c_scrap_stocks'):
-        st.markdown("<div class='exit-radar'><h3 style='color:#FF4B4B; margin-top:0;'>🚨 📉 戰損撤退警告 (以下掃描範圍內嘅股票已跌穿 20日線，若持有請嚴格止損)</h3>", unsafe_allow_html=True)
-        scrap_str = " | ".join([f"🗑️ {s['Ticker']}" for s in st.session_state.c_scrap_stocks[:40]])
-        st.markdown(f"<p style='color:white; font-size:1.1rem; line-height: 1.6;'>{scrap_str}</p></div>", unsafe_allow_html=True)
-
+            
     if st.session_state.c_scanned_stocks:
         st.success(f"🎉 捕捉到 {len(st.session_state.c_scanned_stocks)} 隻大戶佈局目標！")
         for s in st.session_state.c_scanned_stocks:
-            # 📊 板塊聯動標籤
-            hot_tag = "<span style='color:#FFD700; margin-left: 10px;'>📊 [板塊熱力爆發]</span>" if not is_etf and sector_tally.get(s['Sector'], 0) >= 3 else ""
-            bias_alert = "<span style='color:#FF0000; font-weight:bold; margin-left: 10px;'>🚨 (防高追接火棒)</span>" if s['Bias'] > 8.0 else ""
-            
-            st.markdown(f"""
-            <div class='scan-card-fire'>
-                <h2>🎯 {s['Ticker']} | {s.get('Sector','')} 🌊 {s['Tags']} {hot_tag}</h2>
-                <p>💰 資金流: {s['net_flow_20']/1e8:.1f}億 | 🎯 集中度: {s['conc_20']:.1f}% | 🌊 OBV: {s['state']}<br>
-                ⚡ SE: {s['se']:.1f} | 🔋 EJ: {s['ej']:.1f} | 📈 RS: {s['RS Rating']:.1f} | 📏 乖離率: {s['Bias']:.1f}% {bias_alert}</p>
-            </div>
-            """, unsafe_allow_html=True)
+            st.markdown(f"<div class='scan-card-fire'><h2>🎯 {s['Ticker']} | 符合大戶佈局！{s['Tags']} 🔥 大戶掃貨</h2><p>💰 資金流: {s['net_flow_20']/1e8:.1f}億 | 🎯 集中度: {s['conc_20']:.1f}% | 🌊 OBV: {s['state']}<br>⚡ SE: {s['se']:.1f} | 🔋 EJ: {s['ej']:.1f} | 📈 RS: {s['RS Rating']:.1f}</p></div>", unsafe_allow_html=True)
 
         st.write("---")
         sel_target = st.selectbox("🎯 選擇目標查看 X 光戰術圖", [s['Ticker'] for s in st.session_state.c_scanned_stocks])
@@ -853,29 +813,43 @@ elif "雷達" in app_mode and "Mode E" not in app_mode:
                     df = smart_fetch(sel_target, period="6mo")
                     df['MA50'] = df['Close'].rolling(50, min_periods=1).mean()
                     df['EMA10'] = df['Close'].ewm(span=10, adjust=False).mean()
+                    
                     fig = make_subplots(rows=5, cols=1, shared_xaxes=True, row_heights=[0.45, 0.1, 0.2, 0.15, 0.1], vertical_spacing=0.02)
                     dates = df.index.strftime('%Y-%m-%d')
+                    
                     fig.add_trace(go.Candlestick(x=dates, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'], name="K線"), row=1, col=1)
                     fig.add_trace(go.Scatter(x=dates, y=df['MA50'], mode='lines', name='50MA', line=dict(color='yellow', width=1.5)), row=1, col=1)
                     fig.add_trace(go.Scatter(x=dates, y=df['EMA10'], mode='lines', name='10 EMA', line=dict(color='orange', width=2, dash='dot')), row=1, col=1)
+                    
                     recent_high = df['High'].tail(20).max()
                     fig.add_hline(y=recent_high, line_dash="dash", line_color="#00FFCC", annotation_text=f"🎯 破頂買入: ${recent_high:.2f}", annotation_position="top left", annotation_font=dict(color="white", size=13), row=1, col=1)
+                    
                     counts, bins = np.histogram(df['Close'], bins=30, weights=df['Volume'])
                     max_c = max(counts) if len(counts) > 0 and max(counts) > 0 else 1
                     fig.add_trace(go.Bar(y=(bins[:-1]+bins[1:])/2, x=counts, orientation='h', marker_color='rgba(150,150,150,0.3)', name='重貨區', hoverinfo='skip', xaxis='x6', yaxis='y1'))
+
                     v_colors = ['#00FF00' if df['Close'].iloc[i] >= df['Open'].iloc[i] else '#FF0000' for i in range(len(df))]
                     fig.add_trace(go.Bar(x=dates, y=df['Volume'], marker_color=v_colors, name="成交量"), row=2, col=1)
+                    
+                    # 加入 🌟 星星邏輯
                     df['Vol50'] = df['Volume'].rolling(50, min_periods=1).mean()
                     for i in range(len(df)):
                         if df['Close'].iloc[i] > df['Open'].iloc[i] and df['Volume'].iloc[i] > df['Vol50'].iloc[i]*1.5:
                             fig.add_annotation(x=dates[i], y=df['Volume'].iloc[i], text="🌟", showarrow=False, yanchor="bottom", xanchor="center", font=dict(size=14, color="#FFD700"), row=2, col=1)
+                    
                     add_energy_subplots(fig, df, row_start=3)
-                    fig.update_layout(template="plotly_dark", paper_bgcolor='#0e1117', plot_bgcolor='#111', height=950, barmode='overlay', hovermode='x unified', xaxis_rangeslider_visible=False, xaxis=dict(type='category', showticklabels=False, showspikes=True, spikemode='across', spikecolor="white", spikethickness=1, spikedash='dot'), xaxis6=dict(overlaying='x1', anchor='y1', side='top', range=[0, max_c*4], showgrid=False, showticklabels=False), yaxis=dict(title="股價", showspikes=True, spikemode='across', spikecolor="white", spikethickness=1, spikedash='dot'), legend=dict(font=dict(color="white", size=13), orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
+                    
+                    fig.update_layout(template="plotly_dark", paper_bgcolor='#0e1117', plot_bgcolor='#111', height=950, barmode='overlay',
+                                      hovermode='x unified', xaxis_rangeslider_visible=False, 
+                                      xaxis=dict(type='category', showticklabels=False, showspikes=True, spikemode='across', spikecolor="white", spikethickness=1, spikedash='dot'), 
+                                      xaxis6=dict(overlaying='x1', anchor='y1', side='top', range=[0, max_c*4], showgrid=False, showticklabels=False),
+                                      yaxis=dict(title="股價", showspikes=True, spikemode='across', spikecolor="white", spikethickness=1, spikedash='dot'), 
+                                      legend=dict(font=dict(color="white", size=13), orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
                     st.plotly_chart(fig, use_container_width=True, key=f"c_chart_{sel_target}")
                 except Exception as e: st.error(f"繪圖出錯: {e}")
     else:
         if 'c_scanned_stocks' in st.session_state and not st.session_state.c_scanned_stocks:
-            st.warning("💤 雷達掃描完畢，目前未有符合過濾之標的。")
+            st.warning("💤 雷達掃描完畢，目前未有起飛目標。")
 
 # =========================================================================
 # 📈 模式 D：VCP 形態戰術掃描 & 防守圖
@@ -897,15 +871,15 @@ elif app_mode == "📈 VCP 形態戰術掃描 & 防守圖":
     if is_etf: target_dict = US_ETF_MAP if is_us else HK_ETF_MAP
     else: target_dict = US_STOCK_MAP if is_us else HK_STOCK_MAP
     
+    # 🌟 Fix: 防撞保險絲 (Unique Key)
     with c_sec: s_choice = st.selectbox("3. 選擇掃描範圍", ["🌐 啟動全星系大規模搜索"] + list(target_dict.keys()), key=f"vcp_rng_{asset_type}_{market_choice}")
     with c_strat: vcp_strat = st.radio("4. 戰術過濾 (機變)", ["🔥 極致新高 (ATH)", "🐉 潛龍伏躍 (10-20% 空間)"])
 
     if 'vcp_scanned_stocks' not in st.session_state: st.session_state.vcp_scanned_stocks = []
-    if 'vcp_scrap_stocks' not in st.session_state: st.session_state.vcp_scrap_stocks = []
 
     if st.button("📡 [神掣] 發射！執行核心 RS 海選與大戶偵測"):
         tickers_to_scan = list(set([t for sub in target_dict.values() for t in sub])) if "星系" in s_choice else target_dict.get(s_choice, [])
-        found_stocks = []; scrap_stocks = []; sector_tally = {}; pb = st.progress(0)
+        found_stocks = []; pb = st.progress(0)
         with st.spinner("⏳ 慢速防封鎖引擎已啟動，正在對比大盤 RS 同尋找大戶足跡..."):
             try:
                 bench_df = smart_fetch(bench_sym, period="1y")['Close'].dropna()
@@ -915,6 +889,7 @@ elif app_mode == "📈 VCP 形態戰術掃描 & 防守圖":
                     if idx > 0 and idx % 10 == 0: time.sleep(1.0)
                     try:
                         df_t = smart_fetch(t, period="1y")
+                        # 🌟 Fix 1: 0100.hk 醫治 (確保20日即可掃描)
                         if len(df_t) >= 20:
                             ret = (df_t['Close'].iloc[-1] / df_t['Close'].iloc[0]) - 1
                             yearly_returns[t] = ret; valid_dfs[t] = df_t
@@ -927,13 +902,7 @@ elif app_mode == "📈 VCP 形態戰術掃描 & 防守圖":
                         df_vcp['MA50'] = df_vcp['Close'].rolling(50, min_periods=1).mean()
                         df_vcp['MA150'] = df_vcp['Close'].rolling(150, min_periods=1).mean()
                         df_vcp['MA200'] = df_vcp['Close'].rolling(200, min_periods=1).mean()
-                        ma20 = df_vcp['Close'].rolling(20, min_periods=1).mean()
                         curr = df_vcp.iloc[-1]; ath = df_vcp['High'].tail(252).max()
-                        
-                        # 🚨 戰損偵測 (跌穿 20 日線)
-                        if curr['Close'] < ma20.iloc[-1]:
-                            scrap_stocks.append({'Ticker': t, 'Price': curr['Close']})
-                            continue
                         
                         if not (curr['Close'] > df_vcp['MA50'].iloc[-1] and df_vcp['MA50'].iloc[-1] > df_vcp['MA150'].iloc[-1]): continue
                         if vcp_strat == "🔥 極致新高 (ATH)":
@@ -949,38 +918,19 @@ elif app_mode == "📈 VCP 形態戰術掃描 & 防守圖":
                         whale_count = len(df_vcp.tail(10)[(df_vcp.tail(10)['Close'] > df_vcp.tail(10)['Open']) & (df_vcp.tail(10)['Volume'] > df_vcp.tail(10)['Vol50'] * 1.5)])
                         
                         v_ma20 = df_vcp['Volume'].rolling(20, min_periods=1).mean(); v_std20 = df_vcp['Volume'].rolling(20, min_periods=1).std().fillna(0)
-                        v_upper = v_ma20 + (2.0 * v_std20); ma60 = df_vcp['Volume'].rolling(60, min_periods=1).mean(); roc = df_vcp['Close'].pct_change().fillna(0) * 100
+                        v_upper = v_ma20 + (2.0 * v_std20); ma60 = df_vcp['Volume'].rolling(60, min_periods=1).mean(); roc = df_vcp['Close'].pct_change() * 100
+                        has_cyan_3d = ((df_vcp['Volume'] > v_upper) & (df_vcp['Volume'] > ma60 * 1.9) & (roc.abs() > 2.0) & (df_vcp['Close'] > df_vcp['Open'])).tail(3).any()
                         
-                        # 💰 異動
-                        is_cyan = (df_vcp['Volume'] > v_upper) & (df_vcp['Volume'] > ma60 * 1.9) & (roc.abs() > 2.0) & (df_vcp['Close'] > df_vcp['Open'])
-                        has_cyan_3d = is_cyan.tail(3).any()
-                        
-                        sec_name = "其他板塊"
-                        if not is_etf:
-                            for s_key, s_list in target_dict.items():
-                                if t in s_list: sec_name = s_key.split('. ')[1] if '. ' in s_key else s_key; break
-                        sector_tally[sec_name] = sector_tally.get(sec_name, 0) + 1
-                        
-                        found_stocks.append({'Ticker': t, 'RS Rating': rs_rating, 'Tags': f"🔥 大戶掃貨 ({whale_count}/10)" + (" 💰 異動" if has_cyan_3d else ""), 'Pivot': df_vcp['High'].tail(20).max(), 'Sector': sec_name})
-                
+                        found_stocks.append({'Ticker': t, 'RS Rating': rs_rating, 'Tags': f"🔥 大戶掃貨 ({whale_count}/10)" + (" 💰" if has_cyan_3d else ""), 'Pivot': df_vcp['High'].tail(20).max()})
                 st.session_state.vcp_scanned_stocks = sorted(found_stocks, key=lambda x: x['RS Rating'], reverse=True)
-                st.session_state.vcp_scrap_stocks = scrap_stocks
             except Exception as e: st.error(f"掃描受限: {e}")
-
-    # 🚨 置頂顯示：戰損撤退名單
-    if st.session_state.get('vcp_scrap_stocks'):
-        st.markdown("<div class='exit-radar'><h3 style='color:#FF4B4B; margin-top:0;'>🚨 📉 戰損撤退警告 (以下掃描範圍內嘅股票已跌穿 20日線，若持有請嚴格止損)</h3>", unsafe_allow_html=True)
-        scrap_str = " | ".join([f"🗑️ {s['Ticker']}" for s in st.session_state.vcp_scrap_stocks[:40]])
-        st.markdown(f"<p style='color:white; font-size:1.1rem; line-height: 1.6;'>{scrap_str}</p></div>", unsafe_allow_html=True)
 
     if st.session_state.vcp_scanned_stocks:
         st.success(f"🎉 成功尋獲 {len(st.session_state.vcp_scanned_stocks)} 隻終極潛力標的！")
         st.markdown("### 🏆 領頭羊精銳名單")
         for s in st.session_state.vcp_scanned_stocks:
             bg = "scan-card-super" if '🔥' in s['Tags'] else "scan-card-fire"
-            # 📊 板塊聯動
-            hot_tag = "<span style='color:#FFD700; margin-left: 10px;'>📊 [板塊熱力爆發]</span>" if not is_etf and sector_tally.get(s.get('Sector',''), 0) >= 3 else ""
-            st.markdown(f"<div class='{bg}'><div style='display:flex; justify-content:space-between;'><span style='font-size:1.5rem; font-weight:bold; color:white;'>[{s['Ticker']}] {s.get('Sector','')} | RS Rating: <span style='color:#00FFCC;'>{s['RS Rating']}</span></span><span style='font-size:1.2rem; font-weight:bold; color:#FFD700;'>{s['Tags']} {hot_tag}</span></div></div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='{bg}'><div style='display:flex; justify-content:space-between;'><span style='font-size:1.5rem; font-weight:bold; color:white;'>[{s['Ticker']}] 趨勢: ✅ | RS Rating: <span style='color:#00FFCC;'>{s['RS Rating']}</span></span><span style='font-size:1.2rem; font-weight:bold; color:#FFD700;'>{s['Tags']}</span></div></div>", unsafe_allow_html=True)
 
         st.write("---")
         sel_target = st.selectbox("🎯 選擇目標查看「3 層視覺化戰術儀表板」", [s['Ticker'] for s in st.session_state.vcp_scanned_stocks])
@@ -1012,6 +962,7 @@ elif app_mode == "📈 VCP 形態戰術掃描 & 防守圖":
                     atr_stop = df['Close'].iloc[-1] - (1.5 * df['ATR'].iloc[-1]) if not pd.isna(df['ATR'].iloc[-1]) else stop_loss
                     risk_pct = ((df['Close'].iloc[-1] - stop_loss) / df['Close'].iloc[-1]) * 100
 
+                    # 🌟 Fix 4: VCP 圖表加入三層能量指標 (共 6 行)
                     fig = make_subplots(rows=6, cols=1, shared_xaxes=True, row_heights=[0.35, 0.1, 0.2, 0.1, 0.1, 0.15], vertical_spacing=0.02)
                     dates = df.index.strftime('%Y-%m-%d')
                     
@@ -1038,7 +989,14 @@ elif app_mode == "📈 VCP 形態戰術掃描 & 防守圖":
                     if df['Close'].iloc[-1] < df['Close'].tail(20).max() * 0.98 and rs_line.iloc[-1] >= rs_line.tail(20).max() * 0.99:
                         fig.add_annotation(x=dates[-1], y=rs_line.iloc[-1], text="🌟 起步點！", showarrow=True, ax=-40, ay=-30, font=dict(color="white", size=14), row=6, col=1)
 
-                    fig.update_layout(template="plotly_dark", paper_bgcolor='#0e1117', plot_bgcolor='#111', height=1050, barmode='overlay', hovermode='x unified', xaxis_rangeslider_visible=False, xaxis=dict(type='category', showticklabels=False), xaxis6=dict(type='category', title="日期", showspikes=True, spikemode='across', spikecolor="white", spikethickness=1, spikedash='dot'), xaxis7=dict(overlaying='x1', anchor='y1', side='top', range=[0, max_c*4], showgrid=False, showticklabels=False), yaxis=dict(title="股價"), yaxis2=dict(title="成交量", showticklabels=False), yaxis6=dict(title="RS Rating", showticklabels=False), legend=dict(font=dict(color="white", size=13), orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
+                    fig.update_layout(template="plotly_dark", paper_bgcolor='#0e1117', plot_bgcolor='#111', height=1050, barmode='overlay',
+                                      hovermode='x unified', xaxis_rangeslider_visible=False, 
+                                      xaxis=dict(type='category', showticklabels=False), 
+                                      xaxis6=dict(type='category', title="日期", showspikes=True, spikemode='across', spikecolor="white", spikethickness=1, spikedash='dot'), 
+                                      xaxis7=dict(overlaying='x1', anchor='y1', side='top', range=[0, max_c*4], showgrid=False, showticklabels=False),
+                                      yaxis=dict(title="股價"), yaxis2=dict(title="成交量", showticklabels=False),
+                                      yaxis6=dict(title="RS Rating", showticklabels=False),
+                                      legend=dict(font=dict(color="white", size=13), orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
                     st.plotly_chart(fig, use_container_width=True, key=f"d_chart_{sel_target}")
 
                     risk_alert = f"<span style='color:#FF4B4B;'>⚠️ 長線防波堤極限風險 ({risk_pct:.1f}%)，請相應縮小買入倉位！</span>" if risk_pct > 7.0 else f"<span style='color:#00FFCC;'>✅ 長線防波堤風險可控 ({risk_pct:.1f}%)</span>"
@@ -1049,7 +1007,7 @@ elif app_mode == "📈 VCP 形態戰術掃描 & 防守圖":
             st.warning("💤 雷達掃描完畢，未有符合過濾之標的。")
 
 # =========================================================================
-# 🌊 模式 E：海龜回測加注雷達
+# 🌊 模式 E：海龜回測加注雷達 (🌟 Fix 5: 圖表加入三層能量指標)
 # =========================================================================
 elif app_mode == "🌊 海龜回測加注雷達 (Mode E)":
     st.markdown("<h1 class='main-title'>🌊 海龜回測加注雷達 (Mode E)</h1>", unsafe_allow_html=True)
@@ -1071,11 +1029,10 @@ elif app_mode == "🌊 海龜回測加注雷達 (Mode E)":
     s_choice = st.selectbox("4. 選擇掃描範圍", ["🌐 啟動全星系大規模搜索"] + list(target_dict.keys()), key=f"e_rng_{asset_type}_{market_choice}")
 
     if 'e_scanned_stocks' not in st.session_state: st.session_state.e_scanned_stocks = []
-    if 'e_scrap_stocks' not in st.session_state: st.session_state.e_scrap_stocks = []
 
     if st.button("📡 發射真龍 N 字雷達！"):
         tickers = list(set([t for sub in target_dict.values() for t in sub])) if "星系" in s_choice else target_dict.get(s_choice, [])
-        found = []; scrap_stocks = []; sector_tally = {}; pb = st.progress(0)
+        found = []; pb = st.progress(0)
         
         with st.spinner("⏳ 雷達正在慢速穩定過濾「去弱留強」 N 字加注點..."):
             yearly_returns = {}; valid_dfs = {}
@@ -1084,6 +1041,7 @@ elif app_mode == "🌊 海龜回測加注雷達 (Mode E)":
                 if idx > 0 and idx % 10 == 0: time.sleep(1.0)
                 try:
                     df_t = smart_fetch(t, period="1y")
+                    # 🌟 Fix 1: 0100.hk 醫治 (確保20日即可掃描)
                     if len(df_t) >= 20:
                         ret = (df_t['Close'].iloc[-1] / df_t['Close'].iloc[0]) - 1
                         yearly_returns[t] = ret; valid_dfs[t] = df_t
@@ -1104,12 +1062,10 @@ elif app_mode == "🌊 海龜回測加注雷達 (Mode E)":
                     v_std20 = df['Volume'].rolling(20, min_periods=1).std().fillna(0)
                     v_upper = v_ma20 + (2.0 * v_std20)
                     v_ma60 = df['Volume'].rolling(60, min_periods=1).mean()
-                    roc = df['Close'].pct_change().fillna(0) * 100
+                    roc = df['Close'].pct_change() * 100
                     df['Magenta'] = (df['Volume'] > v_upper) & (df['Volume'] > v_ma60 * 1.9) & (roc.abs() > 2.0) & (df['Close'] <= df['Open'])
                     
-                    # 💰 異動
-                    is_cyan = (df['Volume'] > v_upper) & (df['Volume'] > v_ma60 * 1.9) & (roc.abs() > 2.0) & (df['Close'] > df['Open'])
-                    has_cyan_3d = is_cyan.tail(3).any()
+                    has_cyan_3d = ((df['Volume'] > v_upper) & (df['Volume'] > v_ma60 * 1.9) & (roc.abs() > 2.0) & (df['Close'] > df['Open'])).tail(3).any()
 
                     curr_p = df['Close'].iloc[-1]
                     ma50 = df['Close'].rolling(50, min_periods=1).mean().iloc[-1]
@@ -1117,12 +1073,6 @@ elif app_mode == "🌊 海龜回測加注雷達 (Mode E)":
                     ma200 = df['Close'].rolling(200, min_periods=1).mean().iloc[-1]
                     ema10 = df['Close'].ewm(span=10, adjust=False).mean().iloc[-1]
                     ath = df['High'].tail(252).max()
-                    
-                    # 🚨 戰損偵測 (跌穿 20日線)
-                    ma20 = df['Close'].rolling(20, min_periods=1).mean()
-                    if curr_p < ma20.iloc[-1]:
-                        scrap_stocks.append({'Ticker': t, 'Price': curr_p})
-                        continue
                     
                     rs_rating = int((all_rets[all_rets <= ret].count() / len(all_rets)) * 99)
                     
@@ -1151,36 +1101,21 @@ elif app_mode == "🌊 海龜回測加注雷達 (Mode E)":
                                 
                                 if current_netma > 0 and not pullback_magenta:
                                     swing_low = df['Low'].iloc[-days_since_high:].min()
-                                    sec_name = "其他板塊"
-                                    if not is_etf:
-                                        for s_key, s_list in target_dict.items():
-                                            if t in s_list: sec_name = s_key.split('. ')[1] if '. ' in s_key else s_key; break
-                                    sector_tally[sec_name] = sector_tally.get(sec_name, 0) + 1
-                                    
                                     found.append({
                                         'Ticker': t, 'Price': curr_p, 'High': last_20_high,
                                         'Low': swing_low, 'Pullback': pullback_pct, 'EMA10': ema10,
-                                        'Days Since High': days_since_high, 'Sector': sec_name,
-                                        'Tags': f"🔥 大戶掃貨 ({whale_count}/10)" + (" 💰 異動" if has_cyan_3d else "")
+                                        'Days Since High': days_since_high,
+                                        'Tags': f"🔥 大戶掃貨 ({whale_count}/10)" + (" 💰" if has_cyan_3d else "")
                                     })
             st.session_state.e_scanned_stocks = sorted(found, key=lambda x: x['Pullback'], reverse=True)
-            st.session_state.e_scrap_stocks = scrap_stocks
-
-    # 🚨 置頂顯示：戰損撤退名單
-    if st.session_state.get('e_scrap_stocks'):
-        st.markdown("<div class='exit-radar'><h3 style='color:#FF4B4B; margin-top:0;'>🚨 📉 戰損撤退警告 (以下掃描範圍內嘅股票已跌穿 20日線，若持有請嚴格止損)</h3>", unsafe_allow_html=True)
-        scrap_str = " | ".join([f"🗑️ {s['Ticker']}" for s in st.session_state.e_scrap_stocks[:40]])
-        st.markdown(f"<p style='color:white; font-size:1.1rem; line-height: 1.6;'>{scrap_str}</p></div>", unsafe_allow_html=True)
 
     if st.session_state.e_scanned_stocks:
         st.success(f"🎉 捕捉到 {len(st.session_state.e_scanned_stocks)} 隻健康回測中嘅目標！")
         for p in st.session_state.e_scanned_stocks:
-            # 📊 板塊聯動
-            hot_tag = "<span style='color:#FFD700; margin-left: 10px;'>📊 [板塊熱力爆發]</span>" if not is_etf and sector_tally.get(p.get('Sector',''), 0) >= 3 else ""
             st.markdown(f"""
             <div class='pullback-card'>
                 <div style='display:flex; justify-content:space-between; align-items:center;'>
-                    <span style='font-size:1.8rem; font-weight:bold; color:white;'>🎯 [{p['Ticker']}] {p.get('Sector','')} {p['Tags']} {hot_tag}</span>
+                    <span style='font-size:1.8rem; font-weight:bold; color:white;'>🎯 [{p['Ticker']}] {p['Tags']}</span>
                     <span style='font-size:1.2rem; font-weight:bold; color:#00FFCC;'>現價: ${p['Price']:.2f}</span>
                 </div>
                 <hr style='border-color:#444; margin:10px 0;'>
@@ -1230,13 +1165,15 @@ elif app_mode == "🌊 海龜回測加注雷達 (Mode E)":
                     
                     add_energy_subplots(fig, df, row_start=3)
                     
-                    fig.update_layout(template="plotly_dark", paper_bgcolor='#0e1117', plot_bgcolor='#111', height=950, barmode='overlay', hovermode='x unified', xaxis_rangeslider_visible=False, xaxis=dict(type='category', showticklabels=False), xaxis5=dict(type='category', title="日期", showspikes=True, spikemode='across', spikecolor="white", spikethickness=1, spikedash='dot'), xaxis6=dict(overlaying='x1', anchor='y1', side='top', range=[0, max_c*4], showgrid=False, showticklabels=False), yaxis=dict(title="股價"), yaxis2=dict(title="成交量", showticklabels=False), legend=dict(font=dict(color="white", size=13), orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
+                    fig.update_layout(template="plotly_dark", paper_bgcolor='#0e1117', plot_bgcolor='#111', height=950, barmode='overlay',
+                                      hovermode='x unified', xaxis_rangeslider_visible=False, 
+                                      xaxis=dict(type='category', showticklabels=False), 
+                                      xaxis5=dict(type='category', title="日期", showspikes=True, spikemode='across', spikecolor="white", spikethickness=1, spikedash='dot'), 
+                                      xaxis6=dict(overlaying='x1', anchor='y1', side='top', range=[0, max_c*4], showgrid=False, showticklabels=False),
+                                      yaxis=dict(title="股價"), yaxis2=dict(title="成交量", showticklabels=False),
+                                      legend=dict(font=dict(color="white", size=13), orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
                     st.plotly_chart(fig, use_container_width=True, key=f"e_chart_{sel_target}")
                 except Exception as e: st.error(f"繪圖出錯: {e}")
     else:
         if 'e_scanned_stocks' in st.session_state and not st.session_state.e_scanned_stocks:
             st.warning("💤 雷達掃描完畢，未有符合過濾之標的。")
-
-# ==========================================
-# 🚀 爺爺：全體手術完成！大功告成！
-# ==========================================
