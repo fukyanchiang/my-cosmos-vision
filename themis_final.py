@@ -341,14 +341,35 @@ if app_mode == "🚀 個股深度透視":
                 if len(c_tail) > 1:
                     slope, intercept = np.polyfit(days, c_tail, 1); pred = intercept + slope * len(days)
                     mom = (curr_p / pred) if pred > 0 else 1.0; v_ann = max(0.001, c_tail.pct_change().std() * np.sqrt(252))
-                    cx_val = safe_n(((slope * 252) / c_tail.mean() / v_ann) * 29 * mom, 50.0)
-                else: cx_val = 50.0
+# ================= 爺爺修正：核心動能與EJ底氣 (PART A 醫好0688) =================
+                c_tail = df['Close'].tail(125)
+                if len(c_tail) > 15:
+                    days_arr = np.arange(len(c_tail))
+                    slope, intercept = np.polyfit(days_arr, c_tail, 1)
+                    avg_p = max(c_tail.mean(), 0.01)
+                    v_std_ann = max(0.001, c_tail.pct_change().std() * np.sqrt(252))
+                    # 修正：移除不穩定 mom 乘數，確保 0688 呢類強勢股唔會變 0
+                    cx_val = safe_n(((slope * 252) / avg_p / v_std_ann) * 29, 50.0)
+                    cx_val = max(5.0, cx_val) # 強制保底，唔好出 0
+                else:
+                    cx_val = 50.0
 
+                # 修正 RS (星系強弱)
                 spy_aligned = spy['Close'].reindex(df.index).ffill().bfill() 
-                crs_val = safe_n(50 + ((curr_p / df['Close'].iloc[-min(63, len(df))]) - (spy_aligned.iloc[-1] / spy_aligned.iloc[-min(63, len(spy_aligned))])) * 100, 50.0)
-                v21 = df['Volume'].tail(21).mean(); v252 = df['Volume'].tail(252).mean(); cej_s = safe_n((v21 / max(v252, 1)) * 100, 50.0)
-                se_s = safe_n(50 + (((curr_p / df['Close'].iloc[-max(1, min(5, len(df)-1))]) - 1) * 1200), 50.0)
-
+                rs_look_idx = min(63, len(df)-1)
+                crs_val = safe_n(50 + ((curr_p / df['Close'].iloc[-rs_look_idx]) - (spy_aligned.iloc[-1] / spy_aligned.iloc[-rs_look_idx])) * 100, 50.0)
+                
+                # 修正 EJ (錢流底氣)：鎖定分母，避免數據缺失導致負數
+                v21_avg = df['Volume'].tail(21).mean()
+                v252_ref = df['Volume'].tail(252).mean() if len(df) > 200 else df['Volume'].mean()
+                cej_s = safe_n((v21_avg / max(v252_ref, 0.001)) * 100, 50.0)
+                cej_s = max(1.0, cej_s) # 確保係正數
+                
+                # 修正 SE (短期能量)
+                se_look_idx = max(1, min(5, len(df)-1))
+                se_s = safe_n(50 + (((curr_p / df['Close'].iloc[-se_look_idx]) - 1) * 1200), 50.0)
+                se_s = max(1.0, se_s) # 確保係正數
+                # ============================================================================
                 def get_trend_stats(metric):
                     try:
                         if len(df) < 5: return "數據累積中", "#888"
