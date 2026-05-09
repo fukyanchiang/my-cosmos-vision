@@ -382,7 +382,7 @@ if app_mode == "🚀 個股深度透視":
                             diff = cap_pct(crs_val - past)
                         elif metric == "EJ":
                             v_past_21 = df['Volume'].iloc[-min(len(df)-1, compare_idx+21):-compare_idx].mean() if len(df) > compare_idx+21 else df['Volume'].iloc[0]
-                            past = (v_past_21 / max(v252, 1)) * 100
+                            past = (v_past_21 / max(v252_ref, 0.001)) * 100
                             diff = cap_pct(cej_s - past)
                         else: 
                             past = 50 + (((df['Close'].iloc[-compare_idx] / df['Close'].iloc[-max(1, min(compare_idx+5, len(df)-1))]) - 1) * 1200)
