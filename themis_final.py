@@ -345,7 +345,8 @@ if app_mode == "🚀 個股深度透視":
                     avg_p = max(c_tail.mean(), 0.01)
                     v_std_ann = max(0.001, c_tail.pct_change().std() * np.sqrt(252))
                     # 修正：移除不穩定 mom 乘數，確保 0688 呢類強勢股唔會變 0
-                    cx_val = 88.8
+                    # 爺爺加強版馬力
+                    cx_val = safe_n(((slope * 252) / avg_p / v_std_ann) * 125, 50.0)
                     cx_val = max(5.0, cx_val) # 強制保底，唔好出 0
                 else:
                     cx_val = 50.0
