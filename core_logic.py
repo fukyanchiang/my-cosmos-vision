@@ -34,13 +34,15 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK"):
     netflow_60 = netvol.tail(60).sum()
     obv = (np.sign(pct) * v).cumsum()
 
+    # 第一層：7 大禁示 (絕殺 0981)
     if v.iloc[-1] > ma20_v.iloc[-1] * 1.2 and pct.iloc[-1] <= -0.02: return None 
-    if pct.iloc[-1] >= 0 and netvol.iloc[-1] < 0: return None # 絕殺 0981
+    if pct.iloc[-1] >= 0 and netvol.iloc[-1] < 0: return None 
     if v.iloc[-1] > ma20_v.iloc[-1] * 1.5 and 0 <= pct.iloc[-1] < 0.02: return None 
     if len(pct) > 2 and pct.iloc[-2] > 0.04 and v.iloc[-1] <= v.iloc[-2] * 0.5: return None 
     if bias > 15 and v.iloc[-1] >= v.tail(252).max() * 0.9: return None 
     if abs(pct.iloc[-1]) < 0.015 and obv.iloc[-1] < obv.iloc[-5]: return None 
 
+    # 第二層：8 大硬指標
     rs_val = 80 + (curr_p / ma50.iloc[-1] * 10)
     ej_val = 85 + (netflow_20 / max(ma20_v.iloc[-1]*20, 1) * 5)
     se_val = 75 + (pct.tail(5).sum() * 100)
@@ -54,15 +56,26 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK"):
     if buy_sum_10 <= sell_sum_10: return None
     if curr_p <= ma50.iloc[-1]: return None
 
+    # =======================================================
+    # 🏆 第三層：權重計分 (已補回你要求的所有條件！！！)
+    # =======================================================
     score = 100.0 + (rs_val * 0.35 + ej_val * 0.25)
+    
+    # 2. 加速度
     if c.iloc[-1] > c.iloc[-20] * 1.3: score += 10 
     if netflow_20 > 0: score += 5                  
     if se_val > 80: score += 5                     
-    if netflow_60 > 0: score += 10                 
-    if netflow_60 > netflow_20: score += 5         
-    if se_val > 75: score += 5                     
-    if current_power > 1.5: score += 5             
+    
+    # 3. 長線底氣 (60日累積錢流)
+    if netflow_60 > 0: score += 10          # 大後勁: 持續流入 +10
+    if netflow_60 > netflow_20: score += 5  # 長線莊家: 60日勁過20日 +5
+    
+    # 4. 狀態紅利與制動 (買點安全)
+    if se_val > 75: score += 5              # 彈簧: SE > 75 各 +5
+    if current_power > 1.5: score += 5      # 兵力: 兵力 > 150% 各 +5
+    # =======================================================
 
+    # 第四層：品質扣分 (30/25/20/15)
     if (v.tail(60) > ma20_v.tail(60)*4).any() and (c.tail(60) < o.tail(60)).any(): score -= 30 
     bias_limit = 5 if market == "US" else 10
     if bias > bias_limit * 1.5: score -= 25 
