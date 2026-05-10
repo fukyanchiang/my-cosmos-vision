@@ -22,10 +22,11 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK"):
     if len(df) < 65: return None
     c = df['Close']; h = df['High']; l = df['Low']; o = df['Open']; v = df['Volume']
     curr_p = c.iloc[-1]; pct = c.pct_change().fillna(0)
-    ma20_v = v.rolling(20).mean(); ma50 = c.rolling(50).mean()
+    ma20_v = v.rolling(20).mean(); ma50_v = v.rolling(50).mean(); ma50 = c.rolling(50).mean()
     ema10 = c.ewm(span=10, adjust=False).mean()
     bias = ((curr_p - ma50.iloc[-1]) / ma50.iloc[-1]) * 100
     
+    # 🧬 核心量能
     var3 = np.maximum(h - l, 0.001)
     buyvol = v * (c - l) / var3
     sellvol = v * (h - c) / var3
@@ -55,7 +56,7 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK"):
     if buy_sum_10 <= sell_sum_10: return None
     if curr_p <= ma50.iloc[-1]: return None
 
-    # 3. 計分與扣分
+    # 3. 權重計分 (補足 60日錢流 + 狀態紅利)
     score = 100.0 + (rs_val * 0.35 + ej_val * 0.25)
     if c.iloc[-1] > c.iloc[-20] * 1.3: score += 10 
     if netflow_20 > 0: score += 5                  
@@ -65,6 +66,7 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK"):
     if se_val > 75: score += 5                     
     if current_power > 1.5: score += 5             
 
+    # 4. 品質扣分
     if (v.tail(60) > ma20_v.tail(60)*4).any() and (c.tail(60) < o.tail(60)).any(): score -= 30 
     bias_limit = 5 if market == "US" else 10
     if bias > bias_limit * 1.5: score -= 25 
@@ -75,10 +77,26 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK"):
         if bias > bias_limit + 5: score -= 50 
         else: score -= (bias - bias_limit) * 10
 
+    # =======================================================
+    # 🔮 第五層：8 大隱藏公仔 (前 7 個，第 8 個在 UI 層)
+    # =======================================================
     icons = []
-    if rs_val > 90 and ej_val > 90: icons.append("💰🔥")
-    stars = sum((c.tail(10) > o.tail(10)) & (v.tail(10) > v.rolling(50).mean().tail(10) * 1.5))
+    # 1. 💰🔥 爆發點火
+    if rs_val > 90 and ej_val > 90 and se_val > 90 and pct.iloc[-1] > 0.02: icons.append("💰🔥")
+    # 2. 💰🤫 窄位建倉
+    if rs_val > 85 and ej_val > 85 and se_val > 85 and (h.iloc[-1] - l.iloc[-1])/l.iloc[-1] < 0.015: icons.append("💰🤫")
+    # 3. 💰🛡️ 托底錢袋
+    if rs_val > 80 and ej_val > 80 and se_val > 80 and pct.iloc[-1] < 0 and netflow_20 > 0: icons.append("💰🛡️")
+    # 4. 💎 驚天洗盤 (紫色托底柱)
+    if pct.iloc[-1] < 0 and netvol.iloc[-1] > ma20_v.iloc[-1] * 1.5: icons.append("💎")
+    # 5. 🧧 悶聲吸儲 (VCP末端)
+    if conc < 40 and netflow_20 > netflow_60 * 0.3 and netflow_20 > 0: icons.append("🧧")
+    # 6. ⚡ 閃電點火
+    if v.iloc[-1] > ma20_v.iloc[-1] * 2 and v.iloc[-2] < ma20_v.iloc[-2]: icons.append("⚡")
+    # 7. 🐋 鯨魚現身
+    stars = sum((c.tail(10) > o.tail(10)) & (v.tail(10) > ma50_v.tail(10) * 1.5))
     if stars > 0: icons.append(f"🐋({stars}/10)")
+    # =======================================================
 
     if bias < 2 and se_val > 85: status = "[👑 👑 初段起步]"
     elif 2 <= bias <= 5 and rs_val > 95: status = "[👑 中段跟進]"
