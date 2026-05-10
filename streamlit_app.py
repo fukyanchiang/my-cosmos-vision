@@ -32,15 +32,14 @@ st.markdown("### 嚴守紀律 • 寧缺勿濫 • 一擊必殺")
 st.markdown("---")
 
 # ================= 2. 準備股票名單與板塊對照 =================
-# 將字典拆解成 Ticker 清單，並記住佢哋嘅板塊
 ALL_TICKERS = []
 SECTOR_INFO = {}
 
-for sector, tickers_str in {**HK_STOCK_MAP, **US_STOCK_MAP, **HK_ETF_MAP, **US_ETF_MAP}.items():
-    tickers_list = tickers_str.split()
+for sector, tickers_list in {**HK_STOCK_MAP, **US_STOCK_MAP, **HK_ETF_MAP, **US_ETF_MAP}.items():
+    # 爺爺修正咗呢度！tickers_list 已經切好，唔使再 split() 喇！
     for t in tickers_list:
         ALL_TICKERS.append(t)
-        SECTOR_INFO[t] = sector.split(". ")[-1] # 只拎中文板塊名 (例如 "互聯網巨頭")
+        SECTOR_INFO[t] = sector.split(". ")[-1] # 只拎中文板塊名
 
 ALL_TICKERS = list(set(ALL_TICKERS)) # 去除重複
 
