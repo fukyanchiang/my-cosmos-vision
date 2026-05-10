@@ -1,86 +1,111 @@
-import yfinance as yf
+import streamlit as st
 import pandas as pd
 import numpy as np
-import streamlit as st
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+import time
 
-# 1. 兵力名單 (爺爺幫你預留位，請在此處補齊你舊 Code 的字典)
-HK_STOCK_MAP = {"1. 互聯網巨頭": "0700.HK 9988.HK 3690.HK 1810.HK".split(), "2. 半導體": "0981.HK 1347.HK".split()}
-US_STOCK_MAP = {"1. 半導體設計": "NVDA TSM AVGO ASML AMD".split(), "2. AI雲端": "MSFT GOOGL PLTR MSTR".split()}
-HK_ETF_MAP = {"H1. 旗艦大盤": "2800.HK 3033.HK 3134.HK".split()}
-US_ETF_MAP = {"U1. 核心主題": "QQQ SPY SOXX SMH".split()}
+from core_logic import (
+    HK_STOCK_MAP, US_STOCK_MAP, HK_ETF_MAP, US_ETF_MAP,
+    smart_fetch, analyze_dragon_soul
+)
 
-@st.cache_data(ttl=3600)
-def smart_fetch(ticker, period="1y"):
-    try:
-        data = yf.Ticker(ticker).history(period=period, auto_adjust=True)
-        return data.dropna(subset=['Close', 'Volume'])
-    except: return pd.DataFrame()
+# 1. 介面最簡化：黑底白字，絕無白底白字
+st.set_page_config(page_title="🦅 龍魂系統 V2.0", layout="wide")
+st.markdown("""
+    <style>
+    .stApp { background-color: #000000; color: #FFFFFF; }
+    h1, h2, h3, p, span, label { color: #FFFFFF !important; }
+    /* 修正按鈕：白底黑字，確保看得到 */
+    div.stButton > button { background-color: #FFFFFF !important; color: #000000 !important; font-weight: bold; border-radius: 5px; height: 60px; width: 100%; }
+    /* 修正下拉選單字體顏色 */
+    div[data-baseweb="select"] * { color: #000000 !important; }
+    /* 進度條高光 */
+    .stProgress > div > div > div > div { background-color: #00FFCC !important; }
+    .result-card { border: 2px solid #FFFFFF; padding: 20px; border-radius: 10px; margin-bottom: 20px; }
+    </style>
+""", unsafe_allow_html=True)
 
-# ==========================================
-# 🐲 龍魂掃股核心邏輯 (V2.0 終極版)
-# ==========================================
-def analyze_dragon_soul(ticker, df, market_type="HK"):
-    if len(df) < 65: return False, 0, "", "", {}
+if 'tactic' not in st.session_state: st.session_state.tactic = None
 
-    # --- A. 指標計算 ---
-    c, o, h, l, v = df['Close'], df['Open'], df['High'], df['Low'], df['Volume']
-    curr_p, ma20_v = c.iloc[-1], v.rolling(20).mean().iloc[-1]
-    sma50 = c.rolling(50).mean().iloc[-1]
-    bias = ((curr_p - sma50) / sma50) * 100
-    rs = 50 + ((curr_p / c.iloc[-63]) - 1) * 100
-    ej = (v.tail(21).mean() / max(v.tail(252).mean() if len(df)>250 else v.mean(), 1)) * 100
-    se = 50 + (((curr_p / c.iloc[-5]) - 1) * 1200)
+# 2. 三大掣首頁
+if st.session_state.tactic is None:
+    st.title("🦅 龍魂必勝戰術指揮部")
+    c1, c2, c3 = st.columns(3)
+    with c1: 
+        if st.button("🐲 龍魂起步 (RS/EJ/SE)"): st.session_state.tactic = "Dragon"; st.rerun()
+    with c2: 
+        if st.button("📈 VCP 形態 (Mark)"): st.session_state.tactic = "VCP"; st.rerun()
+    with c3: 
+        if st.button("🌊 海龜回測 (N字)"): st.session_state.tactic = "Turtle"; st.rerun()
+    st.stop()
 
-    # 資金流、OBV、集中度
-    mf = ((h+l+c)/3) * v * np.where(c > c.shift(1).fillna(c), 1, -1)
-    net_flow_20, net_flow_60 = mf.tail(20).sum(), mf.tail(60).sum()
-    obv = (np.sign(c.diff()) * v).fillna(0).cumsum()
-    obv_slope = (obv.iloc[-1] - obv.iloc[-10]) / 10
-    conc = (abs(mf.tail(20)).max() / max(abs(mf.tail(20)).sum(), 1)) * 100
-    buy_v, sell_v = (v*(c-l)/np.maximum(h-l,0.001)), (v*(h-c)/np.maximum(h-l,0.001))
-    force_win = buy_v.tail(5).sum() > sell_v.tail(5).sum()
+# 3. 操作台
+st.title(f"戰術：{st.session_state.tactic}")
+st.info("🐲 羅輯：11項死刑 Foul 制 ➡️ 7大指標海選 ➡️ 權重評分排序")
+if st.button("⬅️ 返回重選"): st.session_state.tactic = None; st.rerun()
 
-    # ------------------------------------------
-    # 🛑 第一層：11 項「人間蒸發」死刑 (Foul 制)
-    # ------------------------------------------
-    if (v.iloc[-1] > ma20_v*1.5 and c.iloc[-1] < o.iloc[-1]*0.97): return False, 0, "", "", {} # 直接派貨
-    if (c.iloc[-1] > o.iloc[-1] and mf.iloc[-1] < 0): return False, 0, "", "", {} # 托住走貨
-    if (v.iloc[-1] > ma20_v*3 and abs(c.iloc[-1]/o.iloc[-1]-1) < 0.02): return False, 0, "", "", {} # 放量滯漲
-    if (v.iloc[-1] > ma20_v*2 and v.iloc[-1] < v.shift(1).iloc[-1]*0.5): return False, 0, "", "", {} # 錢流斷層
-    if bias > 15 and v.iloc[-1] > ma20_v*3: return False, 0, "", "", {} # 末段癲狗
-    if obv_slope < 0: return False, 0, "", "", {} # OBV 詐騙
-    v_60 = v.tail(60); max_v_idx = v_60.argmax()
-    if (v_60.iloc[max_v_idx] > ma20_v*4) and (c.tail(60).iloc[max_v_idx] < o.tail(60).iloc[max_v_idx]): return False, 0, "", "", {} # 蟹貨
-    if v.iloc[-1] > ma20_v*5: return False, 0, "", "", {} # 爆缸天量
-    if (h.iloc[-1] - max(o.iloc[-1], c.iloc[-1])) > abs(c.iloc[-1]-o.iloc[-1])*2: return False, 0, "", "", {} # 影線派貨
-    if bias > (12 if market_type=="HK" else 8): return False, 0, "", "", {} # 位置虛脫
+c1, c2, c3 = st.columns([1, 1, 2])
+with c1: asset = st.radio("資產", ["🏢 個股", "🧺 ETF"], horizontal=True)
+with c2: mkt = st.radio("市場", ["🇺🇸 美股", "🇭🇰 港股"], horizontal=True)
+with c3: scan_range = st.selectbox("選擇範圍", ["🌐 全星系搜索", "🎯 監控清單"])
 
-    # ------------------------------------------
-    # 🐲 第二層：龍魂海選 (7 大硬指標)
-    # ------------------------------------------
-    if not (rs > 60 and ej > 85 and se > 75 and net_flow_20 > 0 and bias < 15 and force_win and conc < 70):
-        return False, 0, "", "", {}
+# 4. 專業圖表 (修正 ValueError)
+def plot_heavy_chart(ticker, df):
+    fig = make_subplots(rows=4, cols=1, shared_xaxes=True, row_heights=[0.5, 0.1, 0.2, 0.2], vertical_spacing=0.03)
+    dates = df.index.strftime('%Y-%m-%d')
+    fig.add_trace(go.Candlestick(x=dates, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'], name="K線"), row=1, col=1)
+    fig.add_trace(go.Scatter(x=dates, y=df['Close'].ewm(span=10).mean(), line=dict(color='orange'), name="10EMA"), row=1, col=1)
+    fig.add_trace(go.Bar(x=dates, y=df['Volume'], marker_color='gray', name="成交量"), row=2, col=1)
+    # RS線
+    fig.add_trace(go.Scatter(x=dates, y=(df['Close']/df['Close'].iloc[0]*100), line=dict(color='white'), name="RS"), row=4, col=1)
+    # 修正：用 paper_bgcolor 而不是 background_color
+    fig.update_layout(height=800, template='plotly_dark', paper_bgcolor='black', plot_bgcolor='black', xaxis_rangeslider_visible=False)
+    return fig
 
-    # ------------------------------------------
-    # 🏆 第三層：評分排序
-    # ------------------------------------------
-    score = (rs * 0.35) + (ej * 0.25)
-    if net_flow_20 > mf.iloc[-40:-20].sum()*1.3: score += 10 # 點火
-    if ej > 100: score += 5
-    if se > 85: score += 5
-    if net_flow_60 > 0: score += 10
-    if se > 75: score += 5
-    limit = 8 if market_type == "HK" else 5
-    if bias > limit: score -= (bias - limit) * 10
-
-    # 🎨 第四層：標籤與 8 大公仔
-    stage = "[👑 👑 初段起步]" if bias < 2 else ("[👑 中段跟進]" if bias <= 5 else "[⚠️ 末段衝刺]")
-    icons = []
-    if se > 85 and v.iloc[-1] > ma20_v * 1.5: icons.append("💰🔥")
-    if abs(c.iloc[-1]/o.iloc[-1]-1) < 0.01 and ej > 110: icons.append("💰🤫")
-    if c.iloc[-1] < o.iloc[-1] and mf.iloc[-1] > 0: icons.append("💰🛡️")
-    if c.iloc[-1] < o.iloc[-1]*0.97 and mf.iloc[-1] > 0 and v.iloc[-1] > ma20_v*2: icons.append("💎")
-    if ej > 120 and bias < 5: icons.append("🧧")
-    if v.iloc[-1] > v.iloc[-2]*2 and v.iloc[-2] < ma20_v*0.6: icons.append("⚡")
+# 5. 雷達掃描 (強制 Bar 出現)
+if st.button("📡 啟動雷達掃描 (一擊必殺)"):
+    # 獲取名單
+    target_map = (US_STOCK_MAP if mkt == "🇺🇸 美股" else HK_STOCK_MAP) if asset == "🏢 個股" else (US_ETF_MAP if mkt == "🇺🇸 美股" else HK_ETF_MAP)
+    all_t = []
+    for l in target_map.values(): all_t.extend(l)
     
-    return True, score, stage, " ".join(icons), {"RS":round(rs,1), "EJ":round(ej,1), "SE":round(se,1), "Bias":round(bias,1), "StopLoss":round(curr_p*0.92,2)}
+    # --- 關鍵： Bar 置頂 ---
+    st.write("---")
+    progress_bar = st.progress(0)
+    status_msg = st.empty()
+    
+    passed_stocks = []
+    sl_stocks = []
+
+    for i, t in enumerate(all_t):
+        # 更新進度，絕對唔會無反應
+        progress_bar.progress((i + 1) / len(all_t))
+        status_msg.markdown(f"🔍 **正在分析：{t}** ({i+1}/{len(all_t)})")
+        
+        df = smart_fetch(t)
+        if df.empty or len(df) < 30: continue
+        
+        # 止損名單
+        if df['Close'].iloc[-1] < df['Close'].ewm(span=10).mean().iloc[-1]: sl_stocks.append(t)
+        
+        # 龍魂分析
+        ok, score, stage, icons, det = analyze_dragon_soul(t, df, "US" if mkt=="🇺🇸 美股" else "HK")
+        if ok: passed_stocks.append({"t":t, "score":score, "stage":stage, "icons":icons, "df":df, "details":det})
+    
+    status_msg.success("✅ 掃描完成！")
+    
+    # 6. 顯示結果
+    if sl_stocks:
+        st.error(f"🚨 止損預警 (破10EMA)：{', '.join(sl_stocks[:20])}")
+    
+    if passed_stocks:
+        passed_stocks.sort(key=lambda x: x['score'], reverse=True)
+        for s in passed_stocks:
+            st.markdown(f"""
+            <div class="result-card">
+                <h3>{s['t']} {s['stage']} {s['icons']}</h3>
+                <p style="font-size:12px; color:white;">RS: {s['details']['RS']} | EJ: {s['details']['EJ']} | SE: {s['details']['SE']} | Bias: {s['details']['Bias']}%</p>
+            </div>
+            """, unsafe_allow_html=True)
+            st.plotly_chart(plot_heavy_chart(s['t'], s['df']), use_container_width=True)
