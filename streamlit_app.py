@@ -7,7 +7,7 @@ st.set_page_config(page_title="龍魂神殿：美股終極大成版", layout="wi
 
 st.markdown("<h1 style='text-align: center; color: #1E3A8A;'>🐲 龍魂神殿：美股全方位雷達</h1>", unsafe_allow_html=True)
 
-# 側邊欄：選擇戰場 (依家五個戰場齊晒！)
+# 側邊欄：選擇戰場 (已經改返晒做純英文逗號！)
 option = st.sidebar.selectbox(
     "🎯 選擇要掃描的戰場",
     ["S&P 500 大藍籌", "Market Focus (13頁精選)", "Industry Focus (9頁行業)", "核心美股名單", "US ETFs 戰略名單"]
@@ -60,4 +60,3 @@ if st.sidebar.button("🐉 啟動獵龍掃描"):
                 
         except Exception as e:
             st.error(f"❌ 讀取失敗：{e}")
-
