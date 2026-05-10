@@ -26,16 +26,14 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK"):
     ema10 = c.ewm(span=10, adjust=False).mean()
     bias = ((curr_p - ma50.iloc[-1]) / ma50.iloc[-1]) * 100
     
-    # 🧬 核心 3 項成交量指標
     var3 = np.maximum(h - l, 0.001)
     buyvol = v * (c - l) / var3
     sellvol = v * (h - c) / var3
     netvol = buyvol - sellvol
     netflow_20 = netvol.tail(20).sum()
-    netflow_60 = netvol.tail(60).sum() 
+    netflow_60 = netvol.tail(60).sum()
     obv = (np.sign(pct) * v).cumsum()
 
-    # --- 🐲 第一層：7 大禁示 (絕對死刑) ---
     if v.iloc[-1] > ma20_v.iloc[-1] * 1.2 and pct.iloc[-1] <= -0.02: return None 
     if pct.iloc[-1] >= 0 and netvol.iloc[-1] < 0: return None # 絕殺 0981
     if v.iloc[-1] > ma20_v.iloc[-1] * 1.5 and 0 <= pct.iloc[-1] < 0.02: return None 
@@ -43,7 +41,6 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK"):
     if bias > 15 and v.iloc[-1] >= v.tail(252).max() * 0.9: return None 
     if abs(pct.iloc[-1]) < 0.015 and obv.iloc[-1] < obv.iloc[-5]: return None 
 
-    # --- 🐲 第二層：8 大硬指標 ---
     rs_val = 80 + (curr_p / ma50.iloc[-1] * 10)
     ej_val = 85 + (netflow_20 / max(ma20_v.iloc[-1]*20, 1) * 5)
     se_val = 75 + (pct.tail(5).sum() * 100)
@@ -57,7 +54,6 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK"):
     if buy_sum_10 <= sell_sum_10: return None
     if curr_p <= ma50.iloc[-1]: return None
 
-    # --- 🏆 第三層：權重計分 ---
     score = 100.0 + (rs_val * 0.35 + ej_val * 0.25)
     if c.iloc[-1] > c.iloc[-20] * 1.3: score += 10 
     if netflow_20 > 0: score += 5                  
@@ -67,7 +63,6 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK"):
     if se_val > 75: score += 5                     
     if current_power > 1.5: score += 5             
 
-    # --- 🚨 第四層：品質扣分 ---
     if (v.tail(60) > ma20_v.tail(60)*4).any() and (c.tail(60) < o.tail(60)).any(): score -= 30 
     bias_limit = 5 if market == "US" else 10
     if bias > bias_limit * 1.5: score -= 25 
@@ -78,7 +73,6 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK"):
         if bias > bias_limit + 5: score -= 50 
         else: score -= (bias - bias_limit) * 10
 
-    # --- 🔮 公仔與標籤 ---
     icons = []
     if rs_val > 90 and ej_val > 90: icons.append("💰🔥")
     stars = sum((c.tail(10) > o.tail(10)) & (v.tail(10) > v.rolling(50).mean().tail(10) * 1.5))
@@ -89,7 +83,6 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK"):
     elif bias > 10 and rs_val >= 99: status = "[⚠️ 末段衝刺]"
     else: status = "[👑 趨勢行進]"
 
-    # 確保字典有齊所有 Key
     return {
         "Ticker": ticker, "Sector": sector_name, "Score": round(score, 1), 
         "RS": round(rs_val, 1), "EJ": round(ej_val, 1), "SE": round(se_val, 1),
