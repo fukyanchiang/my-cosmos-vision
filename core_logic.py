@@ -113,3 +113,114 @@ def smart_fetch(ticker_sym, period="1y"):
         return data.dropna(subset=['Close', 'Volume', 'High', 'Low', 'Open'])
     except: 
         return pd.DataFrame()
+
+
+# ==========================================
+# 🐲 龍魂 (千龍起步) 運算大腦核心
+# ==========================================
+
+def analyze_dragon_stock(ticker, df):
+    """
+    分析單一股票是否符合千龍邏輯，回傳 (是否過關, 總分, 階段標籤, 公仔名單, 字典數據)
+    """
+    if df is None or len(df) < 65:
+        return False, 0, "", "", {}
+
+    # 1. 準備基礎數據與均線
+    close = df['Close'].iloc[-1]
+    prev_close = df['Close'].iloc[-2]
+    vol = df['Volume'].iloc[-1]
+    
+    df['SMA20_Vol'] = df['Volume'].rolling(window=20).mean()
+    df['SMA60_Vol'] = df['Volume'].rolling(window=60).mean()
+    df['EMA10'] = df['Close'].ewm(span=10, adjust=False).mean()
+    df['SMA50'] = df['Close'].rolling(window=50).mean()
+    
+    sma20_vol = df['SMA20_Vol'].iloc[-1]
+    sma60_vol = df['SMA60_Vol'].iloc[-1]
+    ema10 = df['EMA10'].iloc[-1]
+    sma50 = df['SMA50'].iloc[-1]
+
+    # 2. 核心指標運算 (SE, EJ, RS 簡化版, Bias)
+    # SE: 5日波幅 * 35
+    price_5d_ago = df['Close'].iloc[-6]
+    se_score = ((close - price_5d_ago) / price_5d_ago) * 100 * 35
+    
+    # Bias: 距離 50MA 嘅百分比
+    bias_pct = ((close - sma50) / sma50) * 100
+    
+    # 近 20 日資金流 (Net Flow 簡化版: 升日成交 - 跌日成交)
+    df['Daily_Return'] = df['Close'].pct_change()
+    df['Money_Flow'] = np.where(df['Daily_Return'] > 0, df['Volume'], np.where(df['Daily_Return'] < 0, -df['Volume'], 0))
+    net_flow_20d = df['Money_Flow'].rolling(20).sum().iloc[-1]
+    net_flow_60d = df['Money_Flow'].rolling(60).sum().iloc[-1]
+    
+    # EJ 底氣 (近期成交活躍度)
+    ej_score = (sma20_vol / sma60_vol) * 50 if sma60_vol > 0 else 0
+    
+    # 簡單 RS (對比過去 63 日自身升幅作為基礎 RS 估算)
+    price_63d_ago = df['Close'].iloc[-64]
+    rs_score = ((close - price_63d_ago) / price_63d_ago) * 100 + 50 # 基準化
+
+    # 3. 🚨 11項死刑安檢 (Foul 制) - 中一項即死
+    foul_flag = False
+    # (A) 爆量派發
+    if vol > sma20_vol * 3 and df['Daily_Return'].iloc[-1] < 0: foul_flag = True # 直接派貨
+    if vol > sma20_vol * 3 and df['Daily_Return'].iloc[-1] < 0.02 and df['Daily_Return'].iloc[-1] > 0: foul_flag = True # 放量滯漲
+    if vol > sma20_vol * 5: foul_flag = True # 爆缸天量
+    # (B) 乖離率過高
+    is_hk = ".HK" in ticker
+    if (is_hk and bias_pct > 12) or (not is_hk and bias_pct > 8): foul_flag = True # 位置虛脫
+    
+    # 如果中死刑，或者硬指標唔及格 (SE<75, 跌穿50MA)，直接 Foul！
+    if foul_flag or se_score < 75 or close < sma50 or net_flow_20d < 0:
+        return False, 0, "", "", {}
+
+    # 4. 🃏 8大隱藏公仔 (大戶足跡)
+    icons = []
+    is_tianliang = vol > (sma20_vol + df['Volume'].rolling(20).std().iloc[-1] * 2) and vol > (sma60_vol * 1.9)
+    price_change_pct = df['Daily_Return'].iloc[-1] * 100
+
+    if is_tianliang and price_change_pct > 2: icons.append("💰🔥")
+    if is_tianliang and -1 <= price_change_pct <= 1: icons.append("💰🤫")
+    if is_tianliang and price_change_pct < -2: icons.append("💰🛡️")
+    if price_change_pct < -3 and net_flow_20d > 0 and ej_score > 85: icons.append("💎")
+    if -2 <= price_change_pct <= 2 and net_flow_20d > 0 and ej_score > 90: icons.append("🧧")
+    if vol > sma20_vol * 2 and df['Volume'].iloc[-2] < sma20_vol: icons.append("⚡")
+    
+    # 5. 🏆 龍魂計分法 2.0
+    # 皇者底色
+    total_score = (rs_score * 0.35) + (ej_score * 0.25)
+    # 加速度與長線底氣加成
+    if net_flow_20d > 0: total_score += 5
+    if se_score > 75: total_score += 5
+    if net_flow_60d > 0: total_score += 10
+    if net_flow_60d > net_flow_20d: total_score += 5
+    
+    # 🚨 安全制動 (Bias 扣分)
+    if is_hk and bias_pct > 8:
+        total_score -= (bias_pct - 8) * 10
+    elif not is_hk and bias_pct > 5:
+        total_score -= (bias_pct - 5) * 10
+
+    # 6. 🚦 階段標籤
+    stage_label = ""
+    if bias_pct < 2 and se_score > 85:
+        stage_label = "[👑 👑 初段起步]"
+    elif 2 <= bias_pct <= 5 and rs_score > 60:
+        stage_label = "[👑 中段跟進]"
+    elif bias_pct > 10:
+        stage_label = "[⚠️ 末段衝刺]"
+
+    icons_str = " ".join(icons)
+    
+    details = {
+        "Ticker": ticker,
+        "Score": round(total_score, 1),
+        "SE": round(se_score, 1),
+        "Bias": round(bias_pct, 1),
+        "Close": round(close, 2),
+        "StopLoss": round(ema10, 2)
+    }
+    
+    return True, total_score, stage_label, icons_str, details
