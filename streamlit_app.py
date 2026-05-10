@@ -3,11 +3,11 @@ import pandas as pd
 import os
 from core_logic import analyze_dragon_soul, smart_fetch
 
-st.set_page_config(page_title="龍魂神殿：美股終極版", layout="wide")
+st.set_page_config(page_title="龍魂神殿：美股終極大成版", layout="wide")
 
 st.markdown("<h1 style='text-align: center; color: #1E3A8A;'>🐲 龍魂神殿：美股全方位雷達</h1>", unsafe_allow_html=True)
 
-# 側邊欄：選擇戰場 (依家加到五個喇！)
+# 側邊欄：選擇戰場 (依家五個戰場齊晒！)
 option = st.sidebar.selectbox(
     "🎯 選擇要掃描的戰場",
     ["S&P 500 大藍籌", "Market Focus (13頁精選)", "Industry Focus (9頁行業)", "核心美股名單", "US ETFs 戰略名單"]
@@ -51,12 +51,12 @@ if st.sidebar.button("🐉 啟動獵龍掃描"):
             
             if all_results:
                 st.balloons()
-                st.success(f"✅ 發現 {len(all_results)} 隻符合條件的龍魂！")
+                st.success(f"✅ 發現 {len(all_results)} 隻符合龍魂條件的標的！")
                 for res in sorted(all_results, key=lambda x: x['得分'], reverse=True):
                     with st.expander(f"🔥 {res['代號']} - 得分: {round(res['得分'],1)}"):
                         st.write(f"強度 (RS): {res['細節']['RS']}% | 現價: ${res['細節']['Price']}")
             else:
-                st.warning("⚠️ 目前戰場未發現龍魂。")
+                st.warning("⚠️ 目前戰場平靜，未發現龍魂。")
                 
         except Exception as e:
             st.error(f"❌ 讀取失敗：{e}")
