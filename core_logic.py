@@ -1,68 +1,95 @@
 import yfinance as yf
 import pandas as pd
 import numpy as np
-import time
 
 # ==========================================
-# 1. 終極兵力名單 (包含你提供的數千隻股名單)
+# 🐲 龍魂掃股核心 (V2.0 終極版)
 # ==========================================
-# 註：這裡放入你舊 Code 的 Map。你可以隨時在後面繼續加代號。
-HK_STOCK_MAP = {
-    "1. 互聯網巨頭": "0700.HK 9988.HK 3690.HK 1810.HK 9618.HK 1024.HK 9888.HK 0772.HK 0020.HK 0241.HK 0136.HK 1999.HK 2018.HK 3888.HK 2142.HK 1896.HK 0777.HK 0113.HK 0590.HK 1980.HK 1797.HK 6618.HK 2400.HK 0285.HK".split(),
-    "2. 半導體芯片": "0981.HK 1347.HK 0285.HK 1478.HK 1833.HK 0522.HK 0732.HK 2382.HK 2018.HK 0099.HK 1385.HK 1138.HK 1910.HK 6088.HK 3898.HK 6123.HK 3389.HK".split(),
-    "3. 新能源整車": "1211.HK 2015.HK 9866.HK 9868.HK 0175.HK 2333.HK 1114.HK 0489.HK 3606.HK 0867.HK 1316.HK 1958.HK 1585.HK 0315.HK 1274.HK 2150.HK 1122.HK 3808.HK 9863.HK".split(),
-    # ... 其餘 1500 隻港股由你手動補齊
-}
 
-US_STOCK_MAP = {
-    "1. 半導體設計": "NVDA TSM AVGO ASML AMD QCOM TXN MU INTC AMAT LRCX KLAC ADI NXPI MRVL MCHP SWKS MPWR ON LSCC TER QRVO SLAB WOLF SYNA RMBS ALGM SITM ACLS CRUS".split(),
-    "2. AI雲端": "MSFT GOOGL ORCL ADBE CRM PLTR SNOW PANW FTNT NOW WDAY ZS DDOG CRWD MDB NET OKTA TEAM SPLK GEN CYBR CHKP VRSN ESTC TENB SQSP PCOR DOCN AI FSLY MSTR".split(),
-    # ... 其餘 2000 隻美股由你手動補齊
-}
-
-HK_ETF_MAP = { "H1. 旗艦大盤": "2800.HK 2822.HK 3188.HK 3033.HK 3134.HK 3067.HK".split() }
-US_ETF_MAP = { "U1. 核心主題": "QQQ SPY DIA IWM SOXX SMH ARKK IBIT XLK XLE XLI".split() }
-
-# ==========================================
-# 2. 核心運算引擎 (V188.0 邏輯植入)
-# ==========================================
-def smart_fetch(ticker, period="1y"):
-    try:
-        data = yf.Ticker(ticker).history(period=period, auto_adjust=True)
-        return data.dropna(subset=['Close', 'Volume'])
-    except: return pd.DataFrame()
-
-def analyze_dragon_stock(ticker, df):
+def analyze_dragon_soul(ticker, df, market_type="HK"):
     """
-    千龍起步 + DNA 雙重過濾 (V188.0 核心)
+    1. 11項死刑 (Foul) 
+    2. 7大硬指標海選
+    3. 權重評分排序
     """
-    if len(df) < 30: return False, 0, "", "", {}
+    if len(df) < 65: return False, 0, "", "", {}
+
+    # --- A. 數據準備 ---
+    c, o, h, l, v = df['Close'], df['Open'], df['High'], df['Low'], df['Volume']
+    curr_p, ma20_v = c.iloc[-1], v.rolling(20).mean().iloc[-1]
+    sma50 = c.rolling(50).mean().iloc[-1]
+    bias = ((curr_p - sma50) / sma50) * 100
     
-    close = df['Close'].iloc[-1]
-    vol = df['Volume'].iloc[-1]
-    sma50 = df['Close'].rolling(50).mean().iloc[-1]
+    # RS, EJ, SE
+    rs = 50 + ((curr_p / c.iloc[-63]) - 1) * 100
+    ej = (v.tail(21).mean() / max(v.tail(252).mean() if len(df)>250 else v.mean(), 1)) * 100
+    se = 50 + (((curr_p / c.iloc[-5]) - 1) * 1200)
+
+    # 兵力計算 (BuyVol vs SellVol)
+    var1, var2, var3 = (c - l), (h - c), np.maximum(h - l, 0.001)
+    buy_v, sell_v = (v * var1 / var3), (v * var2 / var3)
+    buying_force = buy_v.tail(5).mean() / max(sell_v.tail(5).mean(), 1) * 100
+
+    # Net Flow & OBV
+    mf = ((h + l + c) / 3) * v * np.where(c > c.shift(1).fillna(c), 1, -1)
+    net_flow_20 = mf.tail(20).sum()
+    net_flow_60 = mf.tail(60).sum()
+    obv = (np.sign(c.diff()) * v).fillna(0).cumsum()
+    obv_slope = (obv.iloc[-1] - obv.iloc[-10]) / 10
+
+    # ------------------------------------------
+    # 🛑 第一層：11 項「人間蒸發」死刑 (Foul 制)
+    # ------------------------------------------
+    # 1-3. 即時陷阱
+    if (v.iloc[-1] > ma20_v * 1.5 and c.iloc[-1] < o.iloc[-1]*0.97): return False, 0, "", "", {} # 直接派貨
+    if (c.iloc[-1] > o.iloc[-1] and mf.iloc[-1] < 0): return False, 0, "", "", {} # 托住走貨
+    if (v.iloc[-1] > ma20_v * 3 and abs(c.iloc[-1]/o.iloc[-1]-1) < 0.02): return False, 0, "", "", {} # 放量滯漲
+    # 5. 錢流斷層
+    if v.iloc[-1] > ma20_v * 2 and v.iloc[-1] < v.shift(1).iloc[-1] * 0.5: return False, 0, "", "", {}
+    # 6-7. 癲狗/OBV
+    if bias > 15 and v.iloc[-1] > ma20_v * 3: return False, 0, "", "", {}
+    if obv_slope < 0: return False, 0, "", "", {}
+    # 8. 60日萬人坑 (尋找天量陰燭)
+    v_60 = v.tail(60)
+    if (v_60 > ma20_v * 4).any():
+        idx = v_60.argmax()
+        if c.iloc[idx] < o.iloc[idx]: return False, 0, "", "", {}
+    # 9-11. 981 專殺
+    if v.iloc[-1] > ma20_v * 5: return False, 0, "", "", {}
+    if (h.iloc[-1] - max(o.iloc[-1], c.iloc[-1])) > abs(c.iloc[-1]-o.iloc[-1]) * 2: return False, 0, "", "", {} # 長上影
+    if bias > (12 if market_type=="HK" else 8): return False, 0, "", "", {}
+
+    # ------------------------------------------
+    # 🐲 第二層：龍魂海選 (7 大指標)
+    # ------------------------------------------
+    if not (rs > 60 and ej > 85 and se > 75 and net_flow_20 > 0 and bias < 15): return False, 0, "", "", {}
+
+    # ------------------------------------------
+    # 🏆 第三層：評分排序 (2.0 版)
+    # ------------------------------------------
+    score = (rs * 0.35) + (ej * 0.25) # 皇者底色
+    if (net_flow_20 / abs(mf.iloc[-40:-20].sum()+1)) > 1.3: score += 10 # 點火
+    if ej > 100: score += 5
+    if se > 85: score += 5
+    if net_flow_60 > 0: score += 10
+    if net_flow_60 > net_flow_20: score += 5
+    if se > 75 or buying_force > 150: score += 5
     
-    # 1. 計算 RS, EJ, SE (188.0 算法)
-    rs_score = 50 + ((close / df['Close'].iloc[-max(1, min(63, len(df)-1))]) - 1) * 100
-    ej_score = (df['Volume'].tail(21).mean() / max(df['Volume'].tail(252).mean(), 1)) * 100
-    se_score = 50 + (((close / df['Close'].iloc[-max(1, min(5, len(df)-1))]) - 1) * 1200)
-    bias_pct = ((close - sma50) / sma50) * 100
-    
-    # 2. 11 項死刑與門檻
-    if close < sma50 or rs_score < 52 or ej_score < 85 or se_score < 75:
-        return False, 0, "", "", {}
-    
-    # 3. 8 大隱藏公仔 (大戶足跡)
+    # 🚨 Bias 扣分
+    limit = 8 if market_type == "HK" else 5
+    if bias > limit: score -= (bias - limit) * 10
+
+    # ------------------------------------------
+    # 🎨 第四層：標籤與 8 大公仔
+    # ------------------------------------------
+    stage = "[👑 👑 初段起步]" if bias < 2 else ("[👑 中段跟進]" if bias <= 5 else "[⚠️ 末段衝刺]")
     icons = []
-    # (簡單示例：爆發、洗盤、建倉...)
-    if vol > df['Volume'].rolling(20).mean().iloc[-1] * 2: icons.append("💰🔥")
-    if ej_score > 95: icons.append("🐋")
+    # 💰🔥, 💰🤫, 💰🛡️, 💎, 🧧, ⚡
+    if se > 85 and v.iloc[-1] > ma20_v * 1.5: icons.append("💰🔥")
+    if abs(c.iloc[-1]/o.iloc[-1]-1) < 0.01 and ej > 110: icons.append("💰🤫")
+    if c.iloc[-1] < o.iloc[-1] and mf.iloc[-1] > 0: icons.append("💰🛡️")
+    if c.iloc[-1] < o.iloc[-1]*0.97 and mf.iloc[-1] > 0 and v.iloc[-1] > ma20_v*2: icons.append("💎")
+    if ej > 120 and bias < 5: icons.append("🧧")
+    if v.iloc[-1] > v.iloc[-2]*2 and v.iloc[-2] < ma20_v*0.6: icons.append("⚡")
     
-    # 4. 階段標籤
-    stage = "[👑 👑 初段起步]" if bias_pct < 3 else "[👑 中段跟進]"
-    if bias_pct > 10: stage = "[⚠️ 末段衝刺]"
-
-    total_score = (rs_score * 0.4) + (ej_score * 0.3) + (se_score * 0.3)
-    
-    details = {"SE": round(se_score,1), "EJ": round(ej_score,1), "RS": round(rs_score,1), "Bias": round(bias_pct,1), "StopLoss": round(close * 0.93, 2)}
-    return True, total_score, stage, " ".join(icons), details
+    return True, score, stage, " ".join(icons), {"RS":round(rs,1), "EJ":round(ej,1), "SE":round(se,1), "Bias":round(bias,1), "StopLoss":round(curr_p*0.92,2)}
