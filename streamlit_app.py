@@ -29,20 +29,14 @@ if st.sidebar.button("🐉 啟動獵龍掃描"):
         st.error(f"⚠️ 找不到檔案：{target_file}。請確保 GitHub 已上傳。")
     else:
         try:
-            # 【爺爺大絕 1】：用 utf-8-sig 讀取，自動殺死隱形亂碼 (BOM)
+            # 讀取並自動清洗標題
             df_list = pd.read_csv(target_file, encoding='utf-8-sig')
-            
-            # 【爺爺大絕 2】：將所有標題洗乾淨，變大寫，剷走空格
             df_list.columns = df_list.columns.str.strip().str.upper()
             
-            # 檢查係咪真係有 SYMBOL 呢一欄，如果無，就話畀乖孫聽佢依家係咩名
             if 'SYMBOL' not in df_list.columns:
                 st.error(f"❌ 喺 {target_file} 入面認唔到 SYMBOL 標題。")
-                st.write("目前讀到嘅標題名係：", list(df_list.columns))
-                st.info("爺爺建議：請去 GitHub 檢查 CSV 第一行，確保係 SYMBOL,NAME (全部大寫，無空格)")
                 st.stop()
             
-            # 攞出所有股票代號
             tickers = df_list['SYMBOL'].dropna().astype(str).str.strip().unique().tolist()
             
             all_results = []
@@ -55,7 +49,9 @@ if st.sidebar.button("🐉 啟動獵龍掃描"):
                 status_text.text(f"🔍 掃描中: {ticker} ({i+1}/{len(tickers)})")
                 df = smart_fetch(ticker)
                 if not df.empty:
-                    is_dragon, score, stage, details = analyze_dragon_soul(ticker, df)
+                    # 【爺爺嘅百寶袋】：後面加多個 *_，大腦畀第5件、第6件嘢都照單全收唔會死機！
+                    is_dragon, score, stage, details, *_ = analyze_dragon_soul(ticker, df)
+                    
                     if is_dragon:
                         all_results.append({"代號": ticker, "得分": score, "細節": details})
                 progress_bar.progress((i + 1) / len(tickers))
@@ -67,7 +63,7 @@ if st.sidebar.button("🐉 啟動獵龍掃描"):
                 st.success(f"✅ 發現 {len(all_results)} 隻龍魂標的！")
                 for res in sorted(all_results, key=lambda x: x['得分'], reverse=True):
                     with st.expander(f"🔥 {res['代號']} - 得分: {round(res['得分'],1)}"):
-                        st.write(f"強度 (RS): {res['細節']['RS']}% | 現價: ${res['細節']['Price']}")
+                        st.write(f"強度 (RS): {res['細節'].get('RS', 'N/A')}% | 現價: ${res['細節'].get('Price', 'N/A')}")
             else:
                 st.warning("⚠️ 目前戰場未發現龍魂。")
                 
