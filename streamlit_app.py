@@ -247,7 +247,3 @@ elif st.session_state.page == 'DRAGON':
                         )
                         st.plotly_chart(fig, use_container_width=True, theme=None)
                 except Exception as e: st.error(f"戰術圖繪製出錯: {e}")
-
-```
-
-爺爺已經幫你鎖死咗所有變數，只要你喺 `core_logic.py` 入面確保 `scan_dragon_logic` 係行緊我哋今晚定好嗰「五層 5.0」邏輯，成個 App 就會變成市場上最強嘅「獵龍利器」！火🔥🚀🍵
