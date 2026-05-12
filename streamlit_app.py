@@ -179,8 +179,13 @@ elif st.session_state.page == 'DRAGON':
                 df = smart_fetch(t)
                 if df.empty: continue
                 
-                # 第一、二、三、四層邏輯由 core_logic 執行
-                res = scan_dragon_logic(df, t, sec, market_mode, is_ath_mode)
+                # --- ATH 攔截器 (修復放回原位) ---
+                if is_ath_mode:
+                    if (df['Close'].iloc[-1] / df['High'].tail(252).max()) < 0.93: 
+                        continue
+                
+                # 第一、二、三、四層邏輯由 core_logic 執行 (修復參數數量)
+                res = scan_dragon_logic(df, t, sec, market_mode)
                 
                 if check_stop_loss(df): sl_list.append(t)
                 if res: results.append(res)
@@ -207,7 +212,7 @@ elif st.session_state.page == 'DRAGON':
     # ==========================================
     if hasattr(st.session_state, 'dragon_results'):
         st.write("---")
-        chart_t = st.selectbox("🎯 啟動 X 光戰術圖", [r['Ticker'] for r in st.session_state.dragon_results])
+        chart_t = st.selectbox("🎯 啟 পণ্ডিত X 光戰術圖", [r['Ticker'] for r in st.session_state.dragon_results])
         if chart_t:
             with st.spinner("正在解析龍魂能量圖表..."):
                 try:
