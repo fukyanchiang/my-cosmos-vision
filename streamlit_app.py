@@ -119,29 +119,25 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# =========================================================================
-# 📈 爺爺完美照抄舊 Code：三層能量股價圖
-# =========================================================================
+# --- 能量副圖 ---
 def add_energy_subplots(fig, df, dates_chart, row_start):
     var1 = df['Close'] - df['Low']; var2 = df['High'] - df['Close']; var3 = np.maximum(df['High'] - df['Low'], 0.001)
     buyvol = np.where(var3 > 0, df['Volume'] * var1 / var3, 0)
     sellvol = np.where(var3 > 0, df['Volume'] * var2 / var3, 0)
     netvol = buyvol - sellvol
     netma = pd.Series(netvol).rolling(10, min_periods=1).mean()
-    
     fig.add_trace(go.Bar(x=dates_chart, y=buyvol, marker_color='#808000', name='買盤', opacity=0.6, hoverinfo='skip'), row=row_start, col=1)
     fig.add_trace(go.Bar(x=dates_chart, y=-sellvol, marker_color='#800000', name='賣盤', opacity=0.6, hoverinfo='skip'), row=row_start, col=1)
     net_colors = ['#00FF00' if val > 0 else '#FF0000' for val in netvol]
     fig.add_trace(go.Bar(x=dates_chart, y=netvol, marker_color=net_colors, name='淨勝方', width=0.4), row=row_start, col=1)
     fig.add_trace(go.Scatter(x=dates_chart, y=netma, mode='lines', line=dict(color='white', width=2), name='氣脈10MA'), row=row_start, col=1)
-
-    v_ma = df['Volume'].rolling(20, min_periods=1).mean()
-    v_std = df['Volume'].rolling(20, min_periods=1).std().fillna(0)
+    
+    v_ma = df['Volume'].rolling(20, min_periods=1).mean(); v_std = df['Volume'].rolling(20, min_periods=1).std().fillna(0)
     v_upper = v_ma + (2.0 * v_std); ma60 = df['Volume'].rolling(60, min_periods=1).mean(); roc = abs(df['Close'].pct_change()) * 100
     is_burst = (df['Volume'] > v_upper) & (df['Volume'] > ma60 * 1.9) & (roc > 2.0)
     burst_colors = ['#00FFFF' if (is_burst.iloc[i] and df['Close'].iloc[i] > df['Open'].iloc[i]) else ('#FF00FF' if is_burst.iloc[i] else 'rgba(136,136,136,0.3)') for i in range(len(df))]
     fig.add_trace(go.Bar(x=dates_chart, y=df['Volume'], marker_color=burst_colors, name='能量雷達'), row=row_start+1, col=1)
-
+    
     daily_change = df['Close'].pct_change() * 100
     change_colors = ['#00FF00' if val >= 0 else '#FF0000' for val in daily_change]
     fig.add_trace(go.Bar(x=dates_chart, y=daily_change, marker_color=change_colors, name='日波幅%'), row=row_start+2, col=1)
@@ -173,9 +169,7 @@ elif st.session_state.page == 'DRAGON':
     
     sl_container = st.empty(); selected_tickers = []; market_mode = "HK"; btn_radar = False
 
-    # ==========================================
     # 🇺🇸 美股專屬 (CSV)
-    # ==========================================
     if st.session_state.target == 'US':
         st.write("### 🇺🇸 選擇美股戰略名單：")
         m = st.columns(5)
@@ -186,9 +180,7 @@ elif st.session_state.page == 'DRAGON':
                 st.success(f"✅ 已選定 {f}")
         with c_btn: btn_radar = st.button("📡 啟動 5.0 雙線雷達", use_container_width=True)
 
-    # ==========================================
     # 🔍 個股專屬
-    # ==========================================
     elif st.session_state.target == 'SINGLE':
         st.write("### 🔍 個股自訂掃描：")
         col1, col2 = st.columns([3, 1])
@@ -202,16 +194,17 @@ elif st.session_state.page == 'DRAGON':
                     btn_radar = True
                 else: st.warning("請先輸入代號！")
 
-    # ==========================================
-    # 🇭🇰 港股 & 📦 ETF (✅ 完美加入「全星系大搜索」)
-    # ==========================================
+    # 🇭🇰 港股
     elif st.session_state.target == 'HK':
         st.write("### 🇭🇰 港股板塊掃描：")
+        # 完美加返「全星系大搜索」
         s_choice = st.selectbox("選擇範圍", ["🌐 啟動全星系大規模搜索"] + list(HK_STOCK_MAP.keys()))
         with c_btn: btn_radar = st.button("📡 啟動 5.0 雙線雷達", use_container_width=True)
 
+    # 📦 ETF
     elif st.session_state.target == 'ETF':
         st.write("### 📦 港股/美股 ETF 掃描：")
+        # 完美加返「全星系大搜索」
         s_choice = st.selectbox("選擇範圍", ["🌐 啟動全星系大規模搜索"] + list(HK_ETF_MAP.keys()) + list(US_ETF_MAP.keys()))
         with c_btn: btn_radar = st.button("📡 啟動 5.0 雙線雷達", use_container_width=True)
 
@@ -229,7 +222,7 @@ elif st.session_state.page == 'DRAGON':
                 market_mode = "US"
             except: st.error("讀取 CSV 失敗，請檢查檔案是否存在。")
         elif st.session_state.target == 'HK' or st.session_state.target == 'ETF':
-            # ✅ 完美處理「全星系大搜索」邏輯
+            # ✅ 真正運作嘅「全星系大搜索」邏輯
             if "全星系" in s_choice:
                 unique_map = {}
                 scan_dicts = [HK_ETF_MAP, US_ETF_MAP] if st.session_state.target == 'ETF' else [HK_STOCK_MAP]
@@ -302,47 +295,51 @@ elif st.session_state.page == 'DRAGON':
                 df_c = smart_fetch(chart_t, period="6mo")
                 if not df_c.empty:
                     ema10 = df_c['Close'].ewm(span=10, adjust=False).mean()
-                    # 關鍵：將 index 轉做字串，解決 Plotly 疊圖 Bug
                     dates_chart = df_c.index.strftime('%Y-%m-%d').tolist()
                     
-                    fig = make_subplots(rows=5, cols=1, shared_xaxes=True, row_heights=[0.45, 0.1, 0.2, 0.15, 0.1], vertical_spacing=0.02)
+                    # 完全照抄舊 Code 的排版設定
+                    fig = make_subplots(rows=5, cols=1, shared_xaxes=True, row_heights=[0.45, 0.1, 0.2, 0.1, 0.15], vertical_spacing=0.02)
                     
-                    # 1. K線 + 止損
+                    # 1. K線 + 均線 (明確放在 Row 1)
                     fig.add_trace(go.Candlestick(x=dates_chart, open=df_c['Open'], high=df_c['High'], low=df_c['Low'], close=df_c['Close'], name="K線"), row=1, col=1)
                     fig.add_trace(go.Scatter(x=dates_chart, y=df_c['Close'].rolling(50).mean(), mode='lines', name='50MA', line=dict(color='yellow', width=1.5)), row=1, col=1)
                     fig.add_trace(go.Scatter(x=dates_chart, y=ema10, name="10 EMA", line=dict(color='orange', width=2, dash='dot')), row=1, col=1)
                     
-                    # 2. 買入位與重貨區 HVN (用舊 Code 做法)
+                    # 🎯 加入明確價格標籤的水平線
                     recent_high = df_c['High'].tail(20).max()
-                    fig.add_hline(y=recent_high, line_dash="dash", line_color="#00FFCC", annotation_text="🎯 買入點", row=1, col=1)
+                    fig.add_hline(y=recent_high, line_dash="dash", line_color="#00FFCC", annotation_text=f"🎯 買入點: ${recent_high:.2f}", annotation_position="top right", annotation_font=dict(color="white", size=13), row=1, col=1)
                     
-                    counts, bins = np.histogram(df_c['Close'], bins=30, weights=df_c['Volume'])
-                    max_c = max(counts) if len(counts) > 0 and max(counts) > 0 else 1
+                    counts, bins = np.histogram(df_c['Close'], bins=35, weights=df_c['Volume'])
+                    max_c = max(counts) if len(counts) > 0 else 1
                     hvn_p = (bins[np.argmax(counts)] + bins[np.argmax(counts)+1]) / 2
-                    stop_loss = hvn_p * 0.985
-                    fig.add_hline(y=stop_loss, line_dash="solid", line_color="#FF4B4B", annotation_text="🛑 重貨止損", row=1, col=1)
+                    fig.add_hline(y=hvn_p * 0.985, line_dash="solid", line_color="#FF4B4B", annotation_text=f"🛑 重貨止損: ${hvn_p * 0.985:.2f}", annotation_position="bottom right", annotation_font=dict(color="white", size=13), row=1, col=1)
                     
-                    # HVN 橫條 (長短不一，靠 xaxis6 控制)
-                    fig.add_trace(go.Bar(y=(bins[:-1]+bins[1:])/2, x=counts, orientation='h', marker_color='rgba(136,136,136,0.4)', name='重貨區', hoverinfo='skip', xaxis='x6', yaxis='y1'), row=1, col=1)
-
-                    # 3. 成交量
+                    # ⚠️ 完美修復：HVN 橫條絕對不能加 row=1, col=1，否則會破壞 xaxis6！
+                    fig.add_trace(go.Bar(y=(bins[:-1]+bins[1:])/2, x=counts, orientation='h', marker_color='rgba(136,136,136,0.4)', name='重貨區', hoverinfo='skip', xaxis='x6', yaxis='y1'))
+                    
+                    # 2. 獨立成交量與星星 (確保在 Row 2)
                     v_colors = ['#00FF00' if df_c['Close'].iloc[i] >= df_c['Open'].iloc[i] else '#FF0000' for i in range(len(df_c))]
                     fig.add_trace(go.Bar(x=dates_chart, y=df_c['Volume'], marker_color=v_colors, name="成交量"), row=2, col=1)
                     
-                    # 4. 舊 Code 大戶星星 (用 Scatter 加 markers 畫出嚟)
+                    # 計算星星
                     df_c['Vol50'] = df_c['Volume'].rolling(50).mean()
-                    stars = df_c[(df_c['Close'] > df_c['Open']) & (df_c['Volume'] > df_c['Vol50'] * 1.5)]
-                    star_dates = stars.index.strftime('%Y-%m-%d').tolist()
-                    fig.add_trace(go.Scatter(x=star_dates, y=stars['Volume'], mode='markers', marker=dict(symbol='star', size=12, color='gold'), name='大戶星星'), row=2, col=1)
-
-                    # 5. 能量副圖
+                    star_dates = []
+                    star_vols = []
+                    for i in range(len(df_c)):
+                        if df_c['Close'].iloc[i] > df_c['Open'].iloc[i] and df_c['Volume'].iloc[i] > df_c['Vol50'].iloc[i]*1.5:
+                            star_dates.append(dates_chart[i])
+                            star_vols.append(df_c['Volume'].iloc[i])
+                    if star_dates:
+                        fig.add_trace(go.Scatter(x=star_dates, y=star_vols, mode='markers', marker=dict(symbol='star', size=12, color='#FFD700'), name='大戶星星'), row=2, col=1)
+                    
+                    # 3, 4, 5. 能量副圖
                     add_energy_subplots(fig, df_c, dates_chart, row_start=3)
                     
-                    # 鎖死黑底，配置 xaxis6 比例
+                    # 終極排版修復：鎖定 xaxis6，防止橫條變直線
                     fig.update_layout(
-                        template="plotly_dark", paper_bgcolor='#0e1117', plot_bgcolor='#111111', height=950, barmode='overlay', 
-                        xaxis6=dict(overlaying='x1', anchor='y1', side='top', range=[0, max_c*4], showgrid=False, showticklabels=False), 
-                        xaxis=dict(type='category', showticklabels=False), showlegend=False
+                        template="plotly_dark", paper_bgcolor='#0e1117', plot_bgcolor='#111111', height=950, barmode='overlay', showlegend=False, hovermode='x unified',
+                        xaxis6=dict(overlaying='x1', anchor='y1', side='top', range=[0, max_c * 3], showgrid=False, showticklabels=False),
+                        xaxis=dict(type='category', showticklabels=False), xaxis5=dict(type='category', title="日期")
                     )
                     st.plotly_chart(fig, use_container_width=True, theme=None)
             except Exception as e: st.error(f"繪圖出錯: {e}")
