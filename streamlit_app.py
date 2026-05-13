@@ -119,7 +119,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- 股價圖副功能：三層能量圖 (已修正 row_start) ---
+# --- 股價圖副功能：三層能量圖 ---
 def add_energy_subplots(fig, df, dates_chart, row_start):
     var1 = df['Close'] - df['Low']; var2 = df['High'] - df['Close']; var3 = np.maximum(df['High'] - df['Low'], 0.001)
     buyvol = np.where(var3 > 0, df['Volume'] * var1 / var3, 0)
@@ -183,13 +183,13 @@ elif st.session_state.page == 'DRAGON':
         with c_btn: btn_radar = st.button("📡 啟動 5.0 雙線雷達", use_container_width=True)
 
     # ==========================================
-    # 🔍 個股專屬：修復個股掃描 (自動繞過 5.0 限制畫圖)
+    # 🔍 個股專屬：強制出分＋畫圖機制
     # ==========================================
     elif st.session_state.target == 'SINGLE':
         st.write("### 🔍 個股自訂掃描：")
         col1, col2 = st.columns([3, 1])
         with col1:
-            single_t = st.text_input("輸入股票代號 (例: NVDA, 0700.HK)", "").upper().strip()
+            single_t = st.text_input("輸入股票代號 (例: NVDA, 0700.HK, TSLA)", "").upper().strip()
         with col2:
             st.write("<br>", unsafe_allow_html=True)
             if st.button("📡 立即分析此股", use_container_width=True): 
@@ -222,7 +222,7 @@ elif st.session_state.page == 'DRAGON':
                 market_mode = "US"
             except: st.error("讀取 CSV 失敗，請檢查檔案是否存在。")
         elif st.session_state.target == 'HK' or st.session_state.target == 'ETF':
-            target_dict = HK_ETF_MAP if s_choice in HK_ETF_MAP else (US_ETF_MAP if s_choice in US_ETF_MAP else HK_STOCK_MAP)
+            target_dict = HK_ETF_MAP if st.session_state.target == 'ETF' and s_choice in HK_ETF_MAP else (US_ETF_MAP if st.session_state.target == 'ETF' and s_choice in US_ETF_MAP else HK_STOCK_MAP)
             selected_tickers = [(t, s_choice) for t in target_dict.get(s_choice, [])]
             market_mode = "US" if s_choice in US_ETF_MAP else "HK"
 
@@ -230,20 +230,20 @@ elif st.session_state.page == 'DRAGON':
             st.info(f"🚀 5.0 引擎掃描中 ({len(selected_tickers)} 隻)...")
             results = []; sl_list = []; pb = st.progress(0)
             
+            is_single_mode = (st.session_state.target == 'SINGLE')
+            
             for i, (t, sec) in enumerate(selected_tickers):
                 pb.progress((i+1)/len(selected_tickers))
                 df = smart_fetch(t)
                 if not df.empty:
-                    if is_ath_mode and (df['Close'].iloc[-1] / df['High'].tail(252).max()) < 0.93: continue
-                    if check_stop_loss(df): sl_list.append(t)
-                    res = scan_dragon_logic(df, t, sec, market_mode)
+                    if is_ath_mode and (df['Close'].iloc[-1] / df['High'].tail(252).max()) < 0.93: 
+                        if not is_single_mode: continue
                     
-                    if res: 
-                        results.append(res)
-                    elif st.session_state.target == 'SINGLE':
-                        # 如果是個股掃描，但肥佬咗，強制畫圖！
-                        st.session_state.force_chart_ticker = t
-                        st.warning(f"⚠️ {t} 未能通過 5.0 嚴格審判（可能已觸發家法死刑或動力不足）。為您強制啟動 X光圖表：")
+                    if check_stop_loss(df): sl_list.append(t)
+                    
+                    # 個股掃描模式傳入 force_return=True
+                    res = scan_dragon_logic(df, t, sec, market_mode, force_return=is_single_mode)
+                    if res: results.append(res)
             
             if sl_list: sl_container.markdown(f"<div class='bear-warning'>🛡️ 戰損置頂: {' | '.join(sl_list)} 跌穿 10-EMA！</div>", unsafe_allow_html=True)
             
@@ -251,13 +251,28 @@ elif st.session_state.page == 'DRAGON':
                 results = sorted(results, key=lambda x: x['Score'], reverse=True)
                 st.session_state.dragon_results = results
                 for r in results:
-                    st.markdown(f"<div class='dragon-card'><div style='font-size:1.4rem;font-weight:bold;'>{r['Status']} {r['Ticker']} <span style='color:#00FFCC;'>({r['Sector']})</span> {r['Icons']}</div><div class='data-row'><b>戰術總分: {r['Score']}分</b> | <b style='color:#FF9900;'>原始戰力: {r.get('RawPower', 0)} 🔥</b> | <b style='color:#FF4B4B;'>扣分: {r.get('Penalty', 0)} 🛑</b> | <span style='color:#FF4B4B; font-weight:bold;'>🛑 止損(10-EMA): ${r['EMA10']}</span> | Bias: {r['Bias']}%<br>📈 RS: {r['RS']} | 🔋 EJ: {r['EJ']} | ⚡ SE: {r['SE']} | 🔥 買盤力: {r['Power']}x</div></div>", unsafe_allow_html=True)
+                    # 顏色標示：如果係 IsDead 肥佬股，轉為紅框
+                    border_color = "#FF4B4B" if r.get('IsDead') else "#00FFCC"
+                    st.markdown(f"""
+                    <div class='dragon-card' style='border-left: 5px solid {border_color};'>
+                        <div style='font-size:1.4rem;font-weight:bold;'>{r['Status']} {r['Ticker']} <span style='color:#00FFCC;'>({r['Sector']})</span> {r['Icons']}</div>
+                        <div class='data-row'>
+                            <b>戰術總分: {r['Score']}分</b> | 
+                            <b style='color:#FF9900;'>原始戰力: {r.get('RawPower', 0)} 🔥</b> | 
+                            <b style='color:#FF4B4B;'>扣分: {r.get('Penalty', 0)} 🛑</b> | 
+                            <span style='color:#FF4B4B; font-weight:bold;'>🛑 止損(10-EMA): ${r['EMA10']}</span> | Bias: {r['Bias']}%<br>
+                            📈 RS: {r['RS']} | 🔋 EJ: {r['EJ']} | ⚡ SE: {r['SE']} | 🔥 買盤力: {r['Power']}x
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                if is_single_mode:
+                    st.session_state.force_chart_ticker = selected_tickers[0][0]
             else: 
-                if st.session_state.target != 'SINGLE':
-                    st.warning("💤 萬人坑內無生還者。")
+                st.warning("💤 萬人坑內無生還者。")
 
     # =========================================================
-    # 📈 究極股價圖 (修復重貨橫條長短 + 修復重疊問題)
+    # 📈 究極股價圖 (修復重貨橫條長短 + 獨立成交量)
     # =========================================================
     chart_t = None
     if hasattr(st.session_state, 'dragon_results') and len(st.session_state.dragon_results) > 0:
@@ -279,13 +294,14 @@ elif st.session_state.page == 'DRAGON':
                 fig.add_trace(go.Scatter(x=dates_chart, y=df_c['Close'].rolling(50).mean(), mode='lines', name='50MA', line=dict(color='yellow', width=1.5)), row=1, col=1)
                 fig.add_trace(go.Scatter(x=dates_chart, y=ema10, name="10 EMA", line=dict(color='orange', width=2, dash='dot')), row=1, col=1)
 
-                # 重貨區橫條 (修復關鍵：xaxis='x6' 定位，比例 max_c*1.1)
-                counts, bins = np.histogram(df_c['Close'], bins=30, weights=df_c['Volume']); max_c = max(counts) if len(counts)>0 else 1
+                # 完美修復：重貨區橫條長短分明 (使用 max_c * 3 比例)
+                counts, bins = np.histogram(df_c['Close'], bins=35, weights=df_c['Volume'])
+                max_c = max(counts) if len(counts) > 0 and max(counts) > 0 else 1
                 fig.add_trace(go.Bar(y=(bins[:-1]+bins[1:])/2, x=counts, orientation='h', marker_color='rgba(136,136,136,0.4)', name='重貨區', hoverinfo='skip', xaxis='x6', yaxis='y1'), row=1, col=1)
                 hvn_p = (bins[np.argmax(counts)] + bins[np.argmax(counts)+1]) / 2
                 fig.add_hline(y=hvn_p * 0.985, line_dash="solid", line_color="#FF4B4B", annotation_text="🛑 重貨止損", row=1, col=1)
                 
-                # 2. 成交量與星星 (獨立喺 row 2)
+                # 2. 獨立成交量與星星 (確保唔疊住 K 線)
                 v_colors = ['#00FF00' if df_c['Close'].iloc[i] >= df_c['Open'].iloc[i] else '#FF0000' for i in range(len(df_c))]
                 fig.add_trace(go.Bar(x=dates_chart, y=df_c['Volume'], marker_color=v_colors, name="成交量"), row=2, col=1)
                 df_c['Vol50'] = df_c['Volume'].rolling(50).mean()
@@ -296,8 +312,8 @@ elif st.session_state.page == 'DRAGON':
                 # 3-5. 能量副圖
                 add_energy_subplots(fig, df_c, dates_chart, row_start=3)
                 
-                # 終極排版修復：鎖死 K 線同能量圖唔重疊
+                # 終極排版修復：鎖定 xaxis6 的比例為 max_c * 3
                 fig.update_layout(template="plotly_dark", paper_bgcolor='#0e1117', plot_bgcolor='#111111', height=950, barmode='overlay', showlegend=False,
-                    xaxis6=dict(overlaying='x1', anchor='y1', side='top', range=[0, max_c*1.1], showgrid=False, showticklabels=False),
+                    xaxis6=dict(overlaying='x1', anchor='y1', side='top', range=[0, max_c * 3], showgrid=False, showticklabels=False),
                     xaxis=dict(type='category', showticklabels=False), xaxis5=dict(type='category', title="日期"))
                 st.plotly_chart(fig, use_container_width=True, theme=None)
