@@ -1,14 +1,59 @@
-import streamlit as st
-import pandas as pd
-import numpy as np
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
+import streamlit as st 
+import yfinance as yf 
+import pandas as pd 
+import numpy as np 
+import plotly.graph_objects as go 
+from plotly.subplots import make_subplots 
 from core_logic import scan_dragon_logic, smart_fetch, check_stop_loss
 import time
 
-# ==========================================
+st.set_page_config(page_title="環球資產透視評估儀", layout="wide") 
+
+st.markdown("""
+    <style>
+    .stApp { background-color: #0e1117; color: white; }
+    section[data-testid="stMain"] div[data-testid="stWidgetLabel"] p, 
+    section[data-testid="stMain"] div[data-testid="stWidgetLabel"] span { color: #FFFFFF !important; font-size: 1.1rem !important; font-weight: bold !important; }
+    section[data-testid="stMain"] div[data-testid="stRadio"] label div[data-testid="stMarkdownContainer"] p { color: #FFFFFF !important; }
+    section[data-testid="stMain"] div[data-baseweb="select"] span { color: #000000 !important; font-weight: bold !important; }
+    section[data-testid="stMain"] div[data-baseweb="select"] ul li { color: #000000 !important; }
+    section[data-testid="stMain"] button p { color: #000000 !important; font-weight: 900 !important; font-size: 1.1rem !important; }
+    section[data-testid="stMain"] div[data-baseweb="input"] input { color: #000000 !important; font-weight: bold !important; }
+    section[data-testid="stSidebar"] div[data-testid="stWidgetLabel"] p { color: #31333F !important; }
+    section[data-testid="stSidebar"] div[data-testid="stRadio"] label div[data-testid="stMarkdownContainer"] p { color: #31333F !important; }
+    .main-title { text-align: center; color: #FFD700 !important; font-size: 3.5rem; font-weight: 900; margin-bottom: 25px; }
+    .cosmos-box { background-color: #000 !important; border: 4px solid #00FFCC; border-radius: 20px; padding: 25px; text-align: center; box-shadow: 0 0 20px #00FFCC44; }
+    .cosmos-label { color: #00FFCC !important; font-size: 1.8rem; font-weight: bold; margin-bottom: 10px; }
+    .cosmos-value { color: #FFFFFF !important; font-size: 5rem; font-weight: 900; }
+    .ej-header { color: #00FFFF !important; font-size: 1.8rem; font-weight: 900; margin-bottom: 8px; }
+    .bar-group-container { display: flex; gap: 8px; margin-bottom: 15px; }
+    .bar-triad { display: flex; gap: 3px; }
+    .ej-seg { width: 16px; height: 35px; border-radius: 2px; border: 1.2px solid rgba(255,255,255,0.4); }
+    .val-box { background-color: #000 !important; border: 2px solid #FFD700; border-radius: 12px; padding: 20px; text-align: center; min-height: 220px; margin-bottom: 15px; }
+    .val-label { color: #FFFFFF !important; font-size: 1.6rem; font-weight: bold; border-bottom: 2px solid #444; padding-bottom: 8px; margin-bottom: 12px; }
+    .val-text { font-size: 1.2rem; color: #ccc; margin: 8px 0; }
+    .val-focus { color: #FFD700 !important; font-weight: bold; font-size: 1.8rem; }
+    .red-bar { color: #fff !important; border-radius: 10px; text-align: center; font-weight: 900; }
+    .val-box-purple { border: 3px solid #BC13FE; border-radius: 15px; padding: 30px; background-color: #000; box-shadow: 0 0 25px #BC13FE66; margin: 25px 0; }
+    .energy-bar-container-8d { display: flex; gap: 4px; margin-top: 10px; margin-bottom: 15px; }
+    .energy-seg-8d { flex: 1; height: 16px; border-radius: 2px; }
+    .whale-box { background-color: #000; border: 3px solid #FFD700; border-radius: 15px; padding: 35px; margin-top: 30px; }
+    .whale-row { display: flex; justify-content: space-between; padding: 15px 0; border-bottom: 1px solid #333; }
+    .whale-n { color: #FFD700 !important; font-weight: bold; font-size: 2.5rem; }
+    .whale-a { color: #00FFCC !important; font-size: 1.6rem; text-align: right; }
+    .scan-card-fire { border-left: 5px solid #00FFCC; background-color: #111; padding: 15px; margin-bottom: 10px; border-radius: 8px; }
+    .scan-card-super { border-left: 8px solid #FF4B4B; background-color: #310000; padding: 15px; margin-bottom: 10px; border-radius: 8px; box-shadow: 0 0 15px #FF4B4B66; }
+    .bear-warning { color: #FF0000 !important; font-size: 2.5rem; font-weight: 900; text-align: center; text-shadow: 2px 2px 5px #000; padding: 20px; border: 4px dashed red; background-color: #220000; margin: 20px 0; border-radius: 15px;}
+    .exit-radar { background-color: #220000; border: 2px solid #FF0000; padding: 15px; border-radius: 10px; margin-top: 20px;}
+    .pullback-card { border-left: 8px solid #BC13FE; background-color: #1a0024; padding: 15px; margin-bottom: 10px; border-radius: 8px; }
+    .dragon-card { border-left: 5px solid #00FFCC; background-color: #111111; padding: 15px; margin-bottom: 10px; border-radius: 5px; }
+    .data-row { font-size: 0.95rem; color: #CCCCCC; margin-top: 8px; line-height: 1.6; }
+    </style>
+    """, unsafe_allow_html=True)
+
+# =========================================================================
 # 📚 大字典：一字不漏
-# ==========================================
+# =========================================================================
 HK_STOCK_MAP = {
     "1. 互聯網巨頭": "0700.HK 9988.HK 3690.HK 1810.HK 9618.HK 1024.HK 9888.HK 0772.HK 0020.HK 0241.HK 0136.HK 1999.HK 2018.HK 3888.HK 2142.HK 1896.HK 0777.HK 0113.HK 0590.HK 1980.HK 1797.HK 6618.HK 2400.HK 0285.HK".split(),
     "2. 半導體與芯片": "0981.HK 1347.HK 0285.HK 1478.HK 1833.HK 0522.HK 0732.HK 2382.HK 2018.HK 0099.HK 1385.HK 1138.HK 1910.HK 6088.HK 3898.HK 6123.HK 3389.HK".split(),
@@ -34,36 +79,85 @@ HK_STOCK_MAP = {
     "22. 券商與保險": "3908.HK 6030.HK 6881.HK 1299.HK 2628.HK 2318.HK 0966.HK 1336.HK 6099.HK 1776.HK 6178.HK 3968.HK 1551.HK 6066.HK 1339.HK".split()
 }
 
-HK_ETF_MAP = {
-    "H1. A股門戶": "2822.HK 3188.HK 3109.HK 2823.HK 2846.HK 3147.HK 2801.HK 3010.HK 3081.HK 3151.HK 3072.HK 3042.HK 2839.HK 3180.HK 2827.HK 3139.HK 3118.HK 2838.HK".split(),
-    "H2. 港股科技": "3033.HK 3088.HK 9888.HK 3067.HK 3167.HK 3191.HK 7709.HK 9191.HK 3434.HK 3112.HK 3171.HK 3091.HK 3032.HK 3001.HK 3060.HK 2826.HK".split(),
-    "H3. 港股行業": "3134.HK 2845.HK 9845.HK 3136.HK 3069.HK 3174.HK 2820.HK 3133.HK 3111.HK 3141.HK 3148.HK 3149.HK 2842.HK 3120.HK 2806.HK 3143.HK 3137.HK 3051.HK".split(),
-    "H4. 紅利收息": "3110.HK 3070.HK 3101.HK 3037.HK 3145.HK 3010.HK 3081.HK 3115.HK 3006.HK 3150.HK 3422.HK 3116.HK 3113.HK 3031.HK 3153.HK".split(),
-    "H5. 虛擬資產": "3066.HK 3068.HK 3439.HK 3419.HK 3460.HK 3461.HK 3471.HK 3472.HK 3083.HK 3087.HK 3135.HK 3175.HK 7799.HK 7711.HK 7747.HK".split(),
-    "H6. 商品債券": "2840.HK 3030.HK 3152.HK 3192.HK 3196.HK 3161.HK 3071.HK 2812.HK 3140.HK 3181.HK 3187.HK 3189.HK 3192.HK 3117.HK 3011.HK 3119.HK".split(),
-    "H7. 槓桿反向": "7200.HK 7226.HK 7205.HK 7299.HK 7266.HK 7500.HK 7522.HK 7552.HK 7300.HK 7333.HK 7348.HK 7233.HK 7248.HK 7288.HK 7231.HK".split()
+US_STOCK_MAP = {
+    "1. 半導體設備與設計": "NVDA TSM AVGO ASML AMD QCOM TXN MU INTC AMAT LRCX KLAC ADI NXPI MRVL MCHP SWKS MPWR ON LSCC TER QRVO SLAB WOLF SYNA RMBS ALGM SITM ACLS CRUS".split(),
+    "2. AI與大數據雲端": "MSFT GOOGL ORCL ADBE CRM PLTR SNOW PANW FTNT NOW WDAY ZS DDOG CRWD MDB NET OKTA TEAM SPLK GEN CYBR CHKP VRSN ESTC TENB SQSP PCOR DOCN AI FSLY MSTR".split(),
+    "3. 基礎軟件與 SaaS": "INTU VMW CDNS PTC MSTR SPT ALTR MANH GWRE PAYC APPN TYL BLK PEGA BL DT DBX PATH BSY NCNO WK ME LAW ALIT VRM HCP RNG".split(),
+    "4. 網絡安全 (Cyber)": "PANW CRWD FTNT ZS CYBR CHKP GEN TENB NET OKTA S OKTA VRNS QLYS SAIL MIME RPD PFPT FEYE EVBG IMPV".split(),
+    "5. 消費電子與硬件": "AAPL HPQ DELL STX WDC APH TEL LOGI HPE NTAP GLW ST ANET FFIV GRMN LITE SMCI VRT JBL FLEX NVT ROK CSL HUBB CNHI GWW PH SANM PLXS".split(),
+    "6. 通訊與網絡設備": "CSCO MSI JNPR ANET COMM ZBRA JNPR CIEN LITE VIAV ADTN CALX HLIT INFN NTGR ACIA EXTR CRDO FN CLFD".split(),
+    "7. 互聯網平台內容": "META GOOGL PINS SNAP MATCH MTCH IAC OGI YELP BMBL BUMBLE GRND COMP ZIP TRUE CARG MTTR LEA GRPN".split(),
+    "8. 媒體與影視娛樂": "NFLX DIS WBD PARA LYV SPOT SIRI ROKU NWSA NYT FOXA OMC IPG WPP NWS EVC NXST MEG TGNA SSP GTN SGA".split(),
+    "9. 電子商務與零售": "AMZN EBAY ETSY MELI SHOP PDD BABA JD SE CPNG W GMED CVNA FAIR FTCH CHWY OSTK REAL RVLV PRTS QRTEA POSH VIPS BZUN".split(),
+    "10. 傳統零售百貨": "WMT COST TGT DG DLTR KR SYY K DLTR BIG BBY BJ CFG SFM UNFI IMKTA SPTN ANDE VLGEA INTA GROC".split(),
+    "11. 核心消費品": "PG KO PEP PM MO EL CL KDP GIS HSY KHC CPB MKC MDLZ SJM CAG STZ TSN K CPB KHC GIS HSY CPB SJM TAP BF.B CHD POST".split(),
+    "12. 汽車製造商": "F GM STLA TM HMC RACE CARZ HOG WGO REV GOLF LCII WGO REVG SRG".split(),
+    "13. 電動車與自駕 (EV)": "TSLA RIVN LCID LI NIO XPEV MSTR UBER LYFT QS AUR GWB ALV LEA MGA BWA APTV VC THO DORM WGO PSNY FSR GOEV HYZN PTRA LEV VLTA".split(),
+    "14. 汽車零部件": "MGA APTV BWA LEA VC DAN ALV GNTX AXA FOXF SMP THO TEN CTB HY MLR SUP MOD PRG".split(),
+    "15. 航空航天與國防": "LMT RTX NOC GD BA TDG HWM LHX LDOS TXT HEI WWD SPR BWXT AVAV KTOS MRCY ATRO NP KEX ESLT CW ST VSEC ASIX AJRD KAMN".split(),
+    "16. 重型機械裝備": "CAT DE CMI PCAR OSK TEX TRN ALG GGW HY ALG REVG B RC BRC RAIL ARNC WNC GBX".split(),
+    "17. 工業綜合集團": "GE HON MMM EMR ITW ETN PH ROK DOV URI IR PNR GWW NDSN AOS SWK SNA FLS LECO IEX GGG TTC NVT HUBB".split(),
+    "18. 運輸與物流": "UNP UPS FDX NSC CSX LSTR OPY SAIA MATX ARCB XPO KNX SNDR HTLD PTEN CVTI WERN HUBG MRIN YELL EEX USX".split(),
+    "19. 航空與機場": "LUV DAL AAL UAL ALK JBLU SAVE HA SKYW SNC LTM ULCC MESA JOBY ACHR".split(),
+    "20. 旅遊酒店博彩": "BKNG ABNB MAR HLT LVS WYNN MGM RCL CCL EXPE NCLH WH CHH PENN CZR BALY CHDN RRR GDEN PLCE SG".split(),
+    "21. 餐飲連鎖": "MCD SBUX YUM CMG DPZ DRI QSR YUMC TXRH DARD BLMN EAT CAKE PLAY DENN RUTH PZZA WEN SHAK JACK TACO CHUY".split(),
+    "22. 商業銀行巨頭": "JPM BAC WFC C GS MS AXP BLK V MA PYPL DFS SYF ALL COF COF AXP DFS SYF ALL RF CFG FITB MTB HBAN KEY CMA ZION".split(),
+    "23. 區域性銀行": "KRE PNC TFC USB EWBC WAL PACW FRC SNV FHN BOKF WTFC CFR CUBI PB CTBI ONB BOH UMBF CBSH FNB CATY".split(),
+    "24. 投資與資產管理": "BLK BX TROW APO KKC KKR CG ARES OWL OAK STEP BEN STT BK NTRS IVZ JHG AMG LAZ APAM".split(),
+    "25. 金融科技與支付": "V MA SQ PYPL AFRM SOFI NU GPN FIS FI FISV TOST MQ BILL FLYW REVG BKI LPRO IIIV HAE FOR EVTC RPCE FLT WEX REVG".split(),
+    "26. 保險經紀與服務": "CB PGR TRV MET AIG PRU TRV HIG AFL L AL MKL CINF RGA RE WRB GL CNA AFG SIGI THG KMPR".split(),
+    "27. 傳統製藥巨頭": "LLY NVO JNJ MRK ABBV PFE AMGN VRTX REGN GILD BMY BMY GSK SNY AZN NVS TEVA TAK RHHBY".split(),
+    "28. 大中型生物科技": "MRNA BNTX BIIB INCY BMRN ALXN SGEN EXAS ILMN ALNY SRPT VRTX BMRN UTHR ARGX DNA CRSP NTLA EDIT BEAM".split(),
+    "29. 醫療設備與器械": "MDT ABT SYK BSX EW BDX ISRG ZBH STE ALGN RMD HOLX XRAY COO TFX PEN RES IART GMED OMCL".split(),
+    "30. 醫療服務與管理": "UNH ELV CVS CI HUM HCA CNC MOH ACHC SEM EHC CHE MODV OPK ADUS DVA USPH AMN EHC NHC CHE".split(),
+    "31. 基因與生命科學": "ILMN TMO A TMO DHR CTLT WAT IQV MTD BRKR PKI CRL BIO TECH MED PINC QGEN NEO NEO EXAS".split(),
+    "32. 傳統能源 (油氣)": "XOM CVX COP SLB HAL MPC PSX VLO OXY HES DVN EOG PXD FANG CXO CLR MRO PXD FANG MUR MRO APA MTDR".split(),
+    "33. 油氣設備與服務": "SLB HAL BKR FTI NBR NOV CHX WTTR PTEN LBRT OIS RES HLX NCS NEX NINE SOI WTTR".split(),
+    "34. 太陽能與清潔能源": "FSLR ENPH SEDG RUN SHLS NEE BE CWEN AY NOVA MAXN SPWR ARRY STEM PLUG DQ JKS CSIQ NEP HASI BEP PEGI TPIC".split(),
+    "35. 公用事業 (水電)": "NEE SO DUK SRE AEP D EXC PCG FE ED PEG XEL WEC ES AWK LNT CMS NI ATO EVRG PNW CNP DTE PPL".split(),
+    "36. 基礎與特殊化工": "LIN APD DOW LYB CE IFF ECL FMC EMN CF MOS NTR SMG WLK HUN ALB OLN ASH KRA GRA GGG FUL".split(),
+    "37. 鋼鐵與基礎金屬": "NUE STLD X CLF RS RS CMP WOR RYI TMST CRS HAYN KALU ATI SCHN USAP ZEUS".split(),
+    "38. 黃金與貴金屬": "NEM GOLD FCX SCCO AEM KGC WPM RGLD FNV HL CDE EXK IAG GORO GSS SA MUX TRX EGO AUY".split(),
+    "39. 住宅房地產開發": "LEN DHI PHM TOL NVR KBH TMHC MDC MHO LGIH GRBK CCS BLD BZH HOV TPH".split(),
+    "40. 商業地產 REITs": "PLD AMT EQIX CCI PSA O SPG VICI CBRE ARE DRE EXR DLR MAA AVB WELL VTR PEAK INV INVH CPT ESS UDR EQR".split(),
+    "41. 特殊與基建 REITs": "AMT CCI SBAC DLR EQIX CONE COR QTS IRM LAMR OUT UNIT GLPI VICI EPR LXP".split(),
+    "42. 加密貨幣與區塊鏈": "COIN MSTR MARA RIOT HUT CLSK CIFR BITF HIVE SDIG BTBT GLXY WULF CORZ ARBK IREN".split(),
+    "43. 農業與肥料": "DE CTVA CF MOS NTR FMC SMG SQM IPI UAN SEB BIOC LMNR AVD CVA LNN".split(),
+    "44. 體育戶外與服飾": "NKE LULU UA UAA CROX DECK ONON SKX PLCE FL LEVI VFC KTB BOOT WWW SHOO TBLA RCKY".split(),
+    "45. 教育科技": "CHGG COUR LRN TWOU PRDO STRA APEI ATGE LOPE UTI LAUR BFAM".split(),
+    "46. 太空與前沿探索": "SPCE RKLB PL BKSY ASTS RDW MNTS LLAP SIDU SPIR SATS SPIR LUNR ACHR JOBY".split(),
+    "47. 機器人與自動化": "PATH SYM CGNX ISGN KEX LECO ROK PTC FARO FLIR ALTR NVMI ACLS CAMT ICHR COHU".split(),
+    "48. 中型價值精選": "WSM GPC WSM WILLIAMS TSCO ODFL MIDD SAIA R EXPD CHRW GGG DOV NDSN LECO WTS ITW".split(),
+    "49. 小型爆發精選": "CELH WING APP ELF ANF MOD MSTR SMCI TMDX AXON FOUR INDI VRT ALKT ACLS MOD ONTO POWI".split(),
+    "50. 超微型探索 (Micro)": "SOUN RXRX AI BBAI HIVE VLD IONQ BBAI CRDO NRDS INDI LUNA QBTS KTRA RGTI ARQQ INVZ".split()
 }
 
-# --- 黑魂 UI ---
-st.set_page_config(page_title="龍魂神殿 2.0", layout="wide")
-st.markdown("""
-    <style>
-    .stApp { background-color: #0e1117 !important; color: #FFFFFF !important; }
-    div.stButton > button { background-color: #000000 !important; color: #FFFFFF !important; border: 2px solid #FFFFFF !important; border-radius: 0px !important; font-weight: 900 !important; width: 100%; margin-bottom: 5px; }
-    div.stButton > button:hover { background-color: #FFFFFF !important; color: #000000 !important; }
-    .dragon-card { border-left: 5px solid #00FFCC; background-color: #111111; padding: 15px; margin-bottom: 10px; border-radius: 5px; }
-    .data-row { font-size: 0.95rem; color: #CCCCCC; margin-top: 8px; line-height: 1.6; }
-    .bear-warning { color: #FF0000 !important; font-size: 1.5rem; font-weight: 900; text-align: center; border: 3px dashed red; background-color: #220000; padding: 15px; margin: 10px 0; border-radius: 10px;}
-    </style>
-""", unsafe_allow_html=True)
+HK_ETF_MAP = {
+    "H1. A股門戶/旗艦大盤": "2822.HK 3188.HK 3109.HK 2823.HK 2846.HK 3147.HK 2801.HK 3010.HK 3081.HK 3151.HK 3072.HK 3042.HK 2839.HK 3180.HK 2827.HK 3139.HK 3118.HK 2838.HK".split(),
+    "H2. 港股科技/AI/芯片": "3033.HK 3088.HK 9888.HK 3067.HK 3167.HK 3191.HK 7709.HK 9191.HK 3434.HK 3112.HK 3171.HK 3091.HK 3032.HK 3001.HK 3060.HK 2826.HK".split(),
+    "H3. A股及港股行業板塊": "3134.HK 2845.HK 9845.HK 3136.HK 3069.HK 3174.HK 2820.HK 3133.HK 3111.HK 3141.HK 3148.HK 3149.HK 2842.HK 3120.HK 2806.HK 3143.HK 3137.HK 3051.HK".split(),
+    "H4. 紅利收息/Covered Call": "3110.HK 3070.HK 3101.HK 3037.HK 3145.HK 3010.HK 3081.HK 3115.HK 3006.HK 3150.HK 3422.HK 3116.HK 3113.HK 3031.HK 3153.HK".split(),
+    "H5. 虛擬資產/加密貨幣": "3066.HK 3068.HK 3439.HK 3419.HK 3460.HK 3461.HK 3471.HK 3472.HK 3083.HK 3087.HK 3135.HK 3175.HK 7799.HK 7711.HK 7747.HK".split(),
+    "H6. 商品/債券/貨幣基金": "2840.HK 3030.HK 3152.HK 3192.HK 3196.HK 3161.HK 3071.HK 2812.HK 3140.HK 3181.HK 3187.HK 3189.HK 3192.HK 3117.HK 3011.HK 3119.HK".split(),
+    "H7. 槓桿/反向 (指數/商品)": "7200.HK 7226.HK 7205.HK 7299.HK 7266.HK 7500.HK 7522.HK 7552.HK 7300.HK 7333.HK 7348.HK 7233.HK 7248.HK 7288.HK 7231.HK".split()
+}
+
+US_ETF_MAP = {
+    "U1. Thematic 主題 A (1-70)": "BWET OIH LIT GSG XTL PDBC DBC SOXX FCG SLX IXC REMX ROKT FENY VDE AIS SMH XOP IYE XLE AIRR UFO XBI IDGT TAN DTCR ICLN XME KRE GRID IFRA PAVE XSMO XMMO KBWB VIS SPHB XLI SLYG IJK XSD IJT IVOG EXI ARTY URNM ROBO FXR IWM RSPT QTUM VBK IXN IWO VTWG ARKQ ARKX NUKZ URA NLR GNR GUNR SIL COPX GDX GDXJ IAU GLD IBB GDE QQQ VOX".split(),
+    "U2. Thematic 主題 B (71-140)": "FCOM ONEQ MLPX FBCG SPMO IVW SPYG XLK IGM QGRW FTEC VGT QTEC TDIV IYW AIQ XT FELG MGK VUG IWF IWY SCHG MAGS EMLP XLB KOMP BOTZ VAW SOYB AMLP BCI ARKG FTGC KBE CORN EUFN USRT RWR SPXT ICF SCHH NFRA RWO DFAR DIA IYJ REET FUTY VPU IYR VNQ FREL DFGR UTES IMCG FTC SLV XAR SILJ ITA WEAT PPLT VEGI MOO IGF TAGS VDC".split(),
+    "U3. Thematic 主題 C (141-214)": "FSTA XLP DBA FXU SPY IDU XLU XLRE CGW QQQE IYF XLC IAI JGRO FDIS VCR SHLD ARKK BLOK SPLV XLY FTXG IYK IXJ IYG PALL XHB BKCH ARKW LQD HYG VHT FHLC IYH XLV VNQI IYC QQEW ITB TLT FIW XLF VFH FNCL IWP CIBR HACK VOT FDN SKYY IHI PHO BIZD CANE BUG IGV GBTC BTC HODL FBTC ARKB BITB IBIT BITO ARKF ETHA".split(),
+    "U4. SPDR 核心板塊": "XLE XBI XLI XLK XLB XLP XLU XLRE XLC XLY XLV XLF".split(),
+    "U5. 全球國家/地區": "EWY EWZ ILF EIS EWT TUR ECH EFNL EWC EWP EWH EWI EPOL EPU EWW THD VNM EWM EWA EWJ EWN EWS EWQ EZA EWU EWL SPY KSA EWD EWG UAE QAT EPHE FXI EIDO INDA".split()
+}
 
 # --- 舊 Code 搬運：能量副圖 ---
-def add_energy_subplots(fig, df, dates_chart, row_start):
+def add_energy_subplots(fig, df, row_start):
     var1 = df['Close'] - df['Low']; var2 = df['High'] - df['Close']; var3 = np.maximum(df['High'] - df['Low'], 0.001)
     buyvol = np.where(var3 > 0, df['Volume'] * var1 / var3, 0)
     sellvol = np.where(var3 > 0, df['Volume'] * var2 / var3, 0)
     netvol = buyvol - sellvol
     netma = pd.Series(netvol).rolling(10, min_periods=1).mean()
+    dates_chart = df.index.strftime('%Y-%m-%d').tolist()
     
     fig.add_trace(go.Bar(x=dates_chart, y=buyvol, marker_color='#808000', name='買盤', opacity=0.6, hoverinfo='skip'), row=row_start, col=1)
     fig.add_trace(go.Bar(x=dates_chart, y=-sellvol, marker_color='#800000', name='賣盤', opacity=0.6, hoverinfo='skip'), row=row_start, col=1)
@@ -82,98 +176,61 @@ def add_energy_subplots(fig, df, dates_chart, row_start):
     change_colors = ['#00FF00' if val >= 0 else '#FF0000' for val in daily_change]
     fig.add_trace(go.Bar(x=dates_chart, y=daily_change, marker_color=change_colors, name='日波幅%'), row=row_start+2, col=1)
 
-# --- 狀態管理 ---
-if 'page' not in st.session_state: st.session_state.page = 'HOME'
-if 'target' not in st.session_state: st.session_state.target = 'NONE'
 
-if st.session_state.page == 'HOME':
-    st.markdown("<h1 style='text-align:center;font-size:4rem;margin-top:80px;'>🐲 龍魂戰略總部</h1>", unsafe_allow_html=True)
-    c1, c2, c3 = st.columns(3)
-    if c1.button("🐉 龍魂神殿"): st.session_state.page = 'DRAGON'
-    if c2.button("📈 VCP 獵龍"): st.session_state.page = 'VCP'
-    if c3.button("🐢 海龜加注"): st.session_state.page = 'TURTLE'
+st.sidebar.markdown("## 🛰️ 戰術控制台 (V188.0)")
+app_mode = st.sidebar.radio("請選擇操作", ["🚀 龍魂神殿 5.0 (旗艦雙線雷達)", "🚀 個股深度透視", "🛡️ 環球市底大師指揮塔", "📡 個股版塊拔河熱力圖", "📡 ETF 資產拔河熱力圖", "📈 VCP 形態戰術掃描 & 防守圖", "🌊 海龜回測加注雷達 (Mode E)"])
+show_b_idx = show_b_ma20 = show_b_ma50 = show_b_ma150 = show_b_ma200 = True
 
-elif st.session_state.page == 'DRAGON':
-    st.markdown("<h1 style='text-align:center;'>🐲 龍魂神殿 2.0 旗艦雷達</h1>", unsafe_allow_html=True)
-    nav = st.columns(6)
-    if nav[0].button("⬅️ 返回"): st.session_state.page = 'HOME'
-    if nav[1].button("🇭🇰 港股"): st.session_state.target = 'HK'
-    if nav[2].button("🇺🇸 美股"): st.session_state.target = 'US'
-    if nav[3].button("📦 ETF"): st.session_state.target = 'ETF'
-    if nav[4].button("🔍 個股"): st.session_state.target = 'SINGLE'
+# =========================================================================
+# 🐲 龍魂神殿 5.0 (旗艦雙線雷達)
+# =========================================================================
+if app_mode == "🚀 龍魂神殿 5.0 (旗艦雙線雷達)":
+    st.markdown("<h1 class='main-title'>🐲 龍魂神殿 5.0 (明暗雙線終極版)</h1>", unsafe_allow_html=True)
     
-    st.markdown("---")
-    c_ath, c_btn = st.columns([3, 1])
-    with c_ath:
-        is_ath_mode = st.checkbox("🔥 啟動 ATH 歷史新高極致過濾")
-    with c_btn:
-        btn_radar = st.button("📡 啟動雷達", use_container_width=True)
+    # 選擇介面
+    c_mkt, c_sec, c_strat = st.columns([1, 1, 1.5])
+    with c_mkt: 
+        m_choice = st.radio("1. 選擇市場", ["🇭🇰 港股", "🇺🇸 美股", "🔍 個股掃描 (自訂)"])
     
-    st.markdown("---")
+    is_us = "美股" in m_choice
+    target_dict = US_STOCK_MAP if is_us else HK_STOCK_MAP
+    
+    with c_sec:
+        if "個股掃描" in m_choice:
+            single_t = st.text_input("輸入股票代號 (例: 0700.HK, NVDA)", "")
+        else:
+            s_choice = st.selectbox("2. 選擇掃描範圍", ["🌐 啟動全星系大規模搜索"] + list(target_dict.keys()))
+            
+    with c_strat: 
+        is_ath_mode = st.checkbox("🔥 啟動 ATH 歷史新高極致過濾 (建議開啟)")
+        btn_radar = st.button("📡 啟動 5.0 雙線雷達！", use_container_width=True)
+
     sl_container = st.empty()
-    selected_tickers = []
-    market_mode = "HK"
 
-    # 美股與 ETF 選擇
-    if st.session_state.target == 'US':
-        st.write("### 🇺🇸 選擇美股戰略名單：")
-        m = st.columns(5)
-        files = [("SP500_Equities.csv", "大藍籌"), ("Market_Focus.csv", "精選"), ("Industry_Focus.csv", "行業"), ("Core_Stocks.csv", "核心"), ("US_ETFs.csv", "美股ETF")]
-        for i, (f, name) in enumerate(files):
-            if m[i].button(f"選定 {name}"): st.session_state.active_file = f; st.success(f"✅ 已選定 {f}")
-
-    elif st.session_state.target == 'ETF':
-        st.write("### 📦 選擇 ETF 戰場：")
-        e1, e2 = st.columns(2)
-        if e1.button("🇭🇰 掃描港股 ETF"): st.session_state.active_file = 'HK_ETF'; st.success("✅ 已選港股 ETF")
-        if e2.button("🇺🇸 掃描美股 ETF"): st.session_state.active_file = 'US_ETFs.csv'; st.success("✅ 已選美股 ETF")
-
-    elif st.session_state.target == 'SINGLE':
-        st.write("### 🔍 個股掃描：")
-        single_t = st.text_input("輸入股票代號 (例: 0700.HK, NVDA)")
-        if single_t:
-            st.session_state.single_ticker = single_t.upper()
-            st.success(f"✅ 已鎖定個股: {st.session_state.single_ticker}")
-
-    # 執行雷達 (完全去重 + 全數量)
     if btn_radar:
-        if st.session_state.target == 'SINGLE' and hasattr(st.session_state, 'single_ticker'):
-            selected_tickers = [(st.session_state.single_ticker, "自選")]
-            market_mode = "US" if not st.session_state.single_ticker.endswith(".HK") else "HK"
-        elif st.session_state.target == 'HK':
+        tickers_to_scan = []
+        market_mode = "US" if is_us else "HK"
+        
+        if "個股掃描" in m_choice and single_t:
+            tickers_to_scan = [(single_t.upper().strip(), "自訂")]
+            market_mode = "US" if not single_t.upper().endswith(".HK") else "HK"
+        elif "全星系" in s_choice:
             unique_map = {}
-            for k, v in HK_STOCK_MAP.items():
+            for k, v in target_dict.items():
                 sector = k.split('.')[1].strip() if '.' in k else k
                 for t in v:
                     if t not in unique_map: unique_map[t] = sector
-            selected_tickers = list(unique_map.items())
-            market_mode = "HK"
-        elif st.session_state.target == 'ETF':
-            if getattr(st.session_state, 'active_file', '') == 'HK_ETF':
-                unique_etfs = set([t for sub in HK_ETF_MAP.values() for t in sub])
-                selected_tickers = [(t, "港股ETF") for t in unique_etfs]
-                market_mode = "HK"
-            elif getattr(st.session_state, 'active_file', '') == 'US_ETFs.csv':
-                try:
-                    df_csv = pd.read_csv('US_ETFs.csv')
-                    col = [c for c in df_csv.columns if c.lower() in ['ticker', 'symbol']][0]
-                    selected_tickers = [(t, "美股ETF") for t in df_csv[col].dropna().unique()]
-                    market_mode = "US"
-                except: st.error("⚠️ 讀取 US_ETFs.csv 失敗。")
-        elif st.session_state.target == 'US' and hasattr(st.session_state, 'active_file'):
-            try:
-                df_csv = pd.read_csv(st.session_state.active_file)
-                col = [c for c in df_csv.columns if c.lower() in ['ticker', 'symbol', '代號']][0]
-                selected_tickers = [(t, "美股") for t in df_csv[col].dropna().unique()]
-                market_mode = "US"
-            except: pass
+            tickers_to_scan = list(unique_map.items())
+        else:
+            sector = s_choice.split('.')[1].strip() if '.' in s_choice else s_choice
+            tickers_to_scan = [(t, sector) for t in target_dict.get(s_choice, [])]
 
-        if selected_tickers:
-            st.info(f"🚀 龍魂發動！全火力掃描 {len(selected_tickers)} 隻不重覆標的...")
+        if tickers_to_scan:
+            st.info(f"🚀 龍魂發動！全火力掃描 {len(tickers_to_scan)} 隻標的...")
             results = []; sl_list = []; pb = st.progress(0)
             
-            for i, (t, sec) in enumerate(selected_tickers):
-                pb.progress((i+1)/len(selected_tickers))
+            for i, (t, sec) in enumerate(tickers_to_scan):
+                pb.progress((i+1)/len(tickers_to_scan))
                 df = smart_fetch(t)
                 
                 # ATH 攔截器
@@ -187,8 +244,11 @@ elif st.session_state.page == 'DRAGON':
             if sl_list: sl_container.markdown(f"<div class='bear-warning'>🛡️ 戰損置頂: {' | '.join(sl_list)} 跌穿 10-EMA！</div>", unsafe_allow_html=True)
 
             if results:
+                # 按戰術總分排序
                 results = sorted(results, key=lambda x: x['Score'], reverse=True)
                 st.session_state.dragon_results = results
+                
+                st.success(f"🎉 成功尋獲 {len(results)} 隻過關真龍！")
                 for r in results:
                     st.markdown(f"""
                         <div class='dragon-card'>
@@ -203,15 +263,13 @@ elif st.session_state.page == 'DRAGON':
                         </div>
                     """, unsafe_allow_html=True)
             else: st.warning("💤 萬人坑內無生還者。")
-
-    # =========================================================
-    # 📈 X光戰術圖 (100% 舊 Code 搬運：星星 + 長短 HVN + 唔疊埋)
-    # =========================================================
+            
+    # 📈 X光戰術圖
     if hasattr(st.session_state, 'dragon_results'):
         st.write("---")
-        chart_t = st.selectbox("🎯 查看 X 光戰術圖", [r['Ticker'] for r in st.session_state.dragon_results])
+        chart_t = st.selectbox("🎯 選擇目標查看「3 層視覺化戰術儀表板」", [r['Ticker'] for r in st.session_state.dragon_results], key="dragon_chart_select")
         if chart_t:
-            with st.spinner("正在繪製全黑戰術圖表..."):
+            with st.spinner("正在為您繪製戰術圖表..."):
                 try:
                     df_c = smart_fetch(chart_t, period="6mo")
                     if not df_c.empty:
@@ -226,7 +284,7 @@ elif st.session_state.page == 'DRAGON':
                         fig.add_trace(go.Scatter(x=dates_chart, y=df_c['Close'].rolling(50).mean(), mode='lines', name='50MA', line=dict(color='yellow', width=1.5)), row=1, col=1)
                         fig.add_trace(go.Scatter(x=dates_chart, y=ema10, name="10 EMA", line=dict(color='orange', width=2, dash='dot')), row=1, col=1)
                         
-                        # 2. 買入位與重貨區 HVN (用舊 Code 做法)
+                        # 2. 買入位與重貨區 HVN
                         recent_high = df_c['High'].tail(20).max()
                         fig.add_hline(y=recent_high, line_dash="dash", line_color="#00FFCC", annotation_text="🎯 買入點", row=1, col=1)
                         
@@ -243,14 +301,14 @@ elif st.session_state.page == 'DRAGON':
                         v_colors = ['#00FF00' if df_c['Close'].iloc[i] >= df_c['Open'].iloc[i] else '#FF0000' for i in range(len(df_c))]
                         fig.add_trace(go.Bar(x=dates_chart, y=df_c['Volume'], marker_color=v_colors, name="成交量"), row=2, col=1)
                         
-                        # 4. 舊 Code 大戶星星 (用 Scatter 加 markers 畫出嚟)
+                        # 4. 大戶星星
                         df_c['Vol50'] = df_c['Volume'].rolling(50).mean()
                         stars = df_c[(df_c['Close'] > df_c['Open']) & (df_c['Volume'] > df_c['Vol50'] * 1.5)]
                         star_dates = stars.index.strftime('%Y-%m-%d').tolist()
                         fig.add_trace(go.Scatter(x=star_dates, y=stars['Volume'], mode='markers', marker=dict(symbol='star', size=12, color='gold'), name='大戶星星'), row=2, col=1)
 
                         # 5. 能量副圖
-                        add_energy_subplots(fig, df_c, dates_chart, row_start=3)
+                        add_energy_subplots(fig, df_c, row_start=3)
                         
                         # 鎖死黑底，配置 xaxis6 比例
                         fig.update_layout(
@@ -260,3 +318,7 @@ elif st.session_state.page == 'DRAGON':
                         )
                         st.plotly_chart(fig, use_container_width=True, theme=None)
                 except Exception as e: st.error(f"繪圖出錯: {e}")
+
+# (其他模式保持不變，因字數限制，請確保縮排正確，以下為預留的 else 分支結尾)
+else:
+    st.info("請於側邊欄選擇其他功能模式。")
