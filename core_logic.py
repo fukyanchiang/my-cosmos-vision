@@ -84,9 +84,9 @@ def scan_dragon_logic(df, ticker, sector, market_mode):
     rs_val = max(0, min(99, rs_val)) # RS 限制在 0-99
 
     # ---------------------------------------------------------
-    # 🛡️ 第一層：七大禁示 (60個交易日一票否決)
+    # 🛡️ 第一層：七大禁示 (10個交易日一票否決)
     # ---------------------------------------------------------
-    lookback = 60
+    lookback = 10
     if (is_magenta.tail(lookback) & (chg.tail(lookback) < 0)).any(): return None      # 1. 直接派貨
     if ((chg.tail(lookback) > 0) & (netvol.tail(lookback) < 0)).any(): return None   # 2. 托住走貨
     if (is_cyan.tail(lookback) & (chg.tail(lookback) < 2.0)).any(): return None      # 3. 放量滯漲
