@@ -51,7 +51,9 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", force_return=False):
     conc = (abs(netvol.tail(20)).max() / max(abs(netvol.tail(20)).sum(), 1)) * 100
     buy_sum_10 = buyvol.tail(10).sum()
     sell_sum_10 = sellvol.tail(10).sum()
-    current_power = buyvol.iloc[-1] / sellvol.iloc[-1] if sellvol.iloc[-1] > 0 else 1.0
+    
+    # 👇 爺爺幫你加咗金剛罩嘅買盤力 (最多只可以當 4 倍)
+    current_power = min(buyvol.iloc[-1] / sellvol.iloc[-1] if sellvol.iloc[-1] > 0 else 1.0, 4.0)
 
     if is_magenta.tail(death_lookback).any(): is_dead = True; death_reason = "近期有爆量派貨案底"
     elif pct.iloc[-1] >= 0 and netvol.iloc[-1] < 0: is_dead = True; death_reason = "托住走貨 (量價背離)"
