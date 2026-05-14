@@ -52,8 +52,11 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", force_return=False):
     buy_sum_10 = buyvol.tail(10).sum()
     sell_sum_10 = sellvol.tail(10).sum()
     
-    # 👇 爺爺幫你加咗金剛罩嘅買盤力 (最多只可以當 4 倍)
-    current_power = min(buyvol.iloc[-1] / sellvol.iloc[-1] if sellvol.iloc[-1] > 0 else 1.0, 4.0)
+    # 👇 爺爺幫你改嘅「兩全其美」買盤力寫法
+    # 1. 呢個係用嚟顯示嘅，唔封頂，畀你睇「爆發力」
+    display_power = buyvol.iloc[-1] / sellvol.iloc[-1] if sellvol.iloc[-1] > 0 else 1.0
+    # 2. 呢個係用嚟計分嘅，加金剛罩，保證數據穩定
+    current_power = min(display_power, 4.0)
 
     if is_magenta.tail(death_lookback).any(): is_dead = True; death_reason = "近期有爆量派貨案底"
     elif pct.iloc[-1] >= 0 and netvol.iloc[-1] < 0: is_dead = True; death_reason = "托住走貨 (量價背離)"
@@ -68,6 +71,7 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", force_return=False):
     # ---------------------------------------------------------
     # 計分系統
     # ---------------------------------------------------------
+    # 呢度用 current_power (最多 4.0) 嚟計分，保證 RawPower 唔會暴走
     raw_power = (rs_val * 0.6) + (ej_val * 0.4) + (se_val * 0.5) + (current_power * 5)
     score = 100.0 + (rs_val * 0.35 + ej_val * 0.25)
     
@@ -119,7 +123,7 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", force_return=False):
         "Flow": f"{netflow_20/1e6:.1f}M", 
         "Conc": f"{conc:.1f}%", 
         "OBV": "狀態 1",
-        "Power": round(current_power, 1), 
+        "Power": round(display_power, 1), # 👇 呢度畀 UI 讀取未封頂嘅數值
         "Bias": round(bias, 1), 
         "EMA10": round(ema10.iloc[-1], 2),
         "Status": status, 
