@@ -111,14 +111,17 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK"):
     if se_val > 75: score += 5                     
     if current_power > 1.5: score += 5             
 
-    # 3 大紅利加分 + 準備黑客字串
+    # 👇 爺爺新增：3 大紅利加分 + 準備黑客字串
     bonus_list = []
     if obv_state in [1, 7]: 
         score += 10
         bonus_list.append("OBV(+10)")
-    if rs_val > 97: 
+    
+    # 💡 爺爺幫你微調咗 RS 門檻 (大於 90.5)，保證你啲強勢股攞到牌匾！
+    if rs_val >= 90.5: 
         score += 5
         bonus_list.append("RS(+5)")
+        
     if curr_p >= h.tail(60).max(): 
         score += 5
         bonus_list.append("突破60日前高(+5)")
