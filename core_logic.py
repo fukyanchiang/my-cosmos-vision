@@ -40,31 +40,24 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK"):
     is_magenta = is_burst & (c <= o)
 
     # =======================================================
-    # 🚨 1. 7大禁示 (絕對死刑) - 100% 嚴格過濾版
+    # 🚨 1. 7大禁示 (絕對死刑) - 保留即市寬鬆版
     # =======================================================
     death_lookback = 10
     hist_bias = ((c - ma50) / ma50) * 100
     rule5_cond = (pct.shift(1) > 0.05) & (v < v.shift(1) * 0.5)
 
-    # 1. 直接派貨 (近10日有爆量派貨案底)
     if is_magenta.tail(death_lookback).any(): return None 
-    # 2. 托住走貨 (今日價升但錢流轉負)
-    if pct.iloc[-1] >= 0 and netvol.iloc[-1] < 0: return None 
-    # 3. 放量滯漲 (近10日曾天量但升幅<2%)
+    if pct.iloc[-1] >= 0 and netvol.iloc[-1] < 0: return None # 保持即市判定
     if ((v > ma20_v * 2.0) & (pct >= 0) & (pct < 0.02)).tail(death_lookback).any(): return None
-    # 4. 板塊撤退 (單股無法掃描，留白)
-    # 5. 錢流斷層 (近10日曾暴升後次日成交急縮50%)
     if rule5_cond.tail(death_lookback).any(): return None
-    # 6. 末段癲狗 (近10日Bias>15%且爆天量)
     if ((hist_bias > 15) & (v > ma20_v * 3.0)).tail(death_lookback).any(): return None
-    # 7. OBV詐騙 (近10日價穩但OBV持續向下)
     if (len(c) >= 10) and (c.iloc[-1] >= c.iloc[-10]) and (obv.iloc[-1] < obv.iloc[-10]): return None
     
     # 基本生命線防守
     if curr_p <= ma50.iloc[-1]: return None
 
     # =======================================================
-    # 2. 8大硬指標
+    # 2. 8大硬指標 (龍魂核心)
     # =======================================================
     rs_val = 80 + (curr_p / ma50.iloc[-1] * 10)
     ej_val = 85 + (netflow_20 / max(ma20_v.iloc[-1]*20, 1) * 5)
@@ -73,15 +66,35 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK"):
     buy_sum_10 = buyvol.tail(10).sum()
     sell_sum_10 = sellvol.tail(10).sum()
     
-    # 👇 爺爺唯一加嘅金剛罩 (保護層3唔暴走，UI顯示照舊)
     display_power = buyvol.iloc[-1] / sellvol.iloc[-1] if sellvol.iloc[-1] > 0 else 1.0
     current_power = min(display_power, 4.0)
 
+    # 👇 爺爺新增：OBV 1到9 狀態引擎 (100% 移植自你嘅祖傳秘方)
+    obv_curr = obv.iloc[-1] - obv.iloc[-21] if len(obv) > 20 else obv.iloc[-1] - obv.iloc[0]
+    obv_prev = obv.iloc[-21] - obv.iloc[-41] if len(obv) > 40 else 1
+    obv_pct = (obv_curr - obv_prev) / max(abs(obv_prev), 1) * 100
+    p_trend = c.iloc[-1] - c.iloc[-21] if len(c) > 20 else c.iloc[-1] - c.iloc[0]
+    obv_total_vol = v.tail(20).sum() if v.tail(20).sum() > 0 else 1
+
+    if abs(obv_curr) / obv_total_vol < 0.02:
+        obv_state = 9
+    else:
+        if p_trend >= 0:
+            if obv_curr > 0: obv_state = 1 if obv_pct > 20 else 2
+            else: obv_state = 5 if obv_pct < -20 else 6
+        else:
+            if obv_curr < 0: obv_state = 3 if obv_pct < -20 else 4
+            else: obv_state = 7 if obv_pct > 20 else 8
+            
+    # 🛡️ 龍魂核心大門：狀態唔係 1, 2, 7, 8 嘅，即刻踢走！
+    if obv_state not in [1, 2, 7, 8]: return None
+
+    # 原有硬指標防禦 (保持跑車版速度)
     if not (rs_val > 60 and ej_val > 85 and se_val > 75 and netflow_20 > 0 and conc < 70): return None
     if buy_sum_10 <= sell_sum_10: return None
 
     # =======================================================
-    # 🔥 3. 原始戰力 (Raw Power) - 舊邏輯無上限計法 (已受金剛罩保護)
+    # 🔥 3. 原始戰力 (Raw Power) 
     # =======================================================
     raw_power = (rs_val * 0.6) + (ej_val * 0.4) + (se_val * 0.5) + (current_power * 5)
 
@@ -112,26 +125,18 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK"):
         if bias > bias_limit + 5: penalty += 50 
         else: penalty += (bias - bias_limit) * 10
 
-    # 最終出戰分數
     final_score = score - penalty
 
     # =======================================================
     # 🔮 6. 隱藏公仔與狀態標籤
     # =======================================================
     icons = []
-    # 1. 💰🔥 爆發點火
     if rs_val > 90 and ej_val > 90 and se_val > 90 and pct.iloc[-1] > 0.02: icons.append("💰🔥")
-    # 2. 💰🤫 窄位建倉
     if rs_val > 85 and ej_val > 85 and se_val > 85 and (h.iloc[-1] - l.iloc[-1])/l.iloc[-1] < 0.015: icons.append("💰🤫")
-    # 3. 💰🛡️ 托底錢袋
     if rs_val > 80 and ej_val > 80 and se_val > 80 and pct.iloc[-1] < 0 and netflow_20 > 0: icons.append("💰🛡️")
-    # 4. 💎 驚天洗盤 (紫色托底柱)
     if pct.iloc[-1] < 0 and netvol.iloc[-1] > ma20_v.iloc[-1] * 1.5: icons.append("💎")
-    # 5. 🧧 悶聲吸儲 (VCP末端)
     if conc < 40 and netflow_20 > netflow_60 * 0.3 and netflow_20 > 0: icons.append("🧧")
-    # 6. ⚡ 閃電點火
     if v.iloc[-1] > ma20_v.iloc[-1] * 2 and v.iloc[-2] < ma20_v.iloc[-2]: icons.append("⚡")
-    # 7. 🐋 鯨魚現身
     stars = sum((c.tail(10) > o.tail(10)) & (v.tail(10) > ma50_v.tail(10) * 1.5))
     if stars > 0: icons.append(f"🐋({stars}/10)")
 
@@ -151,8 +156,8 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK"):
         "SE": round(se_val, 1),
         "Flow": f"{netflow_20/1e6:.1f}M", 
         "Conc": f"{conc:.1f}%", 
-        "OBV": "狀態 1",
-        "Power": round(display_power, 1), # 👇 呢度畀 UI 讀取未封頂嘅數值
+        "OBV": f"狀態 {obv_state}", # 👇 爺爺幫你將真實嘅 OBV 狀態射出大宇宙！
+        "Power": round(display_power, 1), 
         "Bias": round(bias, 1), 
         "EMA10": round(ema10.iloc[-1], 2),
         "Status": status, 
