@@ -28,6 +28,7 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", force_return=False):
     curr_p = c.iloc[-1]; pct = c.pct_change().fillna(0)
     ma20_v = v.rolling(20).mean(); ma60_v = v.rolling(60).mean(); ma50 = c.rolling(50).mean()
     v_std20 = v.rolling(20).std(); v_upper = ma20_v + (2.0 * v_std20)
+    ema10 = c.ewm(span=10, adjust=False).mean() # 👈 補返 EMA10 畀 UI 用！
     
     # 計算買賣兵力 (VAR1-3)
     var1 = c - l; var2 = h - c; var3 = np.maximum(h - l, 0.001)
@@ -60,7 +61,7 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", force_return=False):
     rs_val = 80 + (curr_p / ma50.iloc[-1] * 10)
     ej_val = 85 + (netvol.tail(20).sum() / max(ma20_v.iloc[-1]*20, 1) * 5)
     se_val = 75 + (pct.tail(5).sum() * 100)
-    conc = (abs(netvol.tail(20)).max() / max(abs(netvol.tail(20)).sum(), 1)) * 100
+    conc = (abs(netvol.tail(20)).max() / max(abs(netvol.tail(20)).sum(), 1)) * 100 # 👈 補返 Conc
     bias = ((curr_p - ma50.iloc[-1]) / ma50.iloc[-1]) * 100
     
     # OBV 完整 1-9 狀態
@@ -110,7 +111,7 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", force_return=False):
     # 🚨 Bias 階梯罰分 (防高追)
     bias_penalty = 50 + (bias - limit) * 10 if bias > limit else 0
 
-    # 🧮 總分結算 (底分 + 加分 - 核心扣分 - 階梯扣分 - 犯規扣分)
+    # 🧮 總分結算
     final_score = score - core_penalty - bias_penalty - foul_points
 
     # =======================================================
@@ -130,11 +131,14 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", force_return=False):
     elif bias < 2 and se_val > 85: status = "[👑 👑 初段起步]"
     else: status = "[👑 趨勢行進]"
 
+    # 👇 爺爺補返晒 EMA10, Flow, Conc 畀你個 UI 喇！
     return {
         "Ticker": ticker, "Sector": sector_name, "Score": round(final_score, 1), 
         "RawPower": round(ej_val, 1), "Penalty": round(core_penalty + bias_penalty + foul_points, 1),
         "RS": round(rs_val, 1), "EJ": round(ej_val, 1), "SE": round(se_val, 1),
+        "Flow": f"{netvol.tail(20).sum()/1e6:.1f}M", "Conc": f"{conc:.1f}%", "OBV": f"狀態 {obv_state}",
         "Power": round(buyvol.iloc[-1]/sellvol.iloc[-1] if sellvol.iloc[-1]>0 else 1, 1), 
-        "Bias": round(bias, 1), "Status": f"[☠️ 落選: {death_reason}]" if is_dead else status, 
+        "Bias": round(bias, 1), "EMA10": round(ema10.iloc[-1], 2),
+        "Status": f"[☠️ 落選: {death_reason}]" if is_dead else status, 
         "Icons": icons_final, "IsDead": is_dead
     }
