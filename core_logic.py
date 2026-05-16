@@ -26,7 +26,7 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", force_return=False):
     ema10 = c.ewm(span=10, adjust=False).mean()
     bias = ((curr_p - ma50.iloc[-1]) / ma50.iloc[-1]) * 100
     
-    # 🧬 核心量能
+    # 🧬 核心量能 (買賣盤兵力)
     var3 = np.maximum(h - l, 0.001)
     buyvol = v * (c - l) / var3
     sellvol = v * (h - c) / var3
@@ -35,15 +35,14 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", force_return=False):
     netflow_60 = netvol.tail(60).sum()
     obv = (np.sign(pct) * v).cumsum()
 
-    is_burst = (v > ma20_v * 1.5) & (abs(pct) > 0.02)
-    is_magenta = is_burst & (c <= o)
-
     # 🚨 第一層：死亡審判
     is_dead = False; death_reason = ""
-    if is_magenta.tail(10).any(): is_dead = True; death_reason = "爆量派貨案底"
-    elif pct.iloc[-1] >= 0 and netvol.iloc[-1] < 0: is_dead = True; death_reason = "今日托住走貨"
-    elif (len(c) >= 10) and (c.iloc[-1] >= c.iloc[-10]) and (obv.iloc[-1] < obv.iloc[-10]): is_dead = True; death_reason = "OBV價量背離"
-    elif curr_p <= ma50.iloc[-1]: is_dead = True; death_reason = "跌穿50天線"
+    if (v > ma20_v * 1.5).tail(10).any() and (c <= o).tail(10).any(): 
+        is_dead = True; death_reason = "爆量派貨案底"
+    elif pct.iloc[-1] >= 0 and netvol.iloc[-1] < 0: 
+        is_dead = True; death_reason = "今日托住走貨"
+    elif curr_p <= ma50.iloc[-1]: 
+        is_dead = True; death_reason = "跌穿50天線"
 
     # 2. 8大硬指標 (龍魂核心)
     rs_val = 80 + (curr_p / ma50.iloc[-1] * 10)
@@ -70,11 +69,61 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", force_return=False):
             if obv_curr < 0: obv_state = 3 if obv_pct < -20 else 4
             else: obv_state = 7 if obv_pct > 20 else 8
             
-    if obv_state not in [1, 2, 7, 8]: is_dead = True; death_reason = f"OBV狀態非佳({obv_state})"
-    if not (rs_val > 60 and ej_val > 85 and se_val > 75 and netflow_20 > 0 and conc < 70): is_dead = True; death_reason = "指標不達標"
-    if buyvol.tail(10).sum() <= sellvol.tail(10).sum(): is_dead = True; death_reason = "兵力不足"
+    if obv_state not in [1, 2, 7, 8]: is_dead = True; death_reason = f"OBV狀態({obv_state})"
+    if not (rs_val > 60 and ej_val > 85 and se_val > 75 and netflow_20 > 0 and conc < 70):
+        is_dead = True; death_reason = "指標不達標"
 
     if is_dead and not force_return: return None
 
-    # 🔥 3. 戰鬥力排行 & 🎯 4. 戰術總分
+    # 🔥 3. 原始戰力 & 🎯 4. 戰術總分
     score = 100.0 + (rs_val * 0.35 + ej_val * 0.25)
+    raw_power = (rs_val * 0.6) + (ej_val * 0.4) + (se_val * 0.5) + (current_power * 5)
+    
+    # 🎖️ 4 大紅利標牌 (爺爺優化版)
+    bonus_list = []
+    
+    # 紅利 1: OBV 強勢 (+10)
+    if obv_state in [1, 7]: 
+        score += 10
+        bonus_list.append("OBV(+10)")
+    
+    # 紅利 2: 持續流入穩定性 (+5)
+    # 💡 只要長線錢流係正數，就證明有長線底火支撐
+    if netflow_60 > 0:
+        score += 5
+        bonus_list.append("穩定流入(+5)")
+        
+    # 紅利 3: RS 龍頭獎 (+5)
+    # 💡 鎖死 92.0 分！唔過 92 絕對無獎！
+    if rs_val >= 92.0: 
+        score += 5
+        bonus_list.append("RS(+5)")
+        
+    # 紅利 4: 破頂獎 (+5)
+    if curr_p >= h.tail(60).max(): 
+        score += 5
+        bonus_list.append("破頂(+5)")
+
+    # 🛑 5. 家法扣分
+    penalty = 0
+    if bias > 10: penalty += (bias - 10) * 10
+    final_score = score - penalty
+
+    # 🔮 6. 徽章系統 & 顯示
+    icons = []
+    if conc < 40 and netflow_20 > 0: icons.append("🧧")
+    stars = sum((v.tail(10) > ma50_v.tail(10) * 1.5))
+    if stars > 0: icons.append(f"🐋({stars}/10)")
+
+    icons_final = " ".join(icons)
+    if bonus_list: icons_final += " | 🎖️" + ",".join(bonus_list)
+
+    return {
+        "Ticker": ticker, "Sector": sector_name, "Score": round(final_score, 1), 
+        "RawPower": round(raw_power, 1), "Penalty": round(penalty, 1),
+        "RS": round(rs_val, 1), "EJ": round(ej_val, 1), "SE": round(se_val, 1),
+        "Flow": f"{netflow_20/1e6:.1f}M", "Conc": f"{conc:.1f}%", "OBV": f"狀態 {obv_state}",
+        "Power": round(display_power, 1), "Bias": round(bias, 1), 
+        "EMA10": round(ema10.iloc[-1], 2), "Status": "[👑 趨勢行進]", 
+        "Icons": icons_final, "IsDead": is_dead
+    }
