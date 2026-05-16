@@ -28,7 +28,7 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", force_return=False):
     curr_p = c.iloc[-1]; pct = c.pct_change().fillna(0)
     ma20_v = v.rolling(20).mean(); ma60_v = v.rolling(60).mean(); ma50 = c.rolling(50).mean()
     v_std20 = v.rolling(20).std(); v_upper = ma20_v + (2.0 * v_std20)
-    ema10 = c.ewm(span=10, adjust=False).mean() # 👈 補返 EMA10 畀 UI 用！
+    ema10 = c.ewm(span=10, adjust=False).mean()
     
     # 計算買賣兵力 (VAR1-3)
     var1 = c - l; var2 = h - c; var3 = np.maximum(h - l, 0.001)
@@ -60,8 +60,11 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", force_return=False):
     is_dead = False; death_reason = ""
     rs_val = 80 + (curr_p / ma50.iloc[-1] * 10)
     ej_val = 85 + (netvol.tail(20).sum() / max(ma20_v.iloc[-1]*20, 1) * 5)
-    se_val = 75 + (pct.tail(5).sum() * 100)
-    conc = (abs(netvol.tail(20)).max() / max(abs(netvol.tail(20)).sum(), 1)) * 100 # 👈 補返 Conc
+    
+    # 🌟 爺爺精準微調：SE 變成 20 日累積動能！
+    se_val = 75 + (pct.tail(20).sum() * 100) 
+    
+    conc = (abs(netvol.tail(20)).max() / max(abs(netvol.tail(20)).sum(), 1)) * 100
     bias = ((curr_p - ma50.iloc[-1]) / ma50.iloc[-1]) * 100
     
     # OBV 完整 1-9 狀態
@@ -77,7 +80,7 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", force_return=False):
         if obv_curr < 0: obv_state = 3 if obv_pct < -20 else 4
         else: obv_state = 7 if obv_pct > 20 else 8
 
-    # 🛑 死亡審判 (即日唔合格就踢走)
+    # 🛑 死亡審判 (se_val > 75 依然係基本線，依家代表過去20日累積升幅必須係正數)
     if curr_p <= ma50.iloc[-1]: is_dead = True; death_reason = "跌穿50天線"
     elif is_magenta.iloc[-1]: is_dead = True; death_reason = "今日粉紅爆缸"
     elif not (rs_val > 60 and ej_val > 85 and se_val > 75 and netvol.tail(20).sum() > 0): 
@@ -92,13 +95,32 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", force_return=False):
     score = 100.0
     bonus_list = []
     
-    # 🎯 加分項 (包含 4 大紅利標牌)
-    if se_val > 75: score += 5; bonus_list.append("SE(+5)")
-    if (buyvol.iloc[-1] / sellvol.iloc[-1] if sellvol.iloc[-1]>0 else 1) > 1.5: score += 5; bonus_list.append("兵力(+5)")
-    if obv_state in [1, 7]: score += 10; bonus_list.append("OBV(+10)")
-    if netvol.tail(60).sum() > 0: score += 5; bonus_list.append("穩定流入(+5)")
-    if rs_val >= 92.0: score += 5; bonus_list.append("RS(+5)")
-    if curr_p >= h.tail(60).max(): score += 5; bonus_list.append("破頂(+5)")
+    # 🎯 加分項 (包含全新動能及穩定流入邏輯)
+    
+    # 1. 動能(+5): 20日累積升幅 >= 15% (即 se_val >= 90.0)
+    if se_val >= 90.0: 
+        score += 5; bonus_list.append("動能(+5)")
+        
+    # 2. 兵力(+5): 買賣力大於 1.5
+    if (buyvol.iloc[-1] / sellvol.iloc[-1] if sellvol.iloc[-1]>0 else 1) > 1.5: 
+        score += 5; bonus_list.append("兵力(+5)")
+        
+    # 3. OBV(+10)
+    if obv_state in [1, 7]: 
+        score += 10; bonus_list.append("OBV(+10)")
+        
+    # 4. 穩定流入(+5): 60日淨流入 > 總成交量嘅 5%
+    total_v60 = max(v.tail(60).sum(), 1)
+    if netvol.tail(60).sum() > (total_v60 * 0.05): 
+        score += 5; bonus_list.append("穩定流入(+5)")
+        
+    # 5. RS(+5): 鎖死 92 分
+    if rs_val >= 92.0: 
+        score += 5; bonus_list.append("RS(+5)")
+        
+    # 6. 破頂(+5)
+    if curr_p >= h.tail(60).max(): 
+        score += 5; bonus_list.append("破頂(+5)")
 
     # 🚨 4大核心品質扣分 (今日結算)
     core_penalty = 0
@@ -108,7 +130,7 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", force_return=False):
     if v.iloc[-1] > ma60_v.iloc[-1] * 2.5: core_penalty += 20 # 💥 爆缸天量
     if (h.iloc[-1] - max(c.iloc[-1], o.iloc[-1])) / var3.iloc[-1] > 0.5: core_penalty += 15 # 🖋️ 影線派貨
 
-    # 🚨 Bias 階梯罰分 (防高追)
+    # 🚨 Bias 階梯罰分
     bias_penalty = 50 + (bias - limit) * 10 if bias > limit else 0
 
     # 🧮 總分結算
@@ -131,7 +153,6 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", force_return=False):
     elif bias < 2 and se_val > 85: status = "[👑 👑 初段起步]"
     else: status = "[👑 趨勢行進]"
 
-    # 👇 爺爺補返晒 EMA10, Flow, Conc 畀你個 UI 喇！
     return {
         "Ticker": ticker, "Sector": sector_name, "Score": round(final_score, 1), 
         "RawPower": round(ej_val, 1), "Penalty": round(core_penalty + bias_penalty + foul_points, 1),
