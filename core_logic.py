@@ -40,7 +40,7 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK"):
     is_magenta = is_burst & (c <= o)
 
     # =======================================================
-    # 🚨 1. 7大禁示 (絕對死刑) - 保留即市寬鬆版
+    # 🚨 1. 7大禁示 (絕對死刑)
     # =======================================================
     death_lookback = 10
     hist_bias = ((c - ma50) / ma50) * 100
@@ -69,14 +69,14 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK"):
     display_power = buyvol.iloc[-1] / sellvol.iloc[-1] if sellvol.iloc[-1] > 0 else 1.0
     current_power = min(display_power, 4.0)
 
-    # 👇 爺爺新增：OBV 1到9 狀態引擎 (100% 移植自你嘅祖傳秘方)
+    # OBV 1到9 狀態引擎
     obv_curr = obv.iloc[-1] - obv.iloc[-21] if len(obv) > 20 else obv.iloc[-1] - obv.iloc[0]
     obv_prev = obv.iloc[-21] - obv.iloc[-41] if len(obv) > 40 else 1
     obv_pct = (obv_curr - obv_prev) / max(abs(obv_prev), 1) * 100
     p_trend = c.iloc[-1] - c.iloc[-21] if len(c) > 20 else c.iloc[-1] - c.iloc[0]
     obv_total_vol = v.tail(20).sum() if v.tail(20).sum() > 0 else 1
 
-    if abs(obv_curr) / obv_total_vol < 0.02:
+    if abs(obv_curr) / obv_total_vol < 0.02: 
         obv_state = 9
     else:
         if p_trend >= 0:
@@ -89,7 +89,7 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK"):
     # 🛡️ 龍魂核心大門：狀態唔係 1, 2, 7, 8 嘅，即刻踢走！
     if obv_state not in [1, 2, 7, 8]: return None
 
-    # 原有硬指標防禦 (保持跑車版速度)
+    # 原有硬指標防禦 (跑車版速度)
     if not (rs_val > 60 and ej_val > 85 and se_val > 75 and netflow_20 > 0 and conc < 70): return None
     if buy_sum_10 <= sell_sum_10: return None
 
@@ -102,6 +102,7 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK"):
     # 🎯 4. 戰術總分 (Tactical Score)
     # =======================================================
     score = 100.0 + (rs_val * 0.35 + ej_val * 0.25)
+    
     if c.iloc[-1] > c.iloc[-20] * 1.3: score += 10 
     if netflow_20 > 0: score += 5                  
     if se_val > 80: score += 5                     
@@ -110,17 +111,27 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK"):
     if se_val > 75: score += 5                     
     if current_power > 1.5: score += 5             
 
+    # 3 大紅利加分 + 準備黑客字串
+    bonus_list = []
+    if obv_state in [1, 7]: 
+        score += 10
+        bonus_list.append("OBV(+10)")
+    if rs_val > 97: 
+        score += 5
+        bonus_list.append("RS(+5)")
+    if curr_p >= h.tail(60).max(): 
+        score += 5
+        bonus_list.append("突破60日前高(+5)")
+
     # =======================================================
     # 🛑 5. 家法扣分 (Penalty)
     # =======================================================
     penalty = 0
     if (v.tail(60) > ma20_v.tail(60)*4).any() and (c.tail(60) < o.tail(60)).any(): penalty += 30 
-    
     bias_limit = 5 if market == "US" else 10
     if bias > bias_limit * 1.5: penalty += 25 
     if v.iloc[-1] > ma20_v.iloc[-1] * 5: penalty += 20 
     if (h.iloc[-1] - max(o.iloc[-1], c.iloc[-1])) > (h.iloc[-1] - l.iloc[-1]) * 0.5: penalty += 15 
-
     if bias > bias_limit:
         if bias > bias_limit + 5: penalty += 50 
         else: penalty += (bias - bias_limit) * 10
@@ -128,7 +139,7 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK"):
     final_score = score - penalty
 
     # =======================================================
-    # 🔮 6. 隱藏公仔與狀態標籤
+    # 🔮 6. 隱藏公仔與借屍還魂 (HTML Injection)
     # =======================================================
     icons = []
     if rs_val > 90 and ej_val > 90 and se_val > 90 and pct.iloc[-1] > 0.02: icons.append("💰🔥")
@@ -139,6 +150,11 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK"):
     if v.iloc[-1] > ma20_v.iloc[-1] * 2 and v.iloc[-2] < ma20_v.iloc[-2]: icons.append("⚡")
     stars = sum((c.tail(10) > o.tail(10)) & (v.tail(10) > ma50_v.tail(10) * 1.5))
     if stars > 0: icons.append(f"🐋({stars}/10)")
+
+    # 🎩 將公仔連埋「紅利字眼」用 HTML 格式一齊掟出去！
+    icons_final = " ".join(icons)
+    if bonus_list:
+        icons_final += f"<br><span style='color:#FFD700; font-size:15px; font-weight:bold; display:block; padding-top:8px;'>🎖️ {', '.join(bonus_list)}</span>"
 
     if bias < 2 and se_val > 85: status = "[👑 👑 初段起步]"
     elif 2 <= bias <= 5 and rs_val > 95: status = "[👑 中段跟進]"
@@ -156,11 +172,11 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK"):
         "SE": round(se_val, 1),
         "Flow": f"{netflow_20/1e6:.1f}M", 
         "Conc": f"{conc:.1f}%", 
-        "OBV": f"狀態 {obv_state}", # 👇 爺爺幫你將真實嘅 OBV 狀態射出大宇宙！
+        "OBV": f"狀態 {obv_state}",
         "Power": round(display_power, 1), 
         "Bias": round(bias, 1), 
         "EMA10": round(ema10.iloc[-1], 2),
         "Status": status, 
-        "Icons": " ".join(icons), 
+        "Icons": icons_final, 
         "IconCount": len(icons)
     }
