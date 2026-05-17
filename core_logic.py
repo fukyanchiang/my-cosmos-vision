@@ -120,8 +120,10 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", force_return=False):
     if rs_val > 85 and ej_val > 85 and se_val > 85 and (var3.iloc[-1]/l.iloc[-1]*100) < 1.5: hidden_icons.append("💰🤫")
     # 3. 💰🛡️ 托底錢袋
     if rs_val > 80 and ej_val > 80 and se_val > 80 and change.iloc[-1] < 0 and netvol.tail(20).sum() > 0: hidden_icons.append("💰🛡️")
-    # 4. 💎 驚天洗盤 (Golden Pit)
-    if change.iloc[-1] < -1 and is_magenta.iloc[-1]: hidden_icons.append("💎")
+    
+    # 4. 💎/😱 驚天洗盤 (Golden Pit / Panic) - 爺爺幫你改咗呢度！
+    if change.iloc[-1] < -1 and is_magenta.iloc[-1]: hidden_icons.append("💎/😱")
+    
     # 5. 🧧 悶聲吸儲 (VCP)
     vcp = var3.tail(5).mean() < var3.tail(20).mean()
     if vcp and (netvol.tail(20).sum() > total_v60/3 * 0.15): hidden_icons.append("🧧")
