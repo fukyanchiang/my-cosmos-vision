@@ -8,33 +8,24 @@ from core_logic import scan_dragon_logic, smart_fetch, check_stop_loss
 import time
 
 # ==========================================
-# 📚 大字典：100% 完整保留
+# 🌐 GitHub 雲端名單 (爺爺已幫你填好！)
 # ==========================================
-HK_STOCK_MAP = {
-    "1. 互聯網巨頭": "0700.HK 9988.HK 3690.HK 1810.HK 9618.HK 1024.HK 9888.HK 0772.HK 0020.HK 0241.HK 0136.HK 1999.HK 2018.HK 3888.HK 2142.HK 1896.HK 0777.HK 0113.HK 0590.HK 1980.HK 1797.HK 6618.HK 2400.HK 0285.HK".split(),
-    "2. 半導體與芯片": "0981.HK 1347.HK 0285.HK 1478.HK 1833.HK 0522.HK 0732.HK 2382.HK 2018.HK 0099.HK 1385.HK 1138.HK 1910.HK 6088.HK 3898.HK 6123.HK 3389.HK".split(),
-    "3. 新能源車與整車": "1211.HK 2015.HK 9866.HK 9868.HK 0175.HK 2333.HK 1114.HK 0489.HK 3606.HK 0867.HK 1316.HK 1958.HK 1585.HK 0315.HK 1274.HK 2150.HK 1122.HK 3808.HK 9863.HK".split(),
-    "4. 重型工業與機械": "1133.HK 1072.HK 1888.HK 1286.HK 3399.HK 1157.HK 2727.HK 1727.HK 6030.HK 0598.HK 0165.HK 0350.HK 1071.HK 1839.HK 1866.HK 0316.HK 0148.HK 1651.HK 1829.HK 1044.HK".split(),
-    "5. 國有大行與金融": "0005.HK 0939.HK 1398.HK 3988.HK 2318.HK 2388.HK 0011.HK 3968.HK 3328.HK 0998.HK 0023.HK 2016.HK 1658.HK 6198.HK 0410.HK 6066.HK 1551.HK 1963.HK 1988.HK 3866.HK".split(),
-    "6. 基礎化工與材料": "0148.HK 1651.HK 1378.HK 3360.HK 1963.HK 0860.HK 1282.HK 1387.HK 0386.HK 1812.HK 2128.HK 1126.HK 0268.HK 0338.HK 2009.HK 3389.HK 1008.HK 1898.HK 3993.HK 0868.HK".split(),
-    "7. 石油氣與能源設備": "0883.HK 0857.HK 0386.HK 1193.HK 1083.HK 0003.HK 2688.HK 0392.HK 1035.HK 0135.HK 1600.HK 1250.HK 0855.HK 3330.HK 1138.HK 0164.HK 2883.HK 0135.HK".split(),
-    "8. 煤炭與有色金屬": "1088.HK 1171.HK 1898.HK 2899.HK 0358.HK 3993.HK 0471.HK 1378.HK 3939.HK 0895.HK 0868.HK 1258.HK 1818.HK 3983.HK 2099.HK 1208.HK 1963.HK 2302.HK 0347.HK".split(),
-    "9. 電力與綠能": "0902.HK 0836.HK 1816.HK 0916.HK 1798.HK 0958.HK 0006.HK 1071.HK 1250.HK 3800.HK 0002.HK 1193.HK 0819.HK 2380.HK 0735.HK 0384.HK 0066.HK 1038.HK".split(),
-    "10. 房地產開發": "1109.HK 0688.HK 0960.HK 1918.HK 3383.HK 0884.HK 1233.HK 2777.HK 0813.HK 2007.HK 3301.HK 1638.HK 0012.HK 0016.HK 0017.HK 0101.HK 3900.HK 0817.HK 1966.HK".split(),
-    "11. 物業管理服務": "6098.HK 1209.HK 2669.HK 3319.HK 1516.HK 1755.HK 1995.HK 2869.HK 9909.HK 0873.HK 9928.HK 6626.HK 9983.HK 9979.HK 2168.HK 2602.HK 3316.HK".split(),
-    "12. 消費電子硬件": "2382.HK 2018.HK 0669.HK 0992.HK 1310.HK 0008.HK 1478.HK 0285.HK 0321.HK 0596.HK 0732.HK 0522.HK 1070.HK 0099.HK 0285.HK".split(),
-    "13. 核心消費與餐飲": "0291.HK 2319.HK 0322.HK 1876.HK 9633.HK 6186.HK 0220.HK 1117.HK 0151.HK 1458.HK 1368.HK 6862.HK 9922.HK 2005.HK 0831.HK 0341.HK 1089.HK 6868.HK 1929.HK".split(),
-    "14. 生物科技探索": "2269.HK 2359.HK 1801.HK 2162.HK 9966.HK 9969.HK 3759.HK 1548.HK 9926.HK 6990.HK 2126.HK 9939.HK 1099.HK 2171.HK 0512.HK 1952.HK 2096.HK".split(),
-    "15. 傳統中西藥業": "1093.HK 1177.HK 1515.HK 0511.HK 2666.HK 3320.HK 2196.HK 0867.HK 1099.HK 0460.HK 0853.HK 1513.HK 3933.HK 1528.HK 1513.HK 2005.HK".split(),
-    "16. 澳門博彩": "1928.HK 0027.HK 1128.HK 0880.HK 0200.HK 0037.HK 1628.HK 0576.HK 3918.HK 1180.HK 0256.HK".split(),
-    "17. 體育與服裝": "2020.HK 2331.HK 1368.HK 3813.HK 6110.HK 0551.HK 1910.HK 3998.HK 2238.HK 2999.HK 1968.HK 1361.HK 3306.HK 0411.HK 0484.HK 1999.HK".split(),
-    "18. 海運航運物流": "1919.HK 1308.HK 2343.HK 2600.HK 0591.HK 1519.HK 1101.HK 2866.HK 0316.HK 0598.HK 0368.HK".split(),
-    "19. 電訊與網絡": "0941.HK 0728.HK 0762.HK 1883.HK 6823.HK 6033.HK 0008.HK 0215.HK 1098.HK 0066.HK 0116.HK".split(),
-    "20. 公用與基礎建設": "0002.HK 1038.HK 0066.HK 1186.HK 0390.HK 1800.HK 0270.HK 3311.HK 1618.HK 1083.HK 0371.HK 0165.HK 0250.HK".split(),
-    "21. 農業與食品供應": "2319.HK 1610.HK 1117.HK 1431.HK 0061.HK 0220.HK 0341.HK 3998.HK 1089.HK 1269.HK 1006.HK".split(),
-    "22. 券商與保險": "3908.HK 6030.HK 6881.HK 1299.HK 2628.HK 2318.HK 0966.HK 1336.HK 6099.HK 1776.HK 6178.HK 3968.HK 1551.HK 6066.HK 1339.HK".split()
-}
+HK_STOCK_CSV_URL = "https://raw.githubusercontent.com/fukyanchiang/my-cosmos-vision/refs/heads/main/hk_stock.csv"
+HK_ETF_CSV_URL = "https://raw.githubusercontent.com/fukyanchiang/my-cosmos-vision/refs/heads/main/hk_etf.csv"
 
+@st.cache_data(ttl=3600) # 緩存1小時，提高掃描反應速度
+def fetch_github_list(url):
+    try:
+        df = pd.read_csv(url)
+        if 'Ticker' in df.columns:
+            df['Ticker'] = df['Ticker'].astype(str)
+        return df
+    except Exception as e:
+        return pd.DataFrame()
+
+# ==========================================
+# 📚 美股字典 (保持原樣)
+# ==========================================
 US_STOCK_MAP = {
     "1. 半導體設備與設計": "NVDA TSM AVGO ASML AMD QCOM TXN MU INTC AMAT LRCX KLAC ADI NXPI MRVL MCHP SWKS MPWR ON LSCC TER QRVO SLAB WOLF SYNA RMBS ALGM SITM ACLS CRUS".split(),
     "2. AI與大數據雲端": "MSFT GOOGL ORCL ADBE CRM PLTR SNOW PANW FTNT NOW WDAY ZS DDOG CRWD MDB NET OKTA TEAM SPLK GEN CYBR CHKP VRSN ESTC TENB SQSP PCOR DOCN AI FSLY MSTR".split(),
@@ -86,16 +77,6 @@ US_STOCK_MAP = {
     "48. 中型價值精選": "WSM GPC WSM WILLIAMS TSCO ODFL MIDD SAIA R EXPD CHRW GGG DOV NDSN LECO WTS ITW".split(),
     "49. 小型爆發精選": "CELH WING APP ELF ANF MOD MSTR SMCI TMDX AXON FOUR INDI VRT ALKT ACLS MOD ONTO POWI".split(),
     "50. 超微型探索 (Micro)": "SOUN RXRX AI BBAI HIVE VLD IONQ BBAI CRDO NRDS INDI LUNA QBTS KTRA RGTI ARQQ INVZ".split()
-}
-
-HK_ETF_MAP = {
-    "H1. A股門戶/旗艦大盤": "2822.HK 3188.HK 3109.HK 2823.HK 2846.HK 3147.HK 2801.HK 3010.HK 3081.HK 3151.HK 3072.HK 3042.HK 2839.HK 3180.HK 2827.HK 3139.HK 3118.HK 2838.HK".split(),
-    "H2. 港股科技/AI/芯片": "3033.HK 3088.HK 9888.HK 3067.HK 3167.HK 3191.HK 7709.HK 9191.HK 3434.HK 3112.HK 3171.HK 3091.HK 3032.HK 3001.HK 3060.HK 2826.HK".split(),
-    "H3. A股及港股行業板塊": "3134.HK 2845.HK 9845.HK 3136.HK 3069.HK 3174.HK 2820.HK 3133.HK 3111.HK 3141.HK 3148.HK 3149.HK 2842.HK 3120.HK 2806.HK 3143.HK 3137.HK 3051.HK".split(),
-    "H4. 紅利收息/Covered Call": "3110.HK 3070.HK 3101.HK 3037.HK 3145.HK 3010.HK 3081.HK 3115.HK 3006.HK 3150.HK 3422.HK 3116.HK 3113.HK 3031.HK 3153.HK".split(),
-    "H5. 虛擬資產/加密貨幣": "3066.HK 3068.HK 3439.HK 3419.HK 3460.HK 3461.HK 3471.HK 3472.HK 3083.HK 3087.HK 3135.HK 3175.HK 7799.HK 7711.HK 7747.HK".split(),
-    "H6. 商品/債券/貨幣基金": "2840.HK 3030.HK 3152.HK 3192.HK 3196.HK 3161.HK 3071.HK 2812.HK 3140.HK 3181.HK 3187.HK 3189.HK 3192.HK 3117.HK 3011.HK 3119.HK".split(),
-    "H7. 槓桿/反向 (指數/商品)": "7200.HK 7226.HK 7205.HK 7299.HK 7266.HK 7500.HK 7522.HK 7552.HK 7300.HK 7333.HK 7348.HK 7233.HK 7248.HK 7288.HK 7231.HK".split()
 }
 
 US_ETF_MAP = {
@@ -171,7 +152,7 @@ elif st.session_state.page == 'DRAGON':
     
     sl_container = st.empty(); selected_tickers = []; market_mode = "HK"; btn_radar = False
 
-    # 🇺🇸 美股專屬 (CSV)
+    # 🇺🇸 美股專屬 (CSV 檔案讀取)
     if st.session_state.target == 'US':
         st.write("### 🇺🇸 選擇美股戰略名單：")
         m = st.columns(5)
@@ -196,16 +177,20 @@ elif st.session_state.page == 'DRAGON':
                     btn_radar = True
                 else: st.warning("請先輸入代號！")
 
-    # 🇭🇰 港股 (完美還原全星系)
+    # 🇭🇰 港股 (實時讀取 GitHub CSV)
     elif st.session_state.target == 'HK':
-        st.write("### 🇭🇰 港股板塊掃描：")
-        s_choice = st.selectbox("選擇範圍", ["🌐 啟動全星系大規模搜索"] + list(HK_STOCK_MAP.keys()))
+        st.write("### 🇭🇰 港股板塊掃描 (雲端 600 隻實時同步)：")
+        df_hk = fetch_github_list(HK_STOCK_CSV_URL)
+        hk_sectors = sorted(df_hk['Sector'].dropna().unique().tolist()) if not df_hk.empty else []
+        s_choice = st.selectbox("選擇範圍", ["🌐 啟動全星系大規模搜索"] + hk_sectors)
         with c_btn: btn_radar = st.button("📡 啟動 5.0 雙線雷達", use_container_width=True)
 
-    # 📦 ETF (完美還原全星系)
+    # 📦 ETF (實時讀取 GitHub CSV)
     elif st.session_state.target == 'ETF':
-        st.write("### 📦 港股/美股 ETF 掃描：")
-        s_choice = st.selectbox("選擇範圍", ["🌐 啟動全星系大規模搜索"] + list(HK_ETF_MAP.keys()) + list(US_ETF_MAP.keys()))
+        st.write("### 📦 港股/美股 ETF 掃描 (雲端 140 隻實時同步)：")
+        df_etf = fetch_github_list(HK_ETF_CSV_URL)
+        etf_sectors = sorted(df_etf['Sector'].dropna().unique().tolist()) if not df_etf.empty else []
+        s_choice = st.selectbox("選擇範圍", ["🌐 啟動全星系大規模搜索"] + etf_sectors + list(US_ETF_MAP.keys()))
         with c_btn: btn_radar = st.button("📡 啟動 5.0 雙線雷達", use_container_width=True)
 
     # ==========================================
@@ -214,6 +199,7 @@ elif st.session_state.page == 'DRAGON':
     if btn_radar:
         if st.session_state.target == 'SINGLE':
             market_mode = "US" if not selected_tickers[0][0].endswith(".HK") else "HK"
+        
         elif st.session_state.target == 'US' and hasattr(st.session_state, 'active_file'):
             try:
                 df_csv = pd.read_csv(st.session_state.active_file)
@@ -221,24 +207,36 @@ elif st.session_state.page == 'DRAGON':
                 selected_tickers = [(t, "美股戰略") for t in df_csv[col].dropna().unique()]
                 market_mode = "US"
             except: st.error("讀取 CSV 失敗，請檢查檔案是否存在。")
-        elif st.session_state.target == 'HK' or st.session_state.target == 'ETF':
-            # ✅ 真正寫死迴圈：確保全星系一定掃足幾百隻！
+        
+        elif st.session_state.target == 'HK':
+            df_hk = fetch_github_list(HK_STOCK_CSV_URL)
+            if not df_hk.empty:
+                if "全星系" in s_choice:
+                    selected_tickers = list(df_hk.itertuples(index=False, name=None))
+                else:
+                    selected_tickers = list(df_hk[df_hk['Sector'] == s_choice].itertuples(index=False, name=None))
+            market_mode = "HK"
+            
+        elif st.session_state.target == 'ETF':
+            df_etf = fetch_github_list(HK_ETF_CSV_URL)
+            raw_list = []
             if "全星系" in s_choice:
-                raw_list = []
-                scan_dicts = [HK_ETF_MAP, US_ETF_MAP] if st.session_state.target == 'ETF' else [HK_STOCK_MAP]
-                for d in scan_dicts:
-                    for k, v in d.items():
-                        sector = k.split('.')[1].strip() if '.' in k else k
-                        for t in v: raw_list.append((t, sector))
-                # 移除重複但保持順序
-                seen = set()
-                selected_tickers = [x for x in raw_list if not (x[0] in seen or seen.add(x[0]))]
+                if not df_etf.empty:
+                    raw_list.extend(list(df_etf.itertuples(index=False, name=None)))
+                for k, v in US_ETF_MAP.items():
+                    sec = k.split('.')[1].strip() if '.' in k else k
+                    for t in v: raw_list.append((t, sec))
+                selected_tickers = raw_list
                 market_mode = "HK"
             else:
-                target_dict = HK_ETF_MAP if s_choice in HK_ETF_MAP else (US_ETF_MAP if s_choice in US_ETF_MAP else HK_STOCK_MAP)
-                selected_tickers = [(t, s_choice) for t in target_dict.get(s_choice, [])]
-                market_mode = "US" if s_choice in US_ETF_MAP else "HK"
+                if s_choice in US_ETF_MAP:
+                    selected_tickers = [(t, s_choice) for t in US_ETF_MAP[s_choice]]
+                    market_mode = "US"
+                else:
+                    selected_tickers = list(df_etf[df_etf['Sector'] == s_choice].itertuples(index=False, name=None))
+                    market_mode = "HK"
 
+        # --- 啟動掃描引擎 ---
         if selected_tickers:
             st.info(f"🚀 5.0 引擎掃描中 ({len(selected_tickers)} 隻)...")
             results = []; sl_list = []; pb = st.progress(0)
@@ -258,9 +256,24 @@ elif st.session_state.page == 'DRAGON':
             if sl_list: sl_container.markdown(f"<div class='bear-warning'>🛡️ 戰損置頂: {' | '.join(sl_list)} 跌穿 10-EMA！</div>", unsafe_allow_html=True)
             
             if results:
+                # ==========================================
+                # 📊 啟動板塊聯動 
+                # ==========================================
+                sector_counts = {}
+                for r in results:
+                    if not r.get('IsDead'):
+                        sec = r['Sector']
+                        sector_counts[sec] = sector_counts.get(sec, 0) + 1
+                
                 results = sorted(results, key=lambda x: x['Score'], reverse=True)
                 st.session_state.dragon_results = results
+                
                 for r in results:
+                    # 分發 📊 勳章 (同板塊 >= 3 隻過關即中！)
+                    if not r.get('IsDead') and sector_counts.get(r['Sector'], 0) >= 3:
+                        if "📊" not in r['Icons']:
+                            r['Icons'] += " 📊"
+                            
                     border_color = "#FF4B4B" if r.get('IsDead') else "#00FFCC"
                     st.markdown(f"""
                     <div class='dragon-card' style='border-left: 5px solid {border_color};'>
@@ -281,7 +294,7 @@ elif st.session_state.page == 'DRAGON':
                 if not is_single_mode: st.warning("💤 萬人坑內無生還者。")
 
     # =========================================================
-    # 📈 爺爺完美照抄舊 Code：X 光戰術圖 (徹底修復 Rangeslider Bug)
+    # 📈 X 光戰術圖
     # =========================================================
     chart_t = None
     if hasattr(st.session_state, 'dragon_results') and len(st.session_state.dragon_results) > 0:
@@ -298,15 +311,12 @@ elif st.session_state.page == 'DRAGON':
                     ema10 = df_c['Close'].ewm(span=10, adjust=False).mean()
                     dates_chart = df_c.index.strftime('%Y-%m-%d').tolist()
                     
-                    # 完全照抄舊 Code 的排版設定，保證 K線同成交量完美分離！
                     fig = make_subplots(rows=5, cols=1, shared_xaxes=True, row_heights=[0.45, 0.1, 0.2, 0.15, 0.1], vertical_spacing=0.02)
                     
-                    # 1. K線 + 均線 (明確放在 Row 1)
                     fig.add_trace(go.Candlestick(x=dates_chart, open=df_c['Open'], high=df_c['High'], low=df_c['Low'], close=df_c['Close'], name="K線"), row=1, col=1)
                     fig.add_trace(go.Scatter(x=dates_chart, y=df_c['Close'].rolling(50).mean(), mode='lines', name='50MA', line=dict(color='yellow', width=1.5)), row=1, col=1)
                     fig.add_trace(go.Scatter(x=dates_chart, y=ema10, name="10 EMA", line=dict(color='orange', width=2, dash='dot')), row=1, col=1)
                     
-                    # 🎯 標示買入點同止損點 (加入價格標籤)
                     recent_high = df_c['High'].tail(20).max()
                     fig.add_hline(y=recent_high, line_dash="dash", line_color="#00FFCC", annotation_text=f"🎯 買入點: ${recent_high:.2f}", annotation_position="top right", annotation_font=dict(color="white", size=13), row=1, col=1)
                     
@@ -316,28 +326,23 @@ elif st.session_state.page == 'DRAGON':
                     stop_loss = hvn_p * 0.985
                     fig.add_hline(y=stop_loss, line_dash="solid", line_color="#FF4B4B", annotation_text=f"🛑 重貨止損: ${stop_loss:.2f}", annotation_position="bottom right", annotation_font=dict(color="white", size=13), row=1, col=1)
                     
-                    # ⚠️ 完美修復重貨橫條：絕對唔可以加 row=1, col=1，直接用 xaxis='x6' 定位！
                     fig.add_trace(go.Bar(y=(bins[:-1]+bins[1:])/2, x=counts, orientation='h', marker_color='rgba(136,136,136,0.4)', name='重貨區', hoverinfo='skip', xaxis='x6', yaxis='y1'))
 
-                    # 2. 獨立成交量 (確保喺 Row 2)
                     v_colors = ['#00FF00' if df_c['Close'].iloc[i] >= df_c['Open'].iloc[i] else '#FF0000' for i in range(len(df_c))]
                     fig.add_trace(go.Bar(x=dates_chart, y=df_c['Volume'], marker_color=v_colors, name="成交量"), row=2, col=1)
                     
-                    # 🌟 復活星星 (大戶標籤)
                     df_c['Vol50'] = df_c['Volume'].rolling(50).mean()
                     stars = df_c[(df_c['Close'] > df_c['Open']) & (df_c['Volume'] > df_c['Vol50'] * 1.5)]
                     if not stars.empty:
                         star_dates = stars.index.strftime('%Y-%m-%d').tolist()
                         fig.add_trace(go.Scatter(x=star_dates, y=stars['Volume'], mode='markers', marker=dict(symbol='star', size=14, color='#FFD700'), name='大戶星星'), row=2, col=1)
 
-                    # 3, 4, 5. 能量副圖
                     add_energy_subplots(fig, df_c, dates_chart, row_start=3)
                     
-                    # 🔒 終極排版修復：強制關閉 Rangeslider，完美分離 K 線同成交量！
                     fig.update_layout(
                         template="plotly_dark", paper_bgcolor='#0e1117', plot_bgcolor='#111111', height=950, barmode='overlay', 
                         showlegend=False, hovermode='x unified',
-                        xaxis_rangeslider_visible=False,  # <--- 解決 K線同成交量重疊嘅終極魔法！
+                        xaxis_rangeslider_visible=False,
                         xaxis6=dict(overlaying='x1', anchor='y1', side='top', range=[0, max_c*1.1], showgrid=False, showticklabels=False), 
                         xaxis=dict(type='category', showticklabels=False), xaxis5=dict(type='category', title="日期")
                     )
