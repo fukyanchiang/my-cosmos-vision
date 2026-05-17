@@ -13,7 +13,7 @@ import time
 HK_STOCK_CSV_URL = "https://raw.githubusercontent.com/fukyanchiang/my-cosmos-vision/refs/heads/main/hk_stock.csv"
 HK_ETF_CSV_URL = "https://raw.githubusercontent.com/fukyanchiang/my-cosmos-vision/refs/heads/main/hk_etf.csv"
 
-@st.cache_data(ttl=3600)
+@st.cache_data(ttl=3600) # 緩存1小時，提高掃描反應速度
 def fetch_github_list(url):
     try:
         df = pd.read_csv(url)
@@ -24,7 +24,7 @@ def fetch_github_list(url):
         return pd.DataFrame()
 
 # ==========================================
-# 📚 美股字典
+# 📚 美股字典 (保持原樣)
 # ==========================================
 US_STOCK_MAP = {
     "1. 半導體設備與設計": "NVDA TSM AVGO ASML AMD QCOM TXN MU INTC AMAT LRCX KLAC ADI NXPI MRVL MCHP SWKS MPWR ON LSCC TER QRVO SLAB WOLF SYNA RMBS ALGM SITM ACLS CRUS".split(),
@@ -125,29 +125,33 @@ def add_energy_subplots(fig, df, dates_chart, row_start):
     change_colors = ['#00FF00' if val >= 0 else '#FF0000' for val in daily_change]
     fig.add_trace(go.Bar(x=dates_chart, y=daily_change, marker_color=change_colors, name='日波幅%'), row=row_start+2, col=1)
 
-# --- 🏠 狀態管理 (加入 VCP 模式控制) ---
+# --- 🏠 狀態管理 (🌟 爺爺微調 1：加入 scan_mode 記憶) ---
 if 'page' not in st.session_state: st.session_state.page = 'HOME'
 if 'target' not in st.session_state: st.session_state.target = 'NONE'
-if 'scan_mode' not in st.session_state: st.session_state.scan_mode = 'NORMAL' # 記錄係咪用緊 VCP
+if 'scan_mode' not in st.session_state: st.session_state.scan_mode = 'NORMAL'
 
 if st.session_state.page == 'HOME':
     st.markdown("<h1 style='text-align:center;font-size:4rem;margin-top:80px;color:#FFD700;'>🐲 龍魂戰略總部</h1>", unsafe_allow_html=True)
     c1, c2, c3 = st.columns(3)
+    
     if c1.button("🐉 龍魂神殿 (普通掃描)"): 
         st.session_state.page = 'DRAGON'
         st.session_state.scan_mode = 'NORMAL'
+        
     if c2.button("📈 VCP 獵龍 (高勝率模式)"): 
         st.session_state.page = 'DRAGON'
-        st.session_state.scan_mode = 'VCP' # 啟動爺爺秘傳邏輯！
-        st.success("✅ 已掛載 [VCP 高勝率排位系統]")
+        st.session_state.scan_mode = 'VCP'
+        st.success("✅ [VCP 高勝率排位系統] 已掛載")
+        
     if c3.button("🐢 海龜加注"): 
+        st.info("海龜 模式運作中")
         st.session_state.page = 'DRAGON'
         st.session_state.scan_mode = 'NORMAL'
 
 # --- 🐉 龍魂神殿 5.0 ---
 elif st.session_state.page == 'DRAGON':
-    mode_title = "📈 VCP 高勝率獵龍" if st.session_state.scan_mode == 'VCP' else "🐉 龍魂神殿 5.0 旗艦雷達"
-    st.markdown(f"<h1 style='text-align:center; color:#00FFCC;'>{mode_title}</h1>", unsafe_allow_html=True)
+    mode_display = "📈 VCP 高勝率獵龍" if st.session_state.scan_mode == 'VCP' else "🐉 龍魂神殿 5.0 旗艦雷達"
+    st.markdown(f"<h1 style='text-align:center; color:#00FFCC;'>{mode_display}</h1>", unsafe_allow_html=True)
     
     nav = st.columns(6)
     if nav[0].button("⬅️ 返回總部"): st.session_state.page = 'HOME'
@@ -171,19 +175,21 @@ elif st.session_state.page == 'DRAGON':
             if m[i].button(f"選定 {name}"): 
                 st.session_state.active_file = f
                 st.success(f"✅ 已選定 {f}")
-        with c_btn: btn_radar = st.button("📡 啟動雙線雷達", use_container_width=True)
+        with c_btn: btn_radar = st.button("📡 啟動 5.0 雙線雷達", use_container_width=True)
 
     # 🔍 個股專屬
     elif st.session_state.target == 'SINGLE':
         st.write("### 🔍 個股自訂掃描：")
         col1, col2 = st.columns([3, 1])
-        with col1: single_t = st.text_input("輸入股票代號 (例: NVDA, 0700.HK)", "").upper().strip()
+        with col1:
+            single_t = st.text_input("輸入股票代號 (例: NVDA, 0700.HK, TSLA)", "").upper().strip()
         with col2:
             st.write("<br>", unsafe_allow_html=True)
             if st.button("📡 立即分析此股", use_container_width=True): 
                 if single_t:
                     selected_tickers = [(single_t, "自選個股")]
                     btn_radar = True
+                else: st.warning("請先輸入代號！")
 
     # 🇭🇰 港股
     elif st.session_state.target == 'HK':
@@ -191,39 +197,47 @@ elif st.session_state.page == 'DRAGON':
         df_hk = fetch_github_list(HK_STOCK_CSV_URL)
         hk_sectors = sorted(df_hk['Sector'].dropna().unique().tolist()) if not df_hk.empty else []
         s_choice = st.selectbox("選擇範圍", ["🌐 啟動全星系大規模搜索"] + hk_sectors)
-        with c_btn: btn_radar = st.button("📡 啟動雙線雷達", use_container_width=True)
+        with c_btn: btn_radar = st.button("📡 啟動 5.0 雙線雷達", use_container_width=True)
 
-    # 📦 ETF (已修復：全星系只掃港股 ETF)
+    # 📦 ETF
     elif st.session_state.target == 'ETF':
         st.write("### 📦 港股/美股 ETF 掃描 (雲端 140 隻實時同步)：")
         df_etf = fetch_github_list(HK_ETF_CSV_URL)
         etf_sectors = sorted(df_etf['Sector'].dropna().unique().tolist()) if not df_etf.empty else []
         s_choice = st.selectbox("選擇範圍", ["🌐 啟動全星系大規模搜索 (僅限港股 ETF)"] + etf_sectors + list(US_ETF_MAP.keys()))
-        with c_btn: btn_radar = st.button("📡 啟動雙線雷達", use_container_width=True)
+        with c_btn: btn_radar = st.button("📡 啟動 5.0 雙線雷達", use_container_width=True)
 
     # ==========================================
-    # 🚀 執行雷達邏輯
+    # 🚀 執行 5.0 雷達邏輯
     # ==========================================
     if btn_radar:
         if st.session_state.target == 'SINGLE':
             market_mode = "US" if not selected_tickers[0][0].endswith(".HK") else "HK"
+        
         elif st.session_state.target == 'US' and hasattr(st.session_state, 'active_file'):
             try:
                 df_csv = pd.read_csv(st.session_state.active_file)
                 col = [c for c in df_csv.columns if c.lower() in ['ticker', 'symbol', '代號']][0]
                 selected_tickers = [(t, "美股戰略") for t in df_csv[col].dropna().unique()]
                 market_mode = "US"
-            except: pass
+            except: st.error("讀取 CSV 失敗，請檢查檔案是否存在。")
+        
         elif st.session_state.target == 'HK':
             df_hk = fetch_github_list(HK_STOCK_CSV_URL)
             if not df_hk.empty:
-                if "全星系" in s_choice: selected_tickers = list(df_hk.itertuples(index=False, name=None))
-                else: selected_tickers = list(df_hk[df_hk['Sector'] == s_choice].itertuples(index=False, name=None))
+                if "全星系" in s_choice:
+                    selected_tickers = list(df_hk.itertuples(index=False, name=None))
+                else:
+                    selected_tickers = list(df_hk[df_hk['Sector'] == s_choice].itertuples(index=False, name=None))
             market_mode = "HK"
+            
         elif st.session_state.target == 'ETF':
             df_etf = fetch_github_list(HK_ETF_CSV_URL)
+            raw_list = []
             if "全星系" in s_choice:
-                selected_tickers = list(df_etf.itertuples(index=False, name=None)) if not df_etf.empty else []
+                if not df_etf.empty:
+                    raw_list.extend(list(df_etf.itertuples(index=False, name=None)))
+                selected_tickers = raw_list
                 market_mode = "HK"
             else:
                 if s_choice in US_ETF_MAP:
@@ -233,8 +247,9 @@ elif st.session_state.page == 'DRAGON':
                     selected_tickers = list(df_etf[df_etf['Sector'] == s_choice].itertuples(index=False, name=None))
                     market_mode = "HK"
 
+        # --- 啟動掃描引擎 ---
         if selected_tickers:
-            st.info(f"🚀 掃描引擎啟動 ({len(selected_tickers)} 隻) | 模式: {st.session_state.scan_mode}...")
+            st.info(f"🚀 5.0 引擎掃描中 ({len(selected_tickers)} 隻) | 模式: {st.session_state.scan_mode}...")
             results = []; sl_list = []; pb = st.progress(0)
             is_single_mode = (st.session_state.target == 'SINGLE')
             
@@ -246,27 +261,29 @@ elif st.session_state.page == 'DRAGON':
                         if not is_single_mode: continue
                     if check_stop_loss(df): sl_list.append(t)
                     
-                    # ✨ 這裡將 mode 傳給大腦 ✨
+                    # 🌟 爺爺微調 2：傳遞 scan_mode 畀 core_logic.py！
                     res = scan_dragon_logic(df, t, sec, market_mode, mode=st.session_state.scan_mode, force_return=is_single_mode)
                     if res: results.append(res)
             
             if sl_list: sl_container.markdown(f"<div class='bear-warning'>🛡️ 戰損置頂: {' | '.join(sl_list)} 跌穿 10-EMA！</div>", unsafe_allow_html=True)
             
             if results:
-                # 📊 板塊聯動
+                # ==========================================
+                # 📊 啟動板塊聯動
+                # ==========================================
                 sector_counts = {}
                 for r in results:
                     if not r.get('IsDead'):
                         sec = r['Sector']
                         sector_counts[sec] = sector_counts.get(sec, 0) + 1
                 
-                # 自動排位：最高分排第一！
                 results = sorted(results, key=lambda x: x['Score'], reverse=True)
                 st.session_state.dragon_results = results
                 
                 for r in results:
                     if not r.get('IsDead') and sector_counts.get(r['Sector'], 0) >= 3:
-                        if "📊" not in r['Icons']: r['Icons'] += " 📊"
+                        if "📊" not in r['Icons']:
+                            r['Icons'] += " 📊"
                             
                     border_color = "#FF4B4B" if r.get('IsDead') else "#00FFCC"
                     st.markdown(f"""
@@ -277,12 +294,13 @@ elif st.session_state.page == 'DRAGON':
                             <b style='color:#FF9900;'>原始戰力: {r.get('RawPower', 0)} 🔥</b> | 
                             <b style='color:#FF4B4B;'>扣分: {r.get('Penalty', 0)} 🛑</b> | 
                             <span style='color:#FF4B4B; font-weight:bold;'>🛑 止損(10-EMA): ${r['EMA10']}</span> | Bias: {r['Bias']}%<br>
-                            📈 RS: {r['RS']} | 🔋 EJ: {r['EJ']} | ⚡ SE: {r['SE']} | 🔥 買盤力: {r['Power']}x
+                            📈 RS: {r['RS']} | 🔋 EJ: {r['EJ']} | ⚡ SE: {r['SE']} | 🔥 買盤力: {r['Power']}x | 📊 OBV: {r.get('OBV', 'N/A')}
                         </div>
                     </div>
                     """, unsafe_allow_html=True)
                 
-                if is_single_mode: st.session_state.force_chart_ticker = selected_tickers[0][0]
+                if is_single_mode:
+                    st.session_state.force_chart_ticker = selected_tickers[0][0]
             else: 
                 if not is_single_mode: st.warning("💤 萬人坑內無生還者。")
 
@@ -305,6 +323,7 @@ elif st.session_state.page == 'DRAGON':
                     dates_chart = df_c.index.strftime('%Y-%m-%d').tolist()
                     
                     fig = make_subplots(rows=5, cols=1, shared_xaxes=True, row_heights=[0.45, 0.1, 0.2, 0.15, 0.1], vertical_spacing=0.02)
+                    
                     fig.add_trace(go.Candlestick(x=dates_chart, open=df_c['Open'], high=df_c['High'], low=df_c['Low'], close=df_c['Close'], name="K線"), row=1, col=1)
                     fig.add_trace(go.Scatter(x=dates_chart, y=df_c['Close'].rolling(50).mean(), mode='lines', name='50MA', line=dict(color='yellow', width=1.5)), row=1, col=1)
                     fig.add_trace(go.Scatter(x=dates_chart, y=ema10, name="10 EMA", line=dict(color='orange', width=2, dash='dot')), row=1, col=1)
@@ -319,6 +338,7 @@ elif st.session_state.page == 'DRAGON':
                     fig.add_hline(y=stop_loss, line_dash="solid", line_color="#FF4B4B", annotation_text=f"🛑 重貨止損: ${stop_loss:.2f}", annotation_position="bottom right", annotation_font=dict(color="white", size=13), row=1, col=1)
                     
                     fig.add_trace(go.Bar(y=(bins[:-1]+bins[1:])/2, x=counts, orientation='h', marker_color='rgba(136,136,136,0.4)', name='重貨區', hoverinfo='skip', xaxis='x6', yaxis='y1'))
+
                     v_colors = ['#00FF00' if df_c['Close'].iloc[i] >= df_c['Open'].iloc[i] else '#FF0000' for i in range(len(df_c))]
                     fig.add_trace(go.Bar(x=dates_chart, y=df_c['Volume'], marker_color=v_colors, name="成交量"), row=2, col=1)
                     
