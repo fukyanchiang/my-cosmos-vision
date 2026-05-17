@@ -148,11 +148,11 @@ elif st.session_state.page == 'DRAGON':
     
     st.markdown("---")
     c_ath, c_btn = st.columns([3, 1])
-    with c_ath: is_ath_mode = st.checkbox("🔥 啟動 ATH 歷史新高極致過濾")
+    with c_ath: is_ath_mode = st.checkbox("🔥 啟提 ATH 歷史新高極致過濾")
     
     sl_container = st.empty(); selected_tickers = []; market_mode = "HK"; btn_radar = False
 
-    # 🇺🇸 美股專屬 (CSV 檔案讀取)
+    # 🇺🇸 美股專屬
     if st.session_state.target == 'US':
         st.write("### 🇺🇸 選擇美股戰略名單：")
         m = st.columns(5)
@@ -177,7 +177,7 @@ elif st.session_state.page == 'DRAGON':
                     btn_radar = True
                 else: st.warning("請先輸入代號！")
 
-    # 🇭🇰 港股 (實時讀取 GitHub CSV)
+    # 🇭🇰 港股
     elif st.session_state.target == 'HK':
         st.write("### 🇭🇰 港股板塊掃描 (雲端 600 隻實時同步)：")
         df_hk = fetch_github_list(HK_STOCK_CSV_URL)
@@ -185,12 +185,12 @@ elif st.session_state.page == 'DRAGON':
         s_choice = st.selectbox("選擇範圍", ["🌐 啟動全星系大規模搜索"] + hk_sectors)
         with c_btn: btn_radar = st.button("📡 啟動 5.0 雙線雷達", use_container_width=True)
 
-    # 📦 ETF (實時讀取 GitHub CSV)
+    # 📦 ETF
     elif st.session_state.target == 'ETF':
         st.write("### 📦 港股/美股 ETF 掃描 (雲端 140 隻實時同步)：")
         df_etf = fetch_github_list(HK_ETF_CSV_URL)
         etf_sectors = sorted(df_etf['Sector'].dropna().unique().tolist()) if not df_etf.empty else []
-        s_choice = st.selectbox("選擇範圍", ["🌐 啟動全星系大規模搜索"] + etf_sectors + list(US_ETF_MAP.keys()))
+        s_choice = st.selectbox("選擇範圍", ["🌐 啟動全星系大規模搜索 (僅限港股 ETF)"] + etf_sectors + list(US_ETF_MAP.keys()))
         with c_btn: btn_radar = st.button("📡 啟動 5.0 雙線雷達", use_container_width=True)
 
     # ==========================================
@@ -221,11 +221,9 @@ elif st.session_state.page == 'DRAGON':
             df_etf = fetch_github_list(HK_ETF_CSV_URL)
             raw_list = []
             if "全星系" in s_choice:
+                # 🛠️ 爺爺修改：只加入港股 ETF (CSV名單)，不再自動疊加美股
                 if not df_etf.empty:
                     raw_list.extend(list(df_etf.itertuples(index=False, name=None)))
-                for k, v in US_ETF_MAP.items():
-                    sec = k.split('.')[1].strip() if '.' in k else k
-                    for t in v: raw_list.append((t, sec))
                 selected_tickers = raw_list
                 market_mode = "HK"
             else:
@@ -257,7 +255,7 @@ elif st.session_state.page == 'DRAGON':
             
             if results:
                 # ==========================================
-                # 📊 啟動板塊聯動 
+                # 📊 啟動板塊聯動
                 # ==========================================
                 sector_counts = {}
                 for r in results:
@@ -269,7 +267,6 @@ elif st.session_state.page == 'DRAGON':
                 st.session_state.dragon_results = results
                 
                 for r in results:
-                    # 分發 📊 勳章 (同板塊 >= 3 隻過關即中！)
                     if not r.get('IsDead') and sector_counts.get(r['Sector'], 0) >= 3:
                         if "📊" not in r['Icons']:
                             r['Icons'] += " 📊"
