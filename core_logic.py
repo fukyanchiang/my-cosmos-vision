@@ -61,7 +61,7 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", force_return=False):
     rs_val = 80 + (curr_p / ma50.iloc[-1] * 10)
     ej_val = 85 + (netvol.tail(20).sum() / max(ma20_v.iloc[-1]*20, 1) * 5)
     
-    # 🌟 爺爺精準微調：SE 變成 20 日累積動能！
+    # SE 變成 20 日累積動能
     se_val = 75 + (pct.tail(20).sum() * 100) 
     
     conc = (abs(netvol.tail(20)).max() / max(abs(netvol.tail(20)).sum(), 1)) * 100
@@ -73,14 +73,15 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", force_return=False):
     obv_pct = (obv_curr - obv_prev) / max(abs(obv_prev), 1) * 100
     p_trend = c.iloc[-1] - c.iloc[-21] if len(c)>20 else 0
     
+    # 👿 地獄模式：OBV 判定增速要求由 20% 暴力提升至 50%！
     if p_trend >= 0:
-        if obv_curr > 0: obv_state = 1 if obv_pct > 20 else 2
-        else: obv_state = 5 if obv_pct < -20 else 6
+        if obv_curr > 0: obv_state = 1 if obv_pct > 50 else 2
+        else: obv_state = 5 if obv_pct < -50 else 6
     else:
-        if obv_curr < 0: obv_state = 3 if obv_pct < -20 else 4
-        else: obv_state = 7 if obv_pct > 20 else 8
+        if obv_curr < 0: obv_state = 3 if obv_pct < -50 else 4
+        else: obv_state = 7 if obv_pct > 50 else 8
 
-    # 🛑 死亡審判 (se_val > 75 依然係基本線，依家代表過去20日累積升幅必須係正數)
+    # 🛑 死亡審判
     if curr_p <= ma50.iloc[-1]: is_dead = True; death_reason = "跌穿50天線"
     elif is_magenta.iloc[-1]: is_dead = True; death_reason = "今日粉紅爆缸"
     elif not (rs_val > 60 and ej_val > 85 and se_val > 75 and netvol.tail(20).sum() > 0): 
@@ -95,13 +96,13 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", force_return=False):
     score = 100.0
     bonus_list = []
     
-    # 🎯 加分項 (包含全新動能及穩定流入邏輯)
+    # 🎯 加分項 
     
     # 1. 動能(+5): 20日累積升幅 >= 15% (即 se_val >= 90.0)
     if se_val >= 90.0: 
         score += 5; bonus_list.append("動能(+5)")
         
-    # 2. 兵力(+5): 買賣力大於 1.5
+    # 2. 兵力(+5)
     if (buyvol.iloc[-1] / sellvol.iloc[-1] if sellvol.iloc[-1]>0 else 1) > 1.5: 
         score += 5; bonus_list.append("兵力(+5)")
         
@@ -109,9 +110,9 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", force_return=False):
     if obv_state in [1, 7]: 
         score += 10; bonus_list.append("OBV(+10)")
         
-    # 4. 穩定流入(+5): 60日淨流入 > 總成交量嘅 5%
+    # 4. 穩定流入(+5): 60日淨流入 > 總成交量嘅 12% (👿 地獄模式：由 0.05 鋸到 0.12！)
     total_v60 = max(v.tail(60).sum(), 1)
-    if netvol.tail(60).sum() > (total_v60 * 0.05): 
+    if netvol.tail(60).sum() > (total_v60 * 0.12): 
         score += 5; bonus_list.append("穩定流入(+5)")
         
     # 5. RS(+5): 鎖死 92 分
@@ -122,7 +123,7 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", force_return=False):
     if curr_p >= h.tail(60).max(): 
         score += 5; bonus_list.append("破頂(+5)")
 
-    # 🚨 4大核心品質扣分 (今日結算)
+    # 🚨 4大核心品質扣分 
     core_penalty = 0
     if netvol.tail(60).sum() < 0: core_penalty += 30      # 💀 萬人坑
     limit = 10 if market == "HK" else 5
@@ -137,7 +138,7 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", force_return=False):
     final_score = score - core_penalty - bias_penalty - foul_points
 
     # =======================================================
-    # 🔮 徽章合併 (公仔 + 紅利 + 犯規紀錄)
+    # 🔮 徽章合併 
     # =======================================================
     icons = []
     if netvol.tail(20).sum() > 0: icons.append("🧧")
