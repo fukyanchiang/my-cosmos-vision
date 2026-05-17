@@ -22,7 +22,7 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", force_return=False):
     if len(df) < 65: return None
     
     # =======================================================
-    # 0. 基礎數據準備 (完美對應富途 VAR1-3 指標)
+    # 0. 基礎數據準備
     # =======================================================
     c = df['Close']; h = df['High']; l = df['Low']; o = df['Open']; v = df['Volume']
     curr_p = c.iloc[-1]; pct = c.pct_change().fillna(0); change = pct * 100
@@ -33,11 +33,13 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", force_return=False):
     # 計算買賣兵力 (VAR1-3)
     var1 = c - l; var2 = h - c; var3 = np.maximum(h - l, 0.001)
     buyvol = v * var1 / var3; sellvol = v * var2 / var3; netvol = buyvol - sellvol
+    netma10 = netvol.rolling(10).mean() # 🌟 新增：氣脈黑線
     obv = (np.sign(pct) * v).cumsum()
 
-    # 爆發雷達 (粉紅柱判定 - 爆量且收陰)
+    # 爆發雷達 (粉紅柱/粉藍柱判定)
     is_burst = (v > v_upper) & (v > ma60_v * 1.9) & (abs(change) > 2.0)
     is_magenta = is_burst & (c <= o)
+    is_cyan = is_burst & (c > o) # 🌟 新增：粉藍柱判定
 
     # =======================================================
     # 🚨 第一層：7大歷史禁示 (20日追蹤 - 歷史罰分)
@@ -111,31 +113,35 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", force_return=False):
     final_score = score - core_p - bias_p - foul_points
 
     # =======================================================
-    # 🔮 第五層：8 大隱藏公仔邏輯
+    # 🔮 第五層：6 大隱藏公仔 + 鯨魚 (純能量指標邏輯)
     # =======================================================
     hidden_icons = []
-    # 1. 💰🔥 爆發點火
-    if rs_val > 90 and ej_val > 90 and se_val > 90 and change.iloc[-1] > 2: hidden_icons.append("💰🔥")
-    # 2. 💰🤫 窄位建倉
-    if rs_val > 85 and ej_val > 85 and se_val > 85 and (var3.iloc[-1]/l.iloc[-1]*100) < 1.5: hidden_icons.append("💰🤫")
-    # 3. 💰🛡️ 托底錢袋
-    if rs_val > 80 and ej_val > 80 and se_val > 80 and change.iloc[-1] < 0 and netvol.tail(20).sum() > 0: hidden_icons.append("💰🛡️")
     
-    # 4. 💎/😱 驚天洗盤 (Golden Pit / Panic) - 爺爺幫你改咗呢度！
+    # 1. 💰🔥 爆發點火：粉藍柱 + 淨流入大過近10日平均
+    if is_cyan.iloc[-1] and netvol.iloc[-1] > netvol.tail(10).mean(): hidden_icons.append("💰🔥")
+    
+    # 2. 💰🤫 窄位建倉：氣脈黑線回升 + 當日波幅 < 1.5%
+    if (netma10.iloc[-1] > netma10.iloc[-2]) and (var3.iloc[-1]/l.iloc[-1]*100 < 1.5): hidden_icons.append("💰🤫")
+    
+    # 3. 💰🛡️ 托底錢袋：今日價跌 + 淨流入為正 (大戶托底)
+    if change.iloc[-1] < 0 and netvol.iloc[-1] > 0: hidden_icons.append("💰🛡️")
+    
+    # 4. 💎/😱 驚天洗盤：價跌 + 爆出「粉紅色」大戶托底柱
     if change.iloc[-1] < -1 and is_magenta.iloc[-1]: hidden_icons.append("💎/😱")
     
-    # 5. 🧧 悶聲吸儲 (VCP)
-    vcp = var3.tail(5).mean() < var3.tail(20).mean()
-    if vcp and (netvol.tail(20).sum() > total_v60/3 * 0.15): hidden_icons.append("🧧")
-    # 6. ⚡ 閃電點火
-    if v.iloc[-2] < ma20_v.iloc[-2] and v.iloc[-1] > ma20_v.iloc[-1] * 2: hidden_icons.append("⚡")
+    # 5. 🧧 悶聲吸儲：氣脈黑線穿0軸轉正 + 成交量縮減至MA20之下
+    if netma10.iloc[-1] > 0 and netma10.iloc[-2] < 0 and v.iloc[-1] < ma20_v.iloc[-1]: hidden_icons.append("🧧")
+    
+    # 6. ⚡ 閃電點火：成交量突破布林頂 + 買盤力大於沽盤2倍
+    if v.iloc[-1] > v_upper.iloc[-1] and (buyvol.iloc[-1] > sellvol.iloc[-1] * 2): hidden_icons.append("⚡")
+    
     # 7. 📊 板塊聯動 (UI 自動處理，此處預留空間)
     
     # 8. 🐋 鯨魚現身 (升級邏輯：爆量 1.5x + 淨買入)
     whale_days = sum((v.tail(10) > ma60_v.tail(10) * 1.5) & (netvol.tail(10) > 0))
     if whale_days > 0: hidden_icons.append(f"🐋({whale_days}/10)")
     
-    # 基本資金流紅包
+    # 基本資金流紅包 (20日流入為正且未觸發上方🧧時補上)
     if netvol.tail(20).sum() > 0 and "🧧" not in hidden_icons: hidden_icons.append("🧧")
 
     # 顯示整合 (隱藏公仔 + 獎牌 + 犯規)
