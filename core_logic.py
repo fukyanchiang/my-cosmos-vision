@@ -40,6 +40,21 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", force_return=False):
     is_burst = (v > v_upper) & (v > ma60_v * 1.9) & (abs(change) > 2.0)
     is_magenta = is_burst & (c <= o)
     is_cyan = is_burst & (c > o) # 粉藍柱判定
+    
+    # 🌟 新增：PRUDEN 趨勢門神 3.1
+    e50 = c.ewm(span=50, adjust=False).mean()
+    e150 = c.ewm(span=150, adjust=False).mean()
+    e200 = c.ewm(span=200, adjust=False).mean()
+    pruden_score = (c > e50).astype(int) + (e50 > e150).astype(int) + (e150 > e200).astype(int) + (((c - e50)/e50*100) > 0).astype(int)
+    # 剛剛升至 100分 (4分) 的突破點
+    pruden_break = (pruden_score == 4) & (pruden_score.shift(1) < 4) 
+    
+    # 🌟 新增：WEIS 量能波浪 (淨推力)
+    weis_dir = np.sign(c - c.shift(1))
+    weis_vol = abs(v * weis_dir)
+    buy_f = pd.Series(np.where(weis_dir > 0, weis_vol, 0), index=c.index).rolling(5).sum()
+    sell_f = pd.Series(np.where(weis_dir < 0, weis_vol, 0), index=c.index).rolling(5).sum()
+    net_thrust = buy_f - sell_f
 
     # =======================================================
     # 🚨 第一層：7大歷史禁示 (20日追蹤 - 歷史罰分)
@@ -90,7 +105,13 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", force_return=False):
     # =======================================================
     score = 100.0; bonus_list = []
     
-    # 🎯 加分項
+    # 🎯 終極神技加分：第二階段 ♂(+30) 
+    # 條件：WEIS淨推力連續3日為正且新一天高於前一天，並且過去 8 日內 PRUDEN 剛升滿 100分
+    thrust_up = (net_thrust.iloc[-1] > net_thrust.iloc[-2]) and (net_thrust.iloc[-2] > net_thrust.iloc[-3]) and (net_thrust.iloc[-3] > 0)
+    if thrust_up and pruden_break.tail(8).any():
+        score += 30; bonus_list.append("第二階段 ♂(+30)")
+    
+    # 🎯 其他常規加分項
     if se_val >= 90.0: score += 5; bonus_list.append("動能(+5)")
     if (buyvol.iloc[-1] / (sellvol.iloc[-1] if sellvol.iloc[-1]>0 else 0.1)) > 1.5: score += 5; bonus_list.append("兵力(+5)")
     if obv_state in [1, 7]: score += 10; bonus_list.append("OBV(+10)")
@@ -118,42 +139,26 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", force_return=False):
     hidden_icons = []
     
     # 建立歷史條件序列 (True/False Series)
-    # 1. 💰🔥 爆發點火：粉藍柱 + 淨流入大過近10日平均
     cond_cyan = is_cyan & (netvol > netvol.rolling(10).mean())
-    
-    # 2. 💰🤫 窄位建倉：氣脈黑線回升 + 當日波幅 < 1.5%
     cond_narrow = (netma10 > netma10.shift(1)) & ((var3 / l * 100) < 1.5)
-    
-    # 3. 💰🛡️ 托底錢袋：今日價跌 + 淨流入為正
     cond_shield = (change < 0) & (netvol > 0)
-    
-    # 4. 💎/😱 驚天洗盤：價大跌 + 出現粉紅柱
     cond_pit = (change < -1) & is_magenta
-    
-    # 5. 🧧 悶聲吸儲：氣脈黑線穿0軸轉正 + 成交量縮減至MA20之下
     cond_vcp = (netma10 > 0) & (netma10.shift(1) < 0) & (v < ma20_v)
-    
-    # 6. ⚡ 閃電點火：成交量突破布林頂 + 買盤力大於沽盤2倍
     cond_lightning = (v > v_upper) & (buyvol > sellvol * 2)
 
     # 🌟 執行時間窗口判定
-    # 5個公仔：過去 4 日內（連今日）觸發過即彈出 (使用 .tail(4).any())
     if cond_cyan.tail(4).any(): hidden_icons.append("💰🔥")
     if cond_narrow.tail(4).any(): hidden_icons.append("💰🤫")
     if cond_shield.tail(4).any(): hidden_icons.append("💰🛡️")
     if cond_vcp.tail(4).any(): hidden_icons.append("🧧")
     if cond_lightning.tail(4).any(): hidden_icons.append("⚡")
-    
-    # 💎/😱 驚天洗盤：過去 20 日內觸發過即彈出 (使用 .tail(20).any())
     if cond_pit.tail(20).any(): hidden_icons.append("💎/😱")
     
-    # 7. 📊 板塊聯動 (UI 自動處理，此處預留空間)
-    
-    # 8. 🐋 鯨魚現身 (保持原本10日爆量買入點算)
+    # 8. 🐋 鯨魚現身
     whale_days = sum((v.tail(10) > ma60_v.tail(10) * 1.5) & (netvol.tail(10) > 0))
     if whale_days > 0: hidden_icons.append(f"🐋({whale_days}/10)")
     
-    # 基本資金流紅包 (20日流入為正且未觸發上方🧧時補上)
+    # 基本資金流紅包
     if netvol.tail(20).sum() > 0 and "🧧" not in hidden_icons: hidden_icons.append("🧧")
 
     # 顯示整合 (隱藏公仔 + 獎牌 + 犯規)
