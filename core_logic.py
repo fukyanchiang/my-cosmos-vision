@@ -3,7 +3,6 @@ import numpy as np
 import yfinance as yf
 import time
 
-# 👴 爺爺改咗呢度做 "2y"，確保 252日線夠數據計！
 def smart_fetch(ticker_sym, period="2y"):
     try:
         time.sleep(0.2); asset = yf.Ticker(ticker_sym)
@@ -19,8 +18,14 @@ def check_stop_loss(df):
     ema10 = df['Close'].ewm(span=10, adjust=False).mean()
     return df['Close'].iloc[-1] < ema10.iloc[-1] and (df['Close'].iloc[-2] >= ema10.iloc[-2] or df['Close'].iloc[-3] >= ema10.iloc[-3])
 
+def calc_linreg_forecast(y):
+    if np.isnan(y).any(): return np.nan
+    x = np.arange(1, 21)
+    m, c_int = np.polyfit(x, y, 1)
+    return m * 20 + c_int
+
 def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force_return=False):
-    if len(df) < 252: return None # 確保有足夠數據計秘法
+    if len(df) < 252: return None 
     
     # =======================================================
     # 0. 基礎數據準備
@@ -63,16 +68,14 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
     airplane_crash = recent_high_pow & drop_below_3
 
     # =======================================================
-    # 🚀 新增：TTM 向上的藍綠色柱 + MACD 零軸共振系統
+    # 🚀 TTM 向上的藍綠色柱 + MACD 零軸共振系統
     # =======================================================
-    # 1. MACD 計算
     ema12 = c.ewm(span=12, adjust=False).mean()
     ema26 = c.ewm(span=26, adjust=False).mean()
     dif = ema12 - ema26
     dea = dif.ewm(span=9, adjust=False).mean()
     macd_strong = (dif > dea) & (dif > 0)
     
-    # 2. TTM 動能預測 (採用極速數學等價計法，免除 FORCAST 卡頓)
     weights_20 = np.arange(1, 21) / 210.0
     hhv20 = h.rolling(20).max()
     llv20 = l.rolling(20).min()
@@ -82,12 +85,49 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
     
     wma20_ttm = delta_ttm.rolling(20).apply(lambda x: np.dot(x, weights_20), raw=True)
     sma20_ttm = delta_ttm.rolling(20).mean()
-    var2_ttm = 3 * wma20_ttm - 2 * sma20_ttm # 數學等價於線性回歸預測(FORCAST)
+    var2_ttm = 3 * wma20_ttm - 2 * sma20_ttm 
     
     ttm_up = (var2_ttm >= 0) & (var2_ttm > var2_ttm.shift(1))
     ttm_macd_trigger = ttm_up & macd_strong
     ttm_new_start = ttm_macd_trigger & (~ttm_macd_trigger.shift(1).fillna(False))
     ttm_4d_active = ttm_new_start.rolling(4).sum() > 0
+
+    # =======================================================
+    # 🔄 IND1 回升(紅箭) 與 回落(綠箭) 系統
+    # =======================================================
+    llv55 = l.rolling(55).min()
+    hhv55 = h.rolling(55).max()
+    ema2 = c.ewm(span=2, adjust=False).mean()
+    
+    denom = (hhv55 - llv55).replace(0, np.nan)
+    ind1_raw = (ema2 - llv55) / denom
+    ind1 = ind1_raw.ewm(span=13, adjust=False).mean()
+    
+    # 計算箭咀觸發條件 (完美還原 TDX 邏輯)
+    up_arrow = (ind1 > 0.501) & (ind1.shift(1) <= 0.501) & (ind1 >= ind1.rolling(2).max())
+    down_arrow = (ind1 < 0.499) & (ind1.shift(1) >= 0.499) & (ind1 <= ind1.rolling(2).min())
+    
+    last_up_idx = -1
+    last_down_idx = -1
+    
+    # 尋找過去 30 日內最近一次箭咀
+    for i in range(1, 31):
+        idx = -i
+        if len(ind1) >= i:
+            if last_up_idx == -1 and up_arrow.iloc[idx]:
+                last_up_idx = i
+            if last_down_idx == -1 and down_arrow.iloc[idx]:
+                last_down_idx = i
+                
+    # 獨立判定：回升只要 6 日內出過就加分 (唔需要理會之前有冇跌過)
+    is_rebound_active = (last_up_idx != -1) and (last_up_idx <= 6)
+    
+    # 獨立判定：回落 30 日內出過就扣分
+    is_weak_active = (last_down_idx != -1) and (last_down_idx <= 30)
+    
+    # 抵消魔咒：如果有回落，但隨後出咗回升 (紅箭近過綠箭)，即刻取消弱勢！
+    if is_weak_active and (last_up_idx != -1) and (last_up_idx < last_down_idx):
+        is_weak_active = False
 
     # =======================================================
     # 第二階段 (PRUDEN + WEIS)
@@ -185,19 +225,22 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
     else:
         score = 100.0 
 
-    # --- 🌟 新增：秘法開車與墜機加罰分 ---
+    # --- 🌟 秘法與回升/回落系統 (乖孫專屬) ---
     if secret_trigger.tail(6).any():
-        score += 20
-        bonus_list.append("秘法起步🏎️(+20)")
-
+        score += 20; bonus_list.append("秘法起步🏎️(+20)")
     if airplane_crash.iloc[-1]:
-        core_p += 50
-        foul_list.append("高位墜機🛬(-50)")
+        core_p += 50; foul_list.append("高位墜機🛬(-50)")
+    
+    # 獨立回升加分
+    if is_rebound_active:
+        score += 10; bonus_list.append("回升(+10)")
+    # 獨立回落扣分 (若被回升抵消則不執行)
+    if is_weak_active:
+        core_p += 60; foul_list.append("弱勢(-60)")
 
-    # --- 🌟 新增：TTM 向上的藍綠色柱 + MACD 共振 ---
+    # --- 🚀 TTM 雙渦輪 ---
     if ttm_4d_active.iloc[-1]:
-        score += 15
-        bonus_list.append("TTM🚀(+15)")
+        score += 15; bonus_list.append("TTM🚀(+15)")
 
     # --- B. 常規勳章 ---
     if stage_2_signal.tail(4).any(): score += 30; bonus_list.append("第二階段 ♂(+30)")
@@ -213,8 +256,7 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
     # --- C. 罰分項 ---
     limit = 10 if market == "HK" else 5
     if bias > limit:
-        core_p += 25
-        bias_p = 50 + (bias - limit) * 10
+        core_p += 25; bias_p = 50 + (bias - limit) * 10
         if mode == 'VCP': score -= 40 
     elif mode == 'VCP' and bias > 8: score -= 40
     
@@ -226,16 +268,11 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
     final_score = score - core_p - bias_p - foul_points
 
     # =======================================================
-    # 🔮 隱藏公仔裝盤 (加入跑車與飛機)
+    # 🔮 隱藏公仔裝盤
     # =======================================================
     hidden_icons = []
-    
-    # 秘法純公仔 (過咗6日新車期，但仲喺 0.5 以上)
-    if gt_05.iloc[-1] and not secret_trigger.tail(6).any():
-        hidden_icons.append("🏎️")
-    # 墜機公仔
-    if airplane_crash.iloc[-1]:
-        hidden_icons.append("🛬")
+    if gt_05.iloc[-1] and not secret_trigger.tail(6).any(): hidden_icons.append("🏎️")
+    if airplane_crash.iloc[-1]: hidden_icons.append("🛬")
         
     if cond_cyan.tail(4).any(): hidden_icons.append("💰🔥")
     if cond_narrow.tail(4).any(): hidden_icons.append("💰🤫")
