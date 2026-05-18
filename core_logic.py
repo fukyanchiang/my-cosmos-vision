@@ -56,7 +56,7 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
     pruden_recent_14 = pruden_break.rolling(14).max().fillna(0).astype(bool)
     stage_2_signal = thrust_3_inc & pruden_recent_14
 
-    # 🚨 第一層：7大禁示
+    # 🚨 第一層：7大禁示 (20日追蹤)
     foul_points = 0; foul_list = []
     if is_magenta.tail(20).any(): foul_points += 10; foul_list.append("犯1(-10)")
     if ((change > 0) & (netvol < 0)).tail(20).any(): foul_points += 10; foul_list.append("犯2(-10)")
@@ -95,54 +95,64 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
     if is_dead and not force_return: return None
 
     # =======================================================
-    # 🏆 核心：排位計分 (VCP 與 NORMAL 共用獎勵)
+    # 🏆 核心：權重計分 (兩大模式共用獎勵勳章)
     # =======================================================
     bonus_list = []
     core_p = 0; bias_p = 0
     
-    # --- A. 決定初始底分 ---
+    # --- A. 決定底分 ---
     if mode == 'VCP':
-        score = 0.0
+        score = 0.0 
         ret_40d = (curr_p - c.iloc[-40]) / c.iloc[-40] if len(c) > 40 else 0
         if curr_p > ema10.iloc[-1] > ema20.iloc[-1] > ma50.iloc[-1]:
             score += 50; bonus_list.append("VCP趨勢👑(+50)")
-        power_val = buyvol.iloc[-1] / (sellvol.iloc[-1] if sellvol.iloc[-1] > 0 else 0.1)
-        if v.iloc[-1] > (ma20_v.iloc[-1] * 1.5) and power_val > 1.2 and curr_p > o.iloc[-1]:
+            
+        # 🌟 爺爺神級改裝：將「爆量條件」化為 6 日時空追蹤
+        power_series = buyvol / np.where(sellvol > 0, sellvol, 0.1)
+        vcp_burst_cond = (v > ma20_v * 1.5) & (power_series > 1.2) & (c > o)
+        
+        # 只要過去 6 日內曾經發生過爆量突破，就加分！
+        if vcp_burst_cond.tail(6).any():
             score += 30; bonus_list.append("VCP爆量⚡(+30)")
+            
         if ret_40d > 0.15:
             score += 20; bonus_list.append("VCP強勢🔥(+20)")
     else:
-        score = 100.0 # 普通模式底分
+        score = 100.0 # 普通模式 100分起步
 
-    # --- B. 🌟 公用加分項 (OBV/第二階段/動能 等) ---
+    # --- B. 🌟 勳章獎勵 (無論咩模式，只要達標就出公仔！) ---
     if stage_2_signal.tail(4).any(): score += 30; bonus_list.append("第二階段 ♂(+30)")
     if se_val >= 90.0: score += 5; bonus_list.append("動能(+5)")
-    if (buyvol.iloc[-1] / (sellvol.iloc[-1] if sellvol.iloc[-1]>0 else 0.1)) > 1.5: score += 5; bonus_list.append("兵力(+5)")
-    if obv_state in [1, 7]: score += 10; bonus_list.append("OBV(+10)")
+    if (buyvol.iloc[-1] / (sellvol.iloc[-1] if sellvol.iloc[-1]>0 else 0.1)) > 1.5: 
+        score += 5; bonus_list.append("兵力(+5)")
+    if obv_state in [1, 7]: 
+        score += 10; bonus_list.append("OBV(+10)")
     
     total_v60 = max(v.tail(60).sum(), 1)
-    if netvol.tail(60).sum() > (total_v60 * 0.12): score += 5; bonus_list.append("穩定流入(+5)") 
+    if netvol.tail(60).sum() > (total_v60 * 0.12): 
+        score += 5; bonus_list.append("穩定流入(+5)") 
+    
     if rs_val >= 92.0: score += 5; bonus_list.append("RS(+5)")
     if curr_p >= h.tail(60).max(): score += 5; bonus_list.append("破頂(+5)")
 
-    # --- C. 扣分項 ---
+    # --- C. 罰分項 ---
     limit = 10 if market == "HK" else 5
     if bias > limit:
         core_p += 25
         bias_p = 50 + (bias - limit) * 10
-        if mode == 'VCP': score -= 40 # VCP模式對過熱更敏感
+        if mode == 'VCP': score -= 40 # VCP 對過熱更嚴格
     elif mode == 'VCP' and bias > 8: score -= 40
     
-    if mode != 'VCP': # 普通模式的額外扣分
+    if mode != 'VCP': # 普通模式的舊有罰分
         if netvol.tail(60).sum() < 0: core_p += 30
         if v.iloc[-1] > ma60_v.iloc[-1] * 2.5: core_p += 20
         if (var2.iloc[-1] / var3.iloc[-1]) > 0.5: core_p += 15
 
     final_score = score - core_p - bias_p - foul_points
-    if mode == 'VCP' and foul_points > 0: final_score -= 100 # VCP嚴禁污點
+    if mode == 'VCP' and foul_points > 0: final_score -= 100 # VCP 嚴打有污點的股
 
     # =======================================================
-    # 🔮 第五層：隱藏公仔 (鯨魚/紅包/⚡)
+    # 🔮 第五層：隱藏公仔 (鯨魚/紅包/閃電/錢袋)
     # =======================================================
     hidden_icons = []
     cond_cyan = is_cyan & (netvol > netvol.rolling(10).mean())
@@ -163,6 +173,7 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
     if whale_days > 0: hidden_icons.append(f"🐋({whale_days}/10)")
     if netvol.tail(20).sum() > 0 and "🧧" not in hidden_icons: hidden_icons.append("🧧")
 
+    # 🎀 將所有公仔同勳章合併成最終顯示字串
     icons_final = " ".join(hidden_icons)
     display_info = bonus_list + foul_list
     if display_info: icons_final += " | 🎖️" + ",".join(display_info)
