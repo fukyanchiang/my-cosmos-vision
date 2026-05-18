@@ -19,7 +19,7 @@ def check_stop_loss(df):
     return df['Close'].iloc[-1] < ema10.iloc[-1] and (df['Close'].iloc[-2] >= ema10.iloc[-2] or df['Close'].iloc[-3] >= ema10.iloc[-3])
 
 def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force_return=False):
-    if len(df) < 65: return None
+    if len(df) < 252: return None # 秘法需要至少252日數據
     
     # =======================================================
     # 0. 基礎數據準備
@@ -40,7 +40,32 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
     is_magenta = is_burst & (c <= o)
     is_cyan = is_burst & (c > o)
     
+    # =======================================================
+    # 🏎️ 乖孫專屬：秘法開車與墜機系統
+    # =======================================================
+    ma63 = c.rolling(63).mean()
+    ma126 = c.rolling(126).mean()
+    ma189 = c.rolling(189).mean()
+    ma252 = c.rolling(252).mean()
+    
+    rs_secret = (2 * c / ma63.replace(0, np.nan)) + (c / ma126.replace(0, np.nan)) + (c / ma189.replace(0, np.nan)) + (c / ma252.replace(0, np.nan))
+    power_secret = rs_secret - 5
+    
+    # 開車判定 (新入0.5以上7天 + 3天遞增)
+    gt_05 = power_secret > 0.5
+    new_entry_7d = (gt_05.rolling(7).sum() == 7) & (~gt_05.shift(7).fillna(True))
+    power_inc = power_secret > power_secret.shift(1)
+    inc_3_in_7 = power_inc.rolling(7).sum() >= 3
+    secret_trigger = new_entry_7d & inc_3_in_7
+    
+    # 墜機判定 (由高單位數>=5，跌穿3以下連續3天)
+    recent_high_pow = power_secret.rolling(30).max() >= 5
+    drop_below_3 = (power_secret < 3).rolling(3).sum() == 3
+    airplane_crash = recent_high_pow & drop_below_3
+
+    # =======================================================
     # 第二階段 (PRUDEN + WEIS)
+    # =======================================================
     e50 = c.ewm(span=50, adjust=False).mean()
     e150 = c.ewm(span=150, adjust=False).mean()
     e200 = c.ewm(span=200, adjust=False).mean()
@@ -56,7 +81,9 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
     pruden_recent_14 = pruden_break.rolling(14).max().fillna(0).astype(bool)
     stage_2_signal = thrust_3_inc & pruden_recent_14
 
+    # =======================================================
     # 🚨 第一層：7大禁示 (20日追蹤)
+    # =======================================================
     foul_points = 0; foul_list = []
     if is_magenta.tail(20).any(): foul_points += 10; foul_list.append("犯1(-10)")
     if ((change > 0) & (netvol < 0)).tail(20).any(): foul_points += 10; foul_list.append("犯2(-10)")
@@ -95,7 +122,7 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
     if is_dead and not force_return: return None
 
     # =======================================================
-    # 🔮 隱藏公仔基礎條件 (提早計好，方便做真龍判定)
+    # 🔮 隱藏公仔基礎條件
     # =======================================================
     cond_cyan = is_cyan & (netvol > netvol.rolling(10).mean())
     cond_narrow = (netma10 > netma10.shift(1)) & ((var3 / l * 100) < 1.5)
@@ -106,36 +133,42 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
     whale_days = sum((v.tail(10) > ma60_v.tail(10) * 1.5) & (netvol.tail(10) > 0))
 
     # =======================================================
-    # 🏆 核心：權重計分 (兩大模式共用獎勵勳章)
+    # 🏆 核心：權重計分
     # =======================================================
     bonus_list = []
     core_p = 0; bias_p = 0
     is_vcp_trend = False
     is_vcp_burst_7d = False
     
-    # --- A. 決定底分 ---
     if mode == 'VCP':
         score = 0.0 
         ret_40d = (curr_p - c.iloc[-40]) / c.iloc[-40] if len(c) > 40 else 0
         
-        # 1. 趨勢維度
         if curr_p > ema10.iloc[-1] > ema20.iloc[-1] > ma50.iloc[-1]:
             score += 50; bonus_list.append("VCP趨勢👑(+50)")
-            is_vcp_trend = True # 滿足真龍條件 1
+            is_vcp_trend = True
             
-        # 2. 動能維度：調整為 7 個交易日記憶追蹤
         power_series = buyvol / np.where(sellvol > 0, sellvol, 0.1)
         vcp_burst_cond = (v > ma20_v * 1.5) & (power_series > 1.2) & (c > o)
         if vcp_burst_cond.tail(7).any():
             score += 30; bonus_list.append("VCP爆量⚡(+30)")
-            is_vcp_burst_7d = True # 滿足真龍條件 4 (連續7日顯示)
+            is_vcp_burst_7d = True 
             
         if ret_40d > 0.15:
             score += 20; bonus_list.append("VCP強勢🔥(+20)")
     else:
         score = 100.0 
 
-    # --- B. 🌟 勳章獎勵 ---
+    # --- 🌟 新增：秘法開車與墜機加罰分 ---
+    if secret_trigger.tail(6).any():
+        score += 20
+        bonus_list.append("秘法起步🏎️(+20)")
+
+    if airplane_crash.iloc[-1]:
+        core_p += 50
+        foul_list.append("高位墜機🛬(-50)")
+
+    # --- B. 常規勳章 ---
     if stage_2_signal.tail(4).any(): score += 30; bonus_list.append("第二階段 ♂(+30)")
     if se_val >= 90.0: score += 5; bonus_list.append("動能(+5)")
     if (buyvol.iloc[-1] / (sellvol.iloc[-1] if sellvol.iloc[-1]>0 else 0.1)) > 1.5: score += 5; bonus_list.append("兵力(+5)")
@@ -160,12 +193,19 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
         if (var2.iloc[-1] / var3.iloc[-1]) > 0.5: core_p += 15
 
     final_score = score - core_p - bias_p - foul_points
-    if mode == 'VCP' and foul_points > 0: final_score -= 100 
 
     # =======================================================
-    # 🔮 第五層：隱藏公仔裝盤
+    # 🔮 隱藏公仔裝盤 (加入跑車與飛機)
     # =======================================================
     hidden_icons = []
+    
+    # 秘法純公仔 (過咗6日新車期，但仲喺 0.5 以上)
+    if gt_05.iloc[-1] and not secret_trigger.tail(6).any():
+        hidden_icons.append("🏎️")
+    # 墜機公仔
+    if airplane_crash.iloc[-1]:
+        hidden_icons.append("🛬")
+        
     if cond_cyan.tail(4).any(): hidden_icons.append("💰🔥")
     if cond_narrow.tail(4).any(): hidden_icons.append("💰🤫")
     if cond_shield.tail(4).any(): hidden_icons.append("💰🛡️")
@@ -176,7 +216,7 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
     if netvol.tail(20).sum() > 0 and "🧧" not in hidden_icons: hidden_icons.append("🧧")
 
     # =======================================================
-    # 🐲 爺爺特製：真龍 VCP 終極判定大開關 (滿足條件觸發7天)
+    # 🐲 真龍 VCP 終極判定大開關
     # =======================================================
     status_prefix = ""
     if mode == 'VCP':
@@ -184,10 +224,9 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
         has_vcp_4d = cond_vcp.tail(4).any()
         has_whale_or_lightning = (whale_days > 0) or cond_lightning.tail(4).any()
         
-        # 4大天王完美合體
         if is_vcp_trend and has_narrow_4d and has_vcp_4d and has_whale_or_lightning and is_vcp_burst_7d:
             status_prefix = "🐲 [真龍 VCP 股出現！請注意！] "
-            final_score += 50 # 額外獎勵真龍分數，硬推上榜首！
+            final_score += 50 
 
     # 🎀 合併勳章與公仔
     icons_final = " ".join(hidden_icons)
