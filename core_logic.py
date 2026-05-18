@@ -3,7 +3,8 @@ import numpy as np
 import yfinance as yf
 import time
 
-def smart_fetch(ticker_sym, period="1y"):
+# 👴 爺爺改咗呢度做 "2y"，確保 252日線夠數據計！
+def smart_fetch(ticker_sym, period="2y"):
     try:
         time.sleep(0.2); asset = yf.Ticker(ticker_sym)
         data = asset.history(period=period, auto_adjust=True)
@@ -18,15 +19,8 @@ def check_stop_loss(df):
     ema10 = df['Close'].ewm(span=10, adjust=False).mean()
     return df['Close'].iloc[-1] < ema10.iloc[-1] and (df['Close'].iloc[-2] >= ema10.iloc[-2] or df['Close'].iloc[-3] >= ema10.iloc[-3])
 
-# 用於計算 TTM VAR2 (FORCAST 線性回歸預測)
-def calc_linreg_forecast(y):
-    if np.isnan(y).any(): return np.nan
-    x = np.arange(1, 21)
-    m, c_int = np.polyfit(x, y, 1)
-    return m * 20 + c_int
-
 def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force_return=False):
-    if len(df) < 252: return None # 需要足夠數據計算長線與MACD
+    if len(df) < 252: return None # 確保有足夠數據計秘法
     
     # =======================================================
     # 0. 基礎數據準備
@@ -76,27 +70,23 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
     ema26 = c.ewm(span=26, adjust=False).mean()
     dif = ema12 - ema26
     dea = dif.ewm(span=9, adjust=False).mean()
-    
-    # MACD 條件：DIF 在 DEA 之上，且 DIF 大於 0
     macd_strong = (dif > dea) & (dif > 0)
     
-    # 2. TTM VAR2 計算 (動能預測)
+    # 2. TTM 動能預測 (採用極速數學等價計法，免除 FORCAST 卡頓)
+    weights_20 = np.arange(1, 21) / 210.0
     hhv20 = h.rolling(20).max()
     llv20 = l.rolling(20).min()
     ma20_c = c.rolling(20).mean()
     var1_ttm = (hhv20 + llv20) / 2 + ma20_c
     delta_ttm = c - (var1_ttm / 2)
-    # 使用 rolling apply 模擬 FORCAST
-    var2_ttm = delta_ttm.rolling(20).apply(calc_linreg_forecast, raw=True)
     
-    # TTM 條件：VAR2 >= 0 且 數值大於尋日 (向上的藍綠色柱)
+    wma20_ttm = delta_ttm.rolling(20).apply(lambda x: np.dot(x, weights_20), raw=True)
+    sma20_ttm = delta_ttm.rolling(20).mean()
+    var2_ttm = 3 * wma20_ttm - 2 * sma20_ttm # 數學等價於線性回歸預測(FORCAST)
+    
     ttm_up = (var2_ttm >= 0) & (var2_ttm > var2_ttm.shift(1))
-    
-    # 3. 雙劍合璧：TTM 與 MACD 共振
     ttm_macd_trigger = ttm_up & macd_strong
-    # 捕捉剛剛開始觸發的第一天
     ttm_new_start = ttm_macd_trigger & (~ttm_macd_trigger.shift(1).fillna(False))
-    # 保持頭 4 天的記憶顯示
     ttm_4d_active = ttm_new_start.rolling(4).sum() > 0
 
     # =======================================================
@@ -195,7 +185,7 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
     else:
         score = 100.0 
 
-    # --- 🌟 秘法開車與墜機 ---
+    # --- 🌟 新增：秘法開車與墜機加罰分 ---
     if secret_trigger.tail(6).any():
         score += 20
         bonus_list.append("秘法起步🏎️(+20)")
@@ -204,7 +194,7 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
         core_p += 50
         foul_list.append("高位墜機🛬(-50)")
 
-    # --- 🚀 TTM 向上的藍綠色柱 + MACD 共振 ---
+    # --- 🌟 新增：TTM 向上的藍綠色柱 + MACD 共振 ---
     if ttm_4d_active.iloc[-1]:
         score += 15
         bonus_list.append("TTM🚀(+15)")
@@ -240,8 +230,10 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
     # =======================================================
     hidden_icons = []
     
+    # 秘法純公仔 (過咗6日新車期，但仲喺 0.5 以上)
     if gt_05.iloc[-1] and not secret_trigger.tail(6).any():
         hidden_icons.append("🏎️")
+    # 墜機公仔
     if airplane_crash.iloc[-1]:
         hidden_icons.append("🛬")
         
