@@ -95,43 +95,54 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
     if is_dead and not force_return: return None
 
     # =======================================================
+    # 🔮 隱藏公仔基礎條件 (提早計好，方便做真龍判定)
+    # =======================================================
+    cond_cyan = is_cyan & (netvol > netvol.rolling(10).mean())
+    cond_narrow = (netma10 > netma10.shift(1)) & ((var3 / l * 100) < 1.5)
+    cond_shield = (change < 0) & (netvol > 0)
+    cond_pit = (change < -1) & is_magenta
+    cond_vcp = (netma10 > 0) & (netma10.shift(1) < 0) & (v < ma20_v)
+    cond_lightning = (v > v_upper) & (buyvol > sellvol * 2)
+    whale_days = sum((v.tail(10) > ma60_v.tail(10) * 1.5) & (netvol.tail(10) > 0))
+
+    # =======================================================
     # 🏆 核心：權重計分 (兩大模式共用獎勵勳章)
     # =======================================================
     bonus_list = []
     core_p = 0; bias_p = 0
+    is_vcp_trend = False
+    is_vcp_burst_7d = False
     
     # --- A. 決定底分 ---
     if mode == 'VCP':
         score = 0.0 
         ret_40d = (curr_p - c.iloc[-40]) / c.iloc[-40] if len(c) > 40 else 0
+        
+        # 1. 趨勢維度
         if curr_p > ema10.iloc[-1] > ema20.iloc[-1] > ma50.iloc[-1]:
             score += 50; bonus_list.append("VCP趨勢👑(+50)")
+            is_vcp_trend = True # 滿足真龍條件 1
             
-        # 🌟 爺爺神級改裝：將「爆量條件」化為 6 日時空追蹤
+        # 2. 動能維度：調整為 7 個交易日記憶追蹤
         power_series = buyvol / np.where(sellvol > 0, sellvol, 0.1)
         vcp_burst_cond = (v > ma20_v * 1.5) & (power_series > 1.2) & (c > o)
-        
-        # 只要過去 6 日內曾經發生過爆量突破，就加分！
-        if vcp_burst_cond.tail(6).any():
+        if vcp_burst_cond.tail(7).any():
             score += 30; bonus_list.append("VCP爆量⚡(+30)")
+            is_vcp_burst_7d = True # 滿足真龍條件 4 (連續7日顯示)
             
         if ret_40d > 0.15:
             score += 20; bonus_list.append("VCP強勢🔥(+20)")
     else:
-        score = 100.0 # 普通模式 100分起步
+        score = 100.0 
 
-    # --- B. 🌟 勳章獎勵 (無論咩模式，只要達標就出公仔！) ---
+    # --- B. 🌟 勳章獎勵 ---
     if stage_2_signal.tail(4).any(): score += 30; bonus_list.append("第二階段 ♂(+30)")
     if se_val >= 90.0: score += 5; bonus_list.append("動能(+5)")
-    if (buyvol.iloc[-1] / (sellvol.iloc[-1] if sellvol.iloc[-1]>0 else 0.1)) > 1.5: 
-        score += 5; bonus_list.append("兵力(+5)")
-    if obv_state in [1, 7]: 
-        score += 10; bonus_list.append("OBV(+10)")
+    if (buyvol.iloc[-1] / (sellvol.iloc[-1] if sellvol.iloc[-1]>0 else 0.1)) > 1.5: score += 5; bonus_list.append("兵力(+5)")
+    if obv_state in [1, 7]: score += 10; bonus_list.append("OBV(+10)")
     
     total_v60 = max(v.tail(60).sum(), 1)
-    if netvol.tail(60).sum() > (total_v60 * 0.12): 
-        score += 5; bonus_list.append("穩定流入(+5)") 
-    
+    if netvol.tail(60).sum() > (total_v60 * 0.12): score += 5; bonus_list.append("穩定流入(+5)") 
     if rs_val >= 92.0: score += 5; bonus_list.append("RS(+5)")
     if curr_p >= h.tail(60).max(): score += 5; bonus_list.append("破頂(+5)")
 
@@ -140,43 +151,52 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
     if bias > limit:
         core_p += 25
         bias_p = 50 + (bias - limit) * 10
-        if mode == 'VCP': score -= 40 # VCP 對過熱更嚴格
+        if mode == 'VCP': score -= 40 
     elif mode == 'VCP' and bias > 8: score -= 40
     
-    if mode != 'VCP': # 普通模式的舊有罰分
+    if mode != 'VCP': 
         if netvol.tail(60).sum() < 0: core_p += 30
         if v.iloc[-1] > ma60_v.iloc[-1] * 2.5: core_p += 20
         if (var2.iloc[-1] / var3.iloc[-1]) > 0.5: core_p += 15
 
     final_score = score - core_p - bias_p - foul_points
-    if mode == 'VCP' and foul_points > 0: final_score -= 100 # VCP 嚴打有污點的股
+    if mode == 'VCP' and foul_points > 0: final_score -= 100 
 
     # =======================================================
-    # 🔮 第五層：隱藏公仔 (鯨魚/紅包/閃電/錢袋)
+    # 🔮 第五層：隱藏公仔裝盤
     # =======================================================
     hidden_icons = []
-    cond_cyan = is_cyan & (netvol > netvol.rolling(10).mean())
-    cond_narrow = (netma10 > netma10.shift(1)) & ((var3 / l * 100) < 1.5)
-    cond_shield = (change < 0) & (netvol > 0)
-    cond_pit = (change < -1) & is_magenta
-    cond_vcp = (netma10 > 0) & (netma10.shift(1) < 0) & (v < ma20_v)
-    cond_lightning = (v > v_upper) & (buyvol > sellvol * 2)
-
     if cond_cyan.tail(4).any(): hidden_icons.append("💰🔥")
     if cond_narrow.tail(4).any(): hidden_icons.append("💰🤫")
     if cond_shield.tail(4).any(): hidden_icons.append("💰🛡️")
     if cond_vcp.tail(4).any(): hidden_icons.append("🧧")
     if cond_lightning.tail(4).any(): hidden_icons.append("⚡")
     if cond_pit.tail(20).any(): hidden_icons.append("💎/😱")
-    
-    whale_days = sum((v.tail(10) > ma60_v.tail(10) * 1.5) & (netvol.tail(10) > 0))
     if whale_days > 0: hidden_icons.append(f"🐋({whale_days}/10)")
     if netvol.tail(20).sum() > 0 and "🧧" not in hidden_icons: hidden_icons.append("🧧")
 
-    # 🎀 將所有公仔同勳章合併成最終顯示字串
+    # =======================================================
+    # 🐲 爺爺特製：真龍 VCP 終極判定大開關 (滿足條件觸發7天)
+    # =======================================================
+    status_prefix = ""
+    if mode == 'VCP':
+        has_narrow_4d = cond_narrow.tail(4).any()
+        has_vcp_4d = cond_vcp.tail(4).any()
+        has_whale_or_lightning = (whale_days > 0) or cond_lightning.tail(4).any()
+        
+        # 4大天王完美合體
+        if is_vcp_trend and has_narrow_4d and has_vcp_4d and has_whale_or_lightning and is_vcp_burst_7d:
+            status_prefix = "🐲 [真龍 VCP 股出現！請注意！] "
+            final_score += 50 # 額外獎勵真龍分數，硬推上榜首！
+
+    # 🎀 合併勳章與公仔
     icons_final = " ".join(hidden_icons)
     display_info = bonus_list + foul_list
     if display_info: icons_final += " | 🎖️" + ",".join(display_info)
+
+    # 狀態判決
+    base_status = f"[☠️ 落選: {death_reason}]" if is_dead else ("[⚠️ 末段]" if bias > limit else "[👑 趨勢]")
+    final_status = status_prefix + base_status
 
     return {
         "Ticker": ticker, "Sector": sector_name, "Score": round(final_score, 1), 
@@ -185,6 +205,6 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
         "Flow": f"{netvol.tail(20).sum()/1e6:.1f}M", "Conc": f"{conc:.1f}%", "OBV": f"狀態 {obv_state}",
         "Power": round(buyvol.iloc[-1]/sellvol.iloc[-1] if sellvol.iloc[-1]>0 else 1, 1), 
         "Bias": round(bias, 1), "EMA10": round(ema10.iloc[-1], 2),
-        "Status": f"[☠️ 落選: {death_reason}]" if is_dead else ("[⚠️ 末段]" if bias > limit else "[👑 趨勢]"), 
+        "Status": final_status, 
         "Icons": icons_final, "IsDead": is_dead
     }
