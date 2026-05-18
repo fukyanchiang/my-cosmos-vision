@@ -18,8 +18,15 @@ def check_stop_loss(df):
     ema10 = df['Close'].ewm(span=10, adjust=False).mean()
     return df['Close'].iloc[-1] < ema10.iloc[-1] and (df['Close'].iloc[-2] >= ema10.iloc[-2] or df['Close'].iloc[-3] >= ema10.iloc[-3])
 
+# 用於計算 TTM VAR2 (FORCAST 線性回歸預測)
+def calc_linreg_forecast(y):
+    if np.isnan(y).any(): return np.nan
+    x = np.arange(1, 21)
+    m, c_int = np.polyfit(x, y, 1)
+    return m * 20 + c_int
+
 def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force_return=False):
-    if len(df) < 252: return None # 秘法需要至少252日數據
+    if len(df) < 252: return None # 需要足夠數據計算長線與MACD
     
     # =======================================================
     # 0. 基礎數據準備
@@ -51,17 +58,46 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
     rs_secret = (2 * c / ma63.replace(0, np.nan)) + (c / ma126.replace(0, np.nan)) + (c / ma189.replace(0, np.nan)) + (c / ma252.replace(0, np.nan))
     power_secret = rs_secret - 5
     
-    # 開車判定 (新入0.5以上7天 + 3天遞增)
     gt_05 = power_secret > 0.5
     new_entry_7d = (gt_05.rolling(7).sum() == 7) & (~gt_05.shift(7).fillna(True))
     power_inc = power_secret > power_secret.shift(1)
     inc_3_in_7 = power_inc.rolling(7).sum() >= 3
     secret_trigger = new_entry_7d & inc_3_in_7
     
-    # 墜機判定 (由高單位數>=5，跌穿3以下連續3天)
     recent_high_pow = power_secret.rolling(30).max() >= 5
     drop_below_3 = (power_secret < 3).rolling(3).sum() == 3
     airplane_crash = recent_high_pow & drop_below_3
+
+    # =======================================================
+    # 🚀 新增：TTM 向上的藍綠色柱 + MACD 零軸共振系統
+    # =======================================================
+    # 1. MACD 計算
+    ema12 = c.ewm(span=12, adjust=False).mean()
+    ema26 = c.ewm(span=26, adjust=False).mean()
+    dif = ema12 - ema26
+    dea = dif.ewm(span=9, adjust=False).mean()
+    
+    # MACD 條件：DIF 在 DEA 之上，且 DIF 大於 0
+    macd_strong = (dif > dea) & (dif > 0)
+    
+    # 2. TTM VAR2 計算 (動能預測)
+    hhv20 = h.rolling(20).max()
+    llv20 = l.rolling(20).min()
+    ma20_c = c.rolling(20).mean()
+    var1_ttm = (hhv20 + llv20) / 2 + ma20_c
+    delta_ttm = c - (var1_ttm / 2)
+    # 使用 rolling apply 模擬 FORCAST
+    var2_ttm = delta_ttm.rolling(20).apply(calc_linreg_forecast, raw=True)
+    
+    # TTM 條件：VAR2 >= 0 且 數值大於尋日 (向上的藍綠色柱)
+    ttm_up = (var2_ttm >= 0) & (var2_ttm > var2_ttm.shift(1))
+    
+    # 3. 雙劍合璧：TTM 與 MACD 共振
+    ttm_macd_trigger = ttm_up & macd_strong
+    # 捕捉剛剛開始觸發的第一天
+    ttm_new_start = ttm_macd_trigger & (~ttm_macd_trigger.shift(1).fillna(False))
+    # 保持頭 4 天的記憶顯示
+    ttm_4d_active = ttm_new_start.rolling(4).sum() > 0
 
     # =======================================================
     # 第二階段 (PRUDEN + WEIS)
@@ -159,7 +195,7 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
     else:
         score = 100.0 
 
-    # --- 🌟 新增：秘法開車與墜機加罰分 ---
+    # --- 🌟 秘法開車與墜機 ---
     if secret_trigger.tail(6).any():
         score += 20
         bonus_list.append("秘法起步🏎️(+20)")
@@ -167,6 +203,11 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
     if airplane_crash.iloc[-1]:
         core_p += 50
         foul_list.append("高位墜機🛬(-50)")
+
+    # --- 🚀 TTM 向上的藍綠色柱 + MACD 共振 ---
+    if ttm_4d_active.iloc[-1]:
+        score += 15
+        bonus_list.append("TTM🚀(+15)")
 
     # --- B. 常規勳章 ---
     if stage_2_signal.tail(4).any(): score += 30; bonus_list.append("第二階段 ♂(+30)")
@@ -199,10 +240,8 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
     # =======================================================
     hidden_icons = []
     
-    # 秘法純公仔 (過咗6日新車期，但仲喺 0.5 以上)
     if gt_05.iloc[-1] and not secret_trigger.tail(6).any():
         hidden_icons.append("🏎️")
-    # 墜機公仔
     if airplane_crash.iloc[-1]:
         hidden_icons.append("🛬")
         
