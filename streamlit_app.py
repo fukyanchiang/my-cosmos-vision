@@ -6,14 +6,34 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots 
 from core_logic import scan_dragon_logic, smart_fetch, check_stop_loss
 import time
+import os
+import json
 
 # ==========================================
-# 🌐 GitHub 雲端名單 (爺爺已幫你填好！)
+# 🧠 記憶體系統 (解決金魚記憶與熄機消失)
+# ==========================================
+MEMORY_FILE = "dragon_memory.json"
+
+if 'dragon_results' not in st.session_state:
+    st.session_state.dragon_results = []
+    st.session_state.sl_list = []
+    # 如果有舊記憶，自動讀取
+    if os.path.exists(MEMORY_FILE):
+        try:
+            with open(MEMORY_FILE, 'r', encoding='utf-8') as f:
+                saved_data = json.load(f)
+                st.session_state.dragon_results = saved_data.get('results', [])
+                st.session_state.sl_list = saved_data.get('sl_list', [])
+        except:
+            pass
+
+# ==========================================
+# 🌐 GitHub 雲端名單
 # ==========================================
 HK_STOCK_CSV_URL = "https://raw.githubusercontent.com/fukyanchiang/my-cosmos-vision/refs/heads/main/hk_stock.csv"
 HK_ETF_CSV_URL = "https://raw.githubusercontent.com/fukyanchiang/my-cosmos-vision/refs/heads/main/hk_etf.csv"
 
-@st.cache_data(ttl=3600) # 緩存1小時，提高掃描反應速度
+@st.cache_data(ttl=3600) 
 def fetch_github_list(url):
     try:
         df = pd.read_csv(url)
@@ -125,7 +145,7 @@ def add_energy_subplots(fig, df, dates_chart, row_start):
     change_colors = ['#00FF00' if val >= 0 else '#FF0000' for val in daily_change]
     fig.add_trace(go.Bar(x=dates_chart, y=daily_change, marker_color=change_colors, name='日波幅%'), row=row_start+2, col=1)
 
-# --- 🏠 狀態管理 (🌟 爺爺微調 1：加入 scan_mode 記憶) ---
+# --- 🏠 狀態管理 ---
 if 'page' not in st.session_state: st.session_state.page = 'HOME'
 if 'target' not in st.session_state: st.session_state.target = 'NONE'
 if 'scan_mode' not in st.session_state: st.session_state.scan_mode = 'NORMAL'
@@ -137,16 +157,18 @@ if st.session_state.page == 'HOME':
     if c1.button("🐉 龍魂神殿 (普通掃描)"): 
         st.session_state.page = 'DRAGON'
         st.session_state.scan_mode = 'NORMAL'
+        st.rerun()
         
     if c2.button("📈 VCP 獵龍 (高勝率模式)"): 
         st.session_state.page = 'DRAGON'
         st.session_state.scan_mode = 'VCP'
-        st.success("✅ [VCP 高勝率排位系統] 已掛載")
+        st.rerun()
         
     if c3.button("🐢 海龜加注"): 
         st.info("海龜 模式運作中")
         st.session_state.page = 'DRAGON'
         st.session_state.scan_mode = 'NORMAL'
+        st.rerun()
 
 # --- 🐉 龍魂神殿 5.0 ---
 elif st.session_state.page == 'DRAGON':
@@ -154,7 +176,9 @@ elif st.session_state.page == 'DRAGON':
     st.markdown(f"<h1 style='text-align:center; color:#00FFCC;'>{mode_display}</h1>", unsafe_allow_html=True)
     
     nav = st.columns(6)
-    if nav[0].button("⬅️ 返回總部"): st.session_state.page = 'HOME'
+    if nav[0].button("⬅️ 返回總部"): 
+        st.session_state.page = 'HOME'
+        st.rerun()
     if nav[1].button("🇭🇰 港股"): st.session_state.target = 'HK'
     if nav[2].button("🇺🇸 美股"): st.session_state.target = 'US'
     if nav[3].button("📦 ETF"): st.session_state.target = 'ETF'
@@ -164,7 +188,7 @@ elif st.session_state.page == 'DRAGON':
     c_ath, c_btn = st.columns([3, 1])
     with c_ath: is_ath_mode = st.checkbox("🔥 啟動 ATH 歷史新高極致過濾")
     
-    sl_container = st.empty(); selected_tickers = []; market_mode = "HK"; btn_radar = False
+    selected_tickers = []; market_mode = "HK"; btn_radar = False
 
     # 🇺🇸 美股專屬
     if st.session_state.target == 'US':
@@ -261,16 +285,13 @@ elif st.session_state.page == 'DRAGON':
                         if not is_single_mode: continue
                     if check_stop_loss(df): sl_list.append(t)
                     
-                    # 🌟 爺爺微調 2：傳遞 scan_mode 畀 core_logic.py！
                     res = scan_dragon_logic(df, t, sec, market_mode, mode=st.session_state.scan_mode, force_return=is_single_mode)
                     if res: results.append(res)
             
-            if sl_list: sl_container.markdown(f"<div class='bear-warning'>🛡️ 戰損置頂: {' | '.join(sl_list)} 跌穿 10-EMA！</div>", unsafe_allow_html=True)
+            pb.empty()
             
             if results:
-                # ==========================================
-                # 📊 啟動板塊聯動
-                # ==========================================
+                # 📊 板塊聯動與排序
                 sector_counts = {}
                 for r in results:
                     if not r.get('IsDead'):
@@ -278,37 +299,61 @@ elif st.session_state.page == 'DRAGON':
                         sector_counts[sec] = sector_counts.get(sec, 0) + 1
                 
                 results = sorted(results, key=lambda x: x['Score'], reverse=True)
-                st.session_state.dragon_results = results
-                
                 for r in results:
                     if not r.get('IsDead') and sector_counts.get(r['Sector'], 0) >= 3:
-                        if "📊" not in r['Icons']:
-                            r['Icons'] += " 📊"
-                            
-                    border_color = "#FF4B4B" if r.get('IsDead') else "#00FFCC"
-                    st.markdown(f"""
-                    <div class='dragon-card' style='border-left: 5px solid {border_color};'>
-                        <div style='font-size:1.4rem;font-weight:bold;'>{r['Status']} {r['Ticker']} <span style='color:#00FFCC;'>({r['Sector']})</span> {r['Icons']}</div>
-                        <div class='data-row'>
-                            <b>戰術總分: {r['Score']}分</b> | 
-                            <b style='color:#FF9900;'>原始戰力: {r.get('RawPower', 0)} 🔥</b> | 
-                            <b style='color:#FF4B4B;'>扣分: {r.get('Penalty', 0)} 🛑</b> | 
-                            <span style='color:#FF4B4B; font-weight:bold;'>🛑 止損(10-EMA): ${r['EMA10']}</span> | Bias: {r['Bias']}%<br>
-                            📈 RS: {r['RS']} | 🔋 EJ: {r['EJ']} | ⚡ SE: {r['SE']} | 🔥 買盤力: {r['Power']}x | 📊 OBV: {r.get('OBV', 'N/A')}
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
+                        if "📊" not in r['Icons']: r['Icons'] += " 📊"
                 
+                # 💡 記憶魔法：將結果與戰損名單 Save 入 JSON 及 Session
+                st.session_state.dragon_results = results
+                st.session_state.sl_list = sl_list
+                
+                try:
+                    with open(MEMORY_FILE, 'w', encoding='utf-8') as f:
+                        json.dump({'results': results, 'sl_list': sl_list}, f, ensure_ascii=False)
+                except Exception as e:
+                    st.error(f"儲存記憶失敗: {e}")
+
                 if is_single_mode:
                     st.session_state.force_chart_ticker = selected_tickers[0][0]
+                
+                st.success("✅ 掃描完成！結果已自動封裝入記憶體，唔會再消失！")
+                time.sleep(0.5)
+                st.rerun() # 強制刷新，脫離 btn_radar 限制
             else: 
                 if not is_single_mode: st.warning("💤 萬人坑內無生還者。")
 
+
     # =========================================================
-    # 📈 X 光戰術圖
+    # 🏆 顯示掃描結果 (脫離按鈕限制，永駐畫面！)
+    # =========================================================
+    if st.session_state.get('dragon_results'):
+        
+        # 1. 顯示戰損置頂
+        if st.session_state.get('sl_list'):
+            st.markdown(f"<div class='bear-warning'>🛡️ 戰損置頂: {' | '.join(st.session_state.sl_list)} 跌穿 10-EMA！</div>", unsafe_allow_html=True)
+        
+        # 2. 顯示龍魂卡片
+        st.write("---")
+        for r in st.session_state.dragon_results:
+            border_color = "#FF4B4B" if r.get('IsDead') else "#00FFCC"
+            st.markdown(f"""
+            <div class='dragon-card' style='border-left: 5px solid {border_color};'>
+                <div style='font-size:1.4rem;font-weight:bold;'>{r['Status']} {r['Ticker']} <span style='color:#00FFCC;'>({r['Sector']})</span> {r['Icons']}</div>
+                <div class='data-row'>
+                    <b>戰術總分: {r['Score']}分</b> | 
+                    <b style='color:#FF9900;'>原始戰力: {r.get('RawPower', 0)} 🔥</b> | 
+                    <b style='color:#FF4B4B;'>扣分: {r.get('Penalty', 0)} 🛑</b> | 
+                    <span style='color:#FF4B4B; font-weight:bold;'>🛑 止損(10-EMA): ${r['EMA10']}</span> | Bias: {r['Bias']}%<br>
+                    📈 RS: {r['RS']} | 🔋 EJ: {r['EJ']} | ⚡ SE: {r['SE']} | 🔥 買盤力: {r['Power']}x | 📊 OBV: {r.get('OBV', 'N/A')}
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+    # =========================================================
+    # 📈 X 光戰術圖 (完美讀取記憶中的名單)
     # =========================================================
     chart_t = None
-    if hasattr(st.session_state, 'dragon_results') and len(st.session_state.dragon_results) > 0:
+    if st.session_state.get('dragon_results'):
         st.write("---")
         chart_t = st.selectbox("🎯 查看 X 光戰術圖", [r['Ticker'] for r in st.session_state.dragon_results])
     elif st.session_state.target == 'SINGLE' and hasattr(st.session_state, 'force_chart_ticker'):
