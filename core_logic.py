@@ -252,10 +252,13 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
     if display_info: icons_final += " | 🎖️" + ",".join(display_info)
     base_status = f"[☠️ 落選: {death_reason}]" if is_dead else ("[⚠️ 末段]" if bias > limit else "[👑 趨勢]")
 
+    # 👴 爺爺修復咗：加返 SE, RawPower, Penalty 欄位落去 return 度！
     return {
         "Ticker": ticker, "Sector": sector_name, "Score": round(final_score, 1), 
+        "RawPower": round(ej_val, 1), "Penalty": round(core_p + bias_p + foul_points, 1), # ✅ 補返！
         "RS": round(80 + (curr_p / ma50.iloc[-1] * 10), 1),
-        "EJ": round(current_power, 3), # 顯示最新 Power 值
+        "EJ": round(current_power, 3), 
+        "SE": round(se_val, 1), # ✅ 補返！
         "Flow": f"{netvol.tail(20).sum()/1e6:.1f}M", "Conc": f"{conc:.1f}%", "OBV": f"狀態 {obv_state}",
         "Power": round(buyvol.iloc[-1]/sellvol.iloc[-1] if sellvol.iloc[-1]>0 else 1, 1), 
         "Bias": round(bias, 1), "EMA10": round(ema10.iloc[-1], 2),
