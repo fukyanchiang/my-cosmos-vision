@@ -43,7 +43,7 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
     is_cyan = is_burst & (c > o)
     
     # =======================================================
-    # 🏎️ 秘法 3.0：起步系統 + 大戶資金共振 (精準度防乾升)
+    # 🏎️ 秘法 3.1 終極版：起步系統 + 大戶資金共振 + 深谷回升防噪機制
     # =======================================================
     ma63 = c.rolling(63).mean(); ma126 = c.rolling(126).mean()
     ma189 = c.rolling(189).mean(); ma252 = c.rolling(252).mean()
@@ -51,12 +51,14 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
     rs_secret = (2 * c / ma63.replace(0, np.nan)) + (c / ma126.replace(0, np.nan)) + (c / ma189.replace(0, np.nan)) + (c / ma252.replace(0, np.nan))
     power_secret = rs_secret - 5
     
+    # 💡 3.1 加強防噪：第 8 日必須明確跌穿 0.4，避免 0.5 邊緣浮動假信號
     gt_05 = power_secret > 0.5
-    new_entry_7d = (gt_05.rolling(7).sum() == 7) & (~gt_05.shift(7).fillna(True))
+    new_entry_7d = (gt_05.rolling(7).sum() == 7) & (power_secret.shift(7) < 0.4)
+    
     power_inc = power_secret > power_secret.shift(1)
     inc_3_in_7 = power_inc.rolling(7).sum() >= 3
     
-    # 💡 3.0 加強：這 7 日之內必須有至少 2 日是「價升量增、大戶掃貨」嘅證據
+    # 必須有大戶進場證據
     whale_buy = (v > ma20_v) & (c > o) & (c > c.shift(1))
     whale_in_7d = whale_buy.rolling(7).sum() >= 2
     
@@ -69,7 +71,6 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
     # =======================================================
     # 🚀 TTM 2.0 嚴格版：擠壓釋放 + 第一爆發點 + 雙重熄火
     # =======================================================
-    # 1. 計算 Squeeze 狀態 (布林 vs 肯特納)
     n_ttm = 20
     std_ttm = c.rolling(n_ttm).std()
     ma_ttm = c.rolling(n_ttm).mean()
@@ -83,7 +84,6 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
     is_squeezing = (bb_upper < kc_upper) & (bb_lower > kc_lower)
     squeeze_fired = (is_squeezing.shift(1) == True) & (is_squeezing == False)
 
-    # 2. 計算動能 (Linear Regression 替代法)
     weights_20 = np.arange(1, 21) / 210.0
     var1_ttm = (h.rolling(20).max() + l.rolling(20).min()) / 2 + ma_ttm
     delta_ttm = c - (var1_ttm / 2)
@@ -91,17 +91,15 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
     sma20_ttm = delta_ttm.rolling(20).mean()
     var2_ttm = 3 * wma20_ttm - 2 * sma20_ttm 
 
-    # 3. MACD 判定
     ema12 = c.ewm(span=12, adjust=False).mean()
     ema26 = c.ewm(span=26, adjust=False).mean()
     dif = ema12 - ema26
     dea = dif.ewm(span=9, adjust=False).mean()
     dif_up = (dif > dea) & (dif > dif.shift(1))
 
-    # 4. 終極嚴格觸發：剛剛解除擠壓 (紅轉綠) OR 動能剛剛由負轉正 (第一藍柱)
     ttm_2_trigger = (squeeze_fired | ((var2_ttm > 0) & (var2_ttm.shift(1) <= 0))) & dif_up
     
-    # 🛡️ 雙重保險熄火機制：就算喺 6 日記憶期內，只要 (1)動能轉負數 OR (2)MACD死叉，火箭即刻沒收！
+    # 🛡️ 雙重保險熄火機制：動能轉負數 OR MACD死叉，火箭即刻沒收！
     ttm_2_active = (ttm_2_trigger.rolling(6).sum() > 0) & (var2_ttm > 0) & (dif > dea)
 
     # =======================================================
@@ -127,7 +125,7 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
     is_rebound_active = (last_up != -1) and (last_up <= 6)
     is_weak_active = (last_down != -1) and (last_down <= 30)
     if is_weak_active and (last_up != -1) and (last_up < last_down):
-        is_weak_active = False # 破地獄抵消魔咒
+        is_weak_active = False 
 
     # =======================================================
     # 第二階段 (PRUDEN + WEIS)
@@ -166,7 +164,6 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
     conc = (abs(netvol.tail(20)).max() / max(abs(netvol.tail(20)).sum(), 1)) * 100
     bias = ((curr_p - ma50.iloc[-1]) / ma50.iloc[-1]) * 100
     
-    # OBV 狀態
     obv_curr = obv.iloc[-1] - obv.iloc[-21] if len(obv)>20 else 0
     obv_prev = obv.iloc[-21] - obv.iloc[-41] if len(obv)>40 else 1
     obv_pct = (obv_curr - obv_prev) / max(abs(obv_prev), 1) * 100
@@ -223,7 +220,7 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
     else:
         score = 100.0 
 
-    # --- 🏎️ 升級版秘法、雙保險TTM、回升回落 ---
+    # --- 🏎️ 升級版秘法防噪、雙保險TTM、回升回落 ---
     if secret_trigger.tail(6).any():
         score += 20; bonus_list.append("秘法起步🏎️(+20)")
     if airplane_crash.iloc[-1]:
@@ -264,7 +261,7 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
     # =======================================================
     hidden_icons = []
     
-    if is_squeezing.iloc[-1]: hidden_icons.append("🤐(蓄勢)") # TTM 擠壓狀態
+    if is_squeezing.iloc[-1]: hidden_icons.append("🤐(蓄勢)")
     if gt_05.iloc[-1] and not secret_trigger.tail(6).any(): hidden_icons.append("🏎️")
     if airplane_crash.iloc[-1]: hidden_icons.append("🛬")
         
