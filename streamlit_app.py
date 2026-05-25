@@ -185,8 +185,12 @@ elif st.session_state.page == 'DRAGON':
     if nav[4].button("🔍 個股"): st.session_state.target = 'SINGLE'
     
     st.markdown("---")
+    
+    # 💡 爺爺只喺呢度加咗粒 vcp_52w 掣！
     c_ath, c_btn = st.columns([3, 1])
-    with c_ath: is_ath_mode = st.checkbox("🔥 啟動 ATH 歷史新高極致過濾")
+    with c_ath: 
+        is_ath_mode = st.checkbox("🔥 啟動 ATH 歷史新高極致過濾")
+        vcp_52w = st.checkbox("🎯 啟動 MM 原汁原味 52週高位 25% 內過濾")
     
     selected_tickers = []; market_mode = "HK"; btn_radar = False
 
@@ -285,7 +289,8 @@ elif st.session_state.page == 'DRAGON':
                         if not is_single_mode: continue
                     if check_stop_loss(df): sl_list.append(t)
                     
-                    res = scan_dragon_logic(df, t, sec, market_mode, mode=st.session_state.scan_mode, force_return=is_single_mode)
+                    # 💡 爺爺只喺呢度加咗 vcp_52w=vcp_52w 同 vcp_ath=is_ath_mode 傳畀大腦！
+                    res = scan_dragon_logic(df, t, sec, market_mode, mode=st.session_state.scan_mode, force_return=is_single_mode, vcp_52w=vcp_52w, vcp_ath=is_ath_mode)
                     if res: results.append(res)
             
             pb.empty()
