@@ -156,6 +156,17 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
     if is_dead and not force_return: return None
 
     # =======================================================
+    # 🔮 隱藏公仔基礎條件 (爺爺補返啦！！)
+    # =======================================================
+    cond_cyan = is_cyan & (netvol > netvol.rolling(10).mean())
+    cond_narrow = (netma10 > netma10.shift(1)) & ((var3 / l * 100) < 1.5)
+    cond_shield = (change < 0) & (netvol > 0)
+    cond_pit = (change < -1) & is_magenta
+    cond_vcp = (netma10 > 0) & (netma10.shift(1) < 0) & (v < ma20_v)
+    cond_lightning = (v > v_upper) & (buyvol > sellvol * 2)
+    whale_days = sum((v.tail(10) > ma60_v.tail(10) * 1.5) & (netvol.tail(10) > 0))
+
+    # =======================================================
     # 🏆 核心：權重計分
     # =======================================================
     bonus_list = []; core_p = 0; bias_p = 0
