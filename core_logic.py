@@ -43,7 +43,7 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
     is_cyan = is_burst & (c > o)
     
     # =======================================================
-    # 🏎️ 秘法 3.1 終極版：起步系統 + 大戶資金共振 + 深谷回升防噪機制
+    # 🏎️ 秘法 3.2 終極版：初心回歸 (7日動力+深谷起步)
     # =======================================================
     ma63 = c.rolling(63).mean(); ma126 = c.rolling(126).mean()
     ma189 = c.rolling(189).mean(); ma252 = c.rolling(252).mean()
@@ -51,18 +51,17 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
     rs_secret = (2 * c / ma63.replace(0, np.nan)) + (c / ma126.replace(0, np.nan)) + (c / ma189.replace(0, np.nan)) + (c / ma252.replace(0, np.nan))
     power_secret = rs_secret - 5
     
-    # 💡 3.1 加強防噪：第 8 日必須明確跌穿 0.4，避免 0.5 邊緣浮動假信號
     gt_05 = power_secret > 0.5
-    new_entry_7d = (gt_05.rolling(7).sum() == 7) & (power_secret.shift(7) < 0.4)
-    
     power_inc = power_secret > power_secret.shift(1)
-    inc_3_in_7 = power_inc.rolling(7).sum() >= 3
     
-    # 必須有大戶進場證據
+    # 💡 基礎跑車條件 (乖孫初心)：必須連續 7 日 > 0.5，且有 3 日上升(踩油門)
+    is_base_car = (gt_05.rolling(7).sum() == 7) & (power_inc.rolling(7).sum() >= 3)
+    
+    # 💡 起步大獎條件：基礎跑車 + 7日前由 0.4 以下衝上嚟 + 大戶資金
     whale_buy = (v > ma20_v) & (c > o) & (c > c.shift(1))
     whale_in_7d = whale_buy.rolling(7).sum() >= 2
     
-    secret_trigger = new_entry_7d & inc_3_in_7 & whale_in_7d
+    secret_trigger = is_base_car & (power_secret.shift(7) < 0.4) & whale_in_7d
     
     recent_high_pow = power_secret.rolling(30).max() >= 5
     drop_below_3 = (power_secret < 3).rolling(3).sum() == 3
@@ -99,7 +98,7 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
 
     ttm_2_trigger = (squeeze_fired | ((var2_ttm > 0) & (var2_ttm.shift(1) <= 0))) & dif_up
     
-    # 🛡️ 雙重保險熄火機制：動能轉負數 OR MACD死叉，火箭即刻沒收！
+    # 🛡️ 雙重保險熄火機制
     ttm_2_active = (ttm_2_trigger.rolling(6).sum() > 0) & (var2_ttm > 0) & (dif > dea)
 
     # =======================================================
@@ -262,7 +261,11 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
     hidden_icons = []
     
     if is_squeezing.iloc[-1]: hidden_icons.append("🤐(蓄勢)")
-    if gt_05.iloc[-1] and not secret_trigger.tail(6).any(): hidden_icons.append("🏎️")
+    
+    # 💡 只有符合基礎跑車條件(7日>0.5且有3日上升)，且沒有觸發起步大獎，先至會出純公仔 🏎️
+    if is_base_car.iloc[-1] and not secret_trigger.tail(6).any(): 
+        hidden_icons.append("🏎️")
+        
     if airplane_crash.iloc[-1]: hidden_icons.append("🛬")
         
     if cond_cyan.tail(4).any(): hidden_icons.append("💰🔥")
