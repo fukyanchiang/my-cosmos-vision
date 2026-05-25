@@ -18,7 +18,13 @@ def check_stop_loss(df):
     ema10 = df['Close'].ewm(span=10, adjust=False).mean()
     return df['Close'].iloc[-1] < ema10.iloc[-1] and (df['Close'].iloc[-2] >= ema10.iloc[-2] or df['Close'].iloc[-3] >= ema10.iloc[-3])
 
-def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force_return=False):
+def calc_linreg_forecast(y):
+    if np.isnan(y).any(): return np.nan
+    x = np.arange(1, 21)
+    m, c_int = np.polyfit(x, y, 1)
+    return m * 20 + c_int
+
+def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force_return=False, vcp_52w=False, vcp_ath=False):
     if len(df) < 252: return None 
     
     # =======================================================
@@ -100,14 +106,31 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
     ttm_2_active = (ttm_2_trigger.rolling(6).sum() > 0) & (var2_ttm > 0) & (dif > dea)
 
     # =======================================================
-    # 🔄 IND1 回升/回落
+    # 🔄 IND1 回升/回落 (完美還原 TDX 邏輯)
     # =======================================================
     llv55 = l.rolling(55).min(); hhv55 = h.rolling(55).max()
-    ind1 = ((c.ewm(span=2, adjust=False).mean() - llv55) / (hhv55 - llv55).replace(0, np.nan)).ewm(span=13, adjust=False).mean()
-    up_arrow = (ind1 > 0.501) & (ind1.shift(1) <= 0.501)
-    is_rebound_active = up_arrow.tail(6).any()
-    down_arrow = (ind1 < 0.499) & (ind1.shift(1) >= 0.499)
-    is_weak_active = down_arrow.tail(30).any()
+    denom = (hhv55 - llv55).replace(0, np.nan)
+    ema2 = c.ewm(span=2, adjust=False).mean()
+    ind1_raw = (ema2 - llv55) / denom
+    ind1 = ind1_raw.ewm(span=13, adjust=False).mean()
+    
+    up_arrow = (ind1 > 0.501) & (ind1.shift(1) <= 0.501) & (ind1 >= ind1.rolling(2).max())
+    down_arrow = (ind1 < 0.499) & (ind1.shift(1) >= 0.499) & (ind1 <= ind1.rolling(2).min())
+    
+    last_up_idx = -1
+    last_down_idx = -1
+    for i in range(1, 31):
+        idx = -i
+        if len(ind1) >= i:
+            if last_up_idx == -1 and up_arrow.iloc[idx]:
+                last_up_idx = i
+            if last_down_idx == -1 and down_arrow.iloc[idx]:
+                last_down_idx = i
+                
+    is_rebound_active = (last_up_idx != -1) and (last_up_idx <= 6)
+    is_weak_active = (last_down_idx != -1) and (last_down_idx <= 30)
+    if is_weak_active and (last_up_idx != -1) and (last_up_idx < last_down_idx):
+        is_weak_active = False
 
     # =======================================================
     # 第二階段 (PRUDEN + WEIS)
@@ -159,10 +182,18 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
         is_dead = True; death_reason = "SE或錢流不達標"
     elif obv_state not in [1, 2, 7, 8]: is_dead = True; death_reason = f"OBV狀態({obv_state})"
     
+    # 🎯 加上 52週高位 與 ATH 過濾死線 (港美股通用)
+    high_52w = h.tail(252).max()
+    pct_from_52w_high = ((high_52w - curr_p) / high_52w) * 100
+    if not is_dead and vcp_52w and (pct_from_52w_high > 25.0):
+        is_dead = True; death_reason = f"距離52週高位太遠({pct_from_52w_high:.1f}%)"
+    if not is_dead and vcp_ath and (curr_p < h.max() * 0.98):
+        is_dead = True; death_reason = "未達歷史新高(ATH)極致區"
+        
     if is_dead and not force_return: return None
 
     # =======================================================
-    # 🔮 隱藏公仔基礎條件 (👴 爺爺補返啦！！！)
+    # 🔮 隱藏公仔基礎條件
     # =======================================================
     cond_cyan = is_cyan & (netvol > netvol.rolling(10).mean())
     cond_narrow = (netma10 > netma10.shift(1)) & ((var3 / l * 100) < 1.5)
@@ -229,8 +260,6 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
     # =======================================================
     hidden_icons = []
     if is_squeezing.iloc[-1]: hidden_icons.append("🤐(蓄勢)")
-    
-    # 💡 必須經歷過大獎，而且冇斷氣，先可以有巡航跑車公仔！
     if is_secret_cruise.iloc[-1]: hidden_icons.append("🏎️")
         
     if cond_cyan.tail(4).any(): hidden_icons.append("💰🔥")
