@@ -41,7 +41,7 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
     is_cyan = is_burst & (c > o)
     
     # =======================================================
-    # 🏎️ 秘法 3.4 終極版：嚴格階級演進 (點火 -> 大獎 -> 巡航)
+    # 🏎️ 秘法 3.5：乖孫初心完美版 (基礎跑車 vs 起步大獎)
     # =======================================================
     ma63 = c.rolling(63).mean(); ma126 = c.rolling(126).mean()
     ma189 = c.rolling(189).mean(); ma252 = c.rolling(252).mean()
@@ -53,17 +53,19 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
     gt_05 = power_secret > 0.5
     power_inc = power_secret > power_secret.shift(1)
     
-    # 1. 尋找「點火瞬間」(Ignition Pulse)
-    is_base_streak = (gt_05.rolling(7).sum() == 7) & (power_inc.rolling(7).sum() >= 3)
+    # 💡 1. 基礎跑車 (純公仔)：連續 7 日 > 0.5 且 3 日上升
+    is_base_car = (gt_05.rolling(7).sum() == 7) & (power_inc.rolling(7).sum() >= 3)
+    
+    # 💡 2. 尋找「點火瞬間」
     whale_buy = (v > ma20_v) & (c > o) & (c > c.shift(1))
     whale_in_7d = whale_buy.rolling(7).sum() >= 2
-    ignition_pulse = is_base_streak & (power_secret.shift(7) < 0.4) & whale_in_7d
+    ignition_pulse = is_base_car & (power_secret.shift(7) < 0.4) & whale_in_7d
     
-    # 2. 定義兩個階段 (頭10日 vs 10日後)
-    # 階段一：起步大獎 (+20) - 點火後頭 10 日
+    # 💡 3. 階段判定
+    # 頭 10 日出 +20 大獎
     is_secret_bonus = ignition_pulse.rolling(10).sum() > 0
-    # 階段二：巡航公仔 (純 🏎️) - 點火超過 10 日，過去 90 日內點過火，且今日仍然 > 0.5
-    is_secret_cruise = (ignition_pulse.rolling(90).sum() > 0) & gt_05 & (~is_secret_bonus)
+    # 只要符合基礎跑車，又冇 +20 大獎，就係普通跑車 (FANG 會跌入呢度！)
+    is_secret_cruise = is_base_car & (~is_secret_bonus)
     
     recent_high_pow = power_secret.rolling(30).max() >= 5
     drop_below_3 = (power_secret < 3).rolling(3).sum() == 3
@@ -154,17 +156,6 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
     if is_dead and not force_return: return None
 
     # =======================================================
-    # 🔮 隱藏公仔基礎條件
-    # =======================================================
-    cond_cyan = is_cyan & (netvol > netvol.rolling(10).mean())
-    cond_narrow = (netma10 > netma10.shift(1)) & ((var3 / l * 100) < 1.5)
-    cond_shield = (change < 0) & (netvol > 0)
-    cond_pit = (change < -1) & is_magenta
-    cond_vcp = (netma10 > 0) & (netma10.shift(1) < 0) & (v < ma20_v)
-    cond_lightning = (v > v_upper) & (buyvol > sellvol * 2)
-    whale_days = sum((v.tail(10) > ma60_v.tail(10) * 1.5) & (netvol.tail(10) > 0))
-
-    # =======================================================
     # 🏆 核心：權重計分
     # =======================================================
     bonus_list = []; core_p = 0; bias_p = 0
@@ -184,13 +175,12 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
     else:
         score = 100.0 
 
-    # --- 🌟 乖孫專屬：演進式跑車、雙保險TTM、回升回落 ---
+    # --- 🌟 乖孫初心版：起步大獎 ---
     if is_secret_bonus.iloc[-1]: score += 20; bonus_list.append("秘法起步🏎️(+20)")
     if airplane_crash.iloc[-1]: core_p += 50; foul_list.append("高位墜機🛬(-50)")
     
     if is_rebound_active: score += 10; bonus_list.append("回升(+10)")
     if is_weak_active: core_p += 60; foul_list.append("弱勢(-60)")
-
     if ttm_2_active.iloc[-1]: score += 15; bonus_list.append("TTM🚀(+15)")
 
     # --- B. 常規勳章 ---
@@ -223,7 +213,7 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
     hidden_icons = []
     if is_squeezing.iloc[-1]: hidden_icons.append("🤐(蓄勢)")
     
-    # 💡 第二階段：只會顯示喺已經過咗 10 日起步期嘅「巡航跑車」身上
+    # 💡 乖孫初心版：只要係基礎跑車，又冇大獎，就畀純公仔！(FANG 回歸！)
     if is_secret_cruise.iloc[-1]: hidden_icons.append("🏎️")
         
     if cond_cyan.tail(4).any(): hidden_icons.append("💰🔥")
@@ -252,13 +242,12 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
     if display_info: icons_final += " | 🎖️" + ",".join(display_info)
     base_status = f"[☠️ 落選: {death_reason}]" if is_dead else ("[⚠️ 末段]" if bias > limit else "[👑 趨勢]")
 
-    # 👴 爺爺修復咗：加返 SE, RawPower, Penalty 欄位落去 return 度！
     return {
         "Ticker": ticker, "Sector": sector_name, "Score": round(final_score, 1), 
-        "RawPower": round(ej_val, 1), "Penalty": round(core_p + bias_p + foul_points, 1), # ✅ 補返！
+        "RawPower": round(ej_val, 1), "Penalty": round(core_p + bias_p + foul_points, 1),
         "RS": round(80 + (curr_p / ma50.iloc[-1] * 10), 1),
         "EJ": round(current_power, 3), 
-        "SE": round(se_val, 1), # ✅ 補返！
+        "SE": round(se_val, 1),
         "Flow": f"{netvol.tail(20).sum()/1e6:.1f}M", "Conc": f"{conc:.1f}%", "OBV": f"狀態 {obv_state}",
         "Power": round(buyvol.iloc[-1]/sellvol.iloc[-1] if sellvol.iloc[-1]>0 else 1, 1), 
         "Bias": round(bias, 1), "EMA10": round(ema10.iloc[-1], 2),
