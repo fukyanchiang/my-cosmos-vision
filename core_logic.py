@@ -24,6 +24,7 @@ def calc_linreg_forecast(y):
     m, c_int = np.polyfit(x, y, 1)
     return m * 20 + c_int
 
+# 💡 確保呢行有 vcp_52w 同 vcp_ath 接收端！
 def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force_return=False, vcp_52w=False, vcp_ath=False):
     if len(df) < 252: return None 
     
@@ -106,7 +107,7 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
     ttm_2_active = (ttm_2_trigger.rolling(6).sum() > 0) & (var2_ttm > 0) & (dif > dea)
 
     # =======================================================
-    # 🔄 IND1 回升/回落 (完美還原 TDX 邏輯)
+    # 🔄 IND1 回升/回落
     # =======================================================
     llv55 = l.rolling(55).min(); hhv55 = h.rolling(55).max()
     denom = (hhv55 - llv55).replace(0, np.nan)
