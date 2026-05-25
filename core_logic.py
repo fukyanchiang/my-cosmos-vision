@@ -43,7 +43,7 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
     is_cyan = is_burst & (c > o)
     
     # =======================================================
-    # 🏎️ 乖孫專屬：秘法開車與墜機系統
+    # 🏎️ 秘法 3.0：起步系統 + 大戶資金共振 (精準度防乾升)
     # =======================================================
     ma63 = c.rolling(63).mean(); ma126 = c.rolling(126).mean()
     ma189 = c.rolling(189).mean(); ma252 = c.rolling(252).mean()
@@ -55,7 +55,12 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
     new_entry_7d = (gt_05.rolling(7).sum() == 7) & (~gt_05.shift(7).fillna(True))
     power_inc = power_secret > power_secret.shift(1)
     inc_3_in_7 = power_inc.rolling(7).sum() >= 3
-    secret_trigger = new_entry_7d & inc_3_in_7
+    
+    # 💡 3.0 加強：這 7 日之內必須有至少 2 日是「價升量增、大戶掃貨」嘅證據
+    whale_buy = (v > ma20_v) & (c > o) & (c > c.shift(1))
+    whale_in_7d = whale_buy.rolling(7).sum() >= 2
+    
+    secret_trigger = new_entry_7d & inc_3_in_7 & whale_in_7d
     
     recent_high_pow = power_secret.rolling(30).max() >= 5
     drop_below_3 = (power_secret < 3).rolling(3).sum() == 3
@@ -75,7 +80,6 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
     kc_upper = ma_ttm + (1.5 * atr_ttm)
     kc_lower = ma_ttm - (1.5 * atr_ttm)
 
-    # 判斷是否擠壓中，及剛剛解除擠壓的瞬間
     is_squeezing = (bb_upper < kc_upper) & (bb_lower > kc_lower)
     squeeze_fired = (is_squeezing.shift(1) == True) & (is_squeezing == False)
 
@@ -97,8 +101,7 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
     # 4. 終極嚴格觸發：剛剛解除擠壓 (紅轉綠) OR 動能剛剛由負轉正 (第一藍柱)
     ttm_2_trigger = (squeeze_fired | ((var2_ttm > 0) & (var2_ttm.shift(1) <= 0))) & dif_up
     
-    # 🛡️ 雙重保險熄火機制：就算喺 6 日記憶期內...
-    # 只要 (1) 動能跌落負數，或者 (2) MACD 出現死叉 (DIF <= DEA)，火箭即刻沒收！
+    # 🛡️ 雙重保險熄火機制：就算喺 6 日記憶期內，只要 (1)動能轉負數 OR (2)MACD死叉，火箭即刻沒收！
     ttm_2_active = (ttm_2_trigger.rolling(6).sum() > 0) & (var2_ttm > 0) & (dif > dea)
 
     # =======================================================
@@ -220,7 +223,7 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
     else:
         score = 100.0 
 
-    # --- 🌟 乖孫專屬：秘法、TTM2.0、回升回落 ---
+    # --- 🏎️ 升級版秘法、雙保險TTM、回升回落 ---
     if secret_trigger.tail(6).any():
         score += 20; bonus_list.append("秘法起步🏎️(+20)")
     if airplane_crash.iloc[-1]:
