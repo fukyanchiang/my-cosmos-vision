@@ -41,7 +41,7 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
     is_cyan = is_burst & (c > o)
     
     # =======================================================
-    # 🏎️ 秘法 3.6 終極初心版：絕對 0.5 分水嶺 + 嚴格階級演進
+    # 🏎️ 秘法 3.7 終極狀態機版 (乖孫的單程路邏輯)
     # =======================================================
     ma63 = c.rolling(63).mean(); ma126 = c.rolling(126).mean()
     ma189 = c.rolling(189).mean(); ma252 = c.rolling(252).mean()
@@ -51,23 +51,27 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
     current_power = power_secret.iloc[-1]
     
     gt_05 = power_secret > 0.5
-    power_inc = power_secret > power_secret.shift(1)
     
-    # 💡 1. 基礎跑車條件：連續 7 日 > 0.5 且 7 日內有 3 日上升
+    # 💡 斷氣清零機制：每次跌穿 0.5，block_id 就加 1。保證舊車牌作廢！
+    block_id = (~gt_05).cumsum()
+    
+    power_inc = power_secret > power_secret.shift(1)
     is_base_car = (gt_05.rolling(7).sum() == 7) & (power_inc.rolling(7).sum() >= 3)
     
-    # 💡 2. 點火瞬間：基礎跑車 + 7 日前必須 < 0.5 (嚴格 0.5 分水嶺) + 大戶資金
     whale_buy = (v > ma20_v) & (c > o) & (c > c.shift(1))
     whale_in_7d = whale_buy.rolling(7).sum() >= 2
-    ignition_pulse = is_base_car & (power_secret.shift(7) < 0.5) & whale_in_7d
     
-    # 💡 3. 階段判定 (必須先經過 +20，才可以有純公仔)
-    # 頭 10 日出 +20 大獎
-    is_secret_bonus = ignition_pulse.rolling(10).sum() > 0
+    # 💡 點火瞬間：連續 7 日 > 0.5，且第 8 日前係 <= 0.5 (從谷底衝上來)
+    ignition_pulse = is_base_car & (power_secret.shift(7) <= 0.5) & whale_in_7d
     
-    # 曾經有過點火紀錄 (過去 252 日內發生過 ignition_pulse)，現在維持基礎跑車，且過了頭 10 日大獎期
-    has_ignited_ever = ignition_pulse.rolling(252).sum() > 0
-    is_secret_cruise = is_base_car & has_ignited_ever & (~is_secret_bonus)
+    # 💡 查牌機制：追蹤喺「依家呢次保持 >0.5 嘅週期內」，有冇成功點過火？
+    ignited_in_block = ignition_pulse.groupby(block_id).cummax().fillna(False)
+    
+    # 💡 階段 1：起步大獎 (+20) - 點火後頭 10 日內
+    is_secret_bonus = ignited_in_block & (ignition_pulse.rolling(10).sum() > 0)
+    
+    # 💡 階段 2：巡航跑車 - 點火超過 10 日，且喺同一個 block 內從未跌穿 0.5
+    is_secret_cruise = ignited_in_block & (~is_secret_bonus) & gt_05
     
     recent_high_pow = power_secret.rolling(30).max() >= 5
     drop_below_3 = (power_secret < 3).rolling(3).sum() == 3
@@ -158,17 +162,6 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
     if is_dead and not force_return: return None
 
     # =======================================================
-    # 🔮 隱藏公仔基礎條件
-    # =======================================================
-    cond_cyan = is_cyan & (netvol > netvol.rolling(10).mean())
-    cond_narrow = (netma10 > netma10.shift(1)) & ((var3 / l * 100) < 1.5)
-    cond_shield = (change < 0) & (netvol > 0)
-    cond_pit = (change < -1) & is_magenta
-    cond_vcp = (netma10 > 0) & (netma10.shift(1) < 0) & (v < ma20_v)
-    cond_lightning = (v > v_upper) & (buyvol > sellvol * 2)
-    whale_days = sum((v.tail(10) > ma60_v.tail(10) * 1.5) & (netvol.tail(10) > 0))
-
-    # =======================================================
     # 🏆 核心：權重計分
     # =======================================================
     bonus_list = []; core_p = 0; bias_p = 0
@@ -188,7 +181,7 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
     else:
         score = 100.0 
 
-    # --- 🌟 乖孫專屬：絕對 0.5 分水嶺起步大獎 ---
+    # --- 🌟 乖孫初心版：起步大獎 ---
     if is_secret_bonus.iloc[-1]: score += 20; bonus_list.append("秘法起步🏎️(+20)")
     if airplane_crash.iloc[-1]: core_p += 50; foul_list.append("高位墜機🛬(-50)")
     
@@ -226,7 +219,7 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
     hidden_icons = []
     if is_squeezing.iloc[-1]: hidden_icons.append("🤐(蓄勢)")
     
-    # 💡 必須經過 +20 大獎階段，才可以擁有純公仔 🏎️
+    # 💡 必須經歷過大獎，而且冇斷氣，先可以有巡航跑車公仔！
     if is_secret_cruise.iloc[-1]: hidden_icons.append("🏎️")
         
     if cond_cyan.tail(4).any(): hidden_icons.append("💰🔥")
