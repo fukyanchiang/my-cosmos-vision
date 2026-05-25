@@ -62,7 +62,7 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
     airplane_crash = recent_high_pow & drop_below_3
 
     # =======================================================
-    # 🚀 TTM 2.0 嚴格版：擠壓釋放 + 第一爆發點
+    # 🚀 TTM 2.0 嚴格版：擠壓釋放 + 第一爆發點 + 即時熄火
     # =======================================================
     # 1. 計算 Squeeze 狀態 (布林 vs 肯特納)
     n_ttm = 20
@@ -96,7 +96,9 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
 
     # 4. 終極嚴格觸發：剛剛解除擠壓 (紅轉綠) OR 動能剛剛由負轉正 (第一藍柱)
     ttm_2_trigger = (squeeze_fired | ((var2_ttm > 0) & (var2_ttm.shift(1) <= 0))) & dif_up
-    ttm_2_active = ttm_2_trigger.rolling(6).sum() > 0 
+    
+    # 🛡️ 即時熄火機制：就算喺 6 日記憶期內，只要今日動能跌落負數，即刻沒收火箭！
+    ttm_2_active = (ttm_2_trigger.rolling(6).sum() > 0) & (var2_ttm > 0)
 
     # =======================================================
     # 🔄 IND1 回升(紅箭) 與 回落(綠箭) 系統
