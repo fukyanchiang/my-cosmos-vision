@@ -1,288 +1,393 @@
-import pandas as pd
-import numpy as np
-import yfinance as yf
+import streamlit as st 
+import yfinance as yf 
+import pandas as pd 
+import numpy as np 
+import plotly.graph_objects as go 
+from plotly.subplots import make_subplots 
+from core_logic import scan_dragon_logic, smart_fetch, check_stop_loss
 import time
+import os
+import json
 
-def smart_fetch(ticker_sym, period="2y"):
+# ==========================================
+# 🧠 記憶體系統 
+# ==========================================
+MEMORY_FILE = "dragon_memory.json"
+
+if 'dragon_results' not in st.session_state:
+    st.session_state.dragon_results = []
+    st.session_state.sl_list = []
+    if os.path.exists(MEMORY_FILE):
+        try:
+            with open(MEMORY_FILE, 'r', encoding='utf-8') as f:
+                saved_data = json.load(f)
+                st.session_state.dragon_results = saved_data.get('results', [])
+                st.session_state.sl_list = saved_data.get('sl_list', [])
+        except: pass
+
+# ==========================================
+# 🌐 雲端名單及字典 
+# ==========================================
+HK_STOCK_CSV_URL = "https://raw.githubusercontent.com/fukyanchiang/my-cosmos-vision/refs/heads/main/hk_stock.csv"
+HK_ETF_CSV_URL = "https://raw.githubusercontent.com/fukyanchiang/my-cosmos-vision/refs/heads/main/hk_etf.csv"
+
+@st.cache_data(ttl=3600) 
+def fetch_github_list(url):
     try:
-        time.sleep(0.2); asset = yf.Ticker(ticker_sym)
-        data = asset.history(period=period, auto_adjust=True)
-        if data.empty:
-            time.sleep(1.0); data = asset.history(period=period, auto_adjust=True)
-        if data.index.tz is not None: data.index = data.index.tz_localize(None)
-        return data.dropna(subset=['Close', 'Volume', 'High', 'Low', 'Open'])
+        df = pd.read_csv(url)
+        if 'Ticker' in df.columns: df['Ticker'] = df['Ticker'].astype(str)
+        return df
     except: return pd.DataFrame()
 
-def check_stop_loss(df):
-    if len(df) < 15: return False
-    ema10 = df['Close'].ewm(span=10, adjust=False).mean()
-    return df['Close'].iloc[-1] < ema10.iloc[-1] and (df['Close'].iloc[-2] >= ema10.iloc[-2] or df['Close'].iloc[-3] >= ema10.iloc[-3])
+US_STOCK_MAP = {
+    "1. 半導體設備與設計": "NVDA TSM AVGO ASML AMD QCOM TXN MU INTC AMAT LRCX KLAC ADI NXPI MRVL MCHP SWKS MPWR ON LSCC TER QRVO SLAB WOLF SYNA RMBS ALGM SITM ACLS CRUS".split(),
+    "2. AI與大數據雲端": "MSFT GOOGL ORCL ADBE CRM PLTR SNOW PANW FTNT NOW WDAY ZS DDOG CRWD MDB NET OKTA TEAM SPLK GEN CYBR CHKP VRSN ESTC TENB SQSP PCOR DOCN AI FSLY MSTR".split(),
+    "3. 基礎軟件與 SaaS": "INTU VMW CDNS PTC MSTR SPT ALTR MANH GWRE PAYC APPN TYL BLK PEGA BL DT DBX PATH BSY NCNO WK ME LAW ALIT VRM HCP RNG".split(),
+    "4. 網絡安全 (Cyber)": "PANW CRWD FTNT ZS CYBR CHKP GEN TENB NET OKTA S OKTA VRNS QLYS SAIL MIME RPD PFPT FEYE EVBG IMPV".split(),
+    "5. 消費電子與硬件": "AAPL HPQ DELL STX WDC APH TEL LOGI HPE NTAP GLW ST ANET FFIV GRMN LITE SMCI VRT JBL FLEX NVT ROK CSL HUBB CNHI GWW PH SANM PLXS".split(),
+    "6. 通訊與網絡設備": "CSCO MSI JNPR ANET COMM ZBRA JNPR CIEN LITE VIAV ADTN CALX HLIT INFN NTGR ACIA EXTR CRDO FN CLFD".split(),
+    "7. 互聯網平台內容": "META GOOGL PINS SNAP MATCH MTCH IAC OGI YELP BMBL BUMBLE GRND COMP ZIP TRUE CARG MTTR LEA GRPN".split(),
+    "8. 媒體與影視娛樂": "NFLX DIS WBD PARA LYV SPOT SIRI ROKU NWSA NYT FOXA OMC IPG WPP NWS EVC NXST MEG TGNA SSP GTN SGA".split(),
+    "9. 電子商務與零售": "AMZN EBAY ETSY MELI SHOP PDD BABA JD SE CPNG W GMED CVNA FAIR FTCH CHWY OSTK REAL RVLV PRTS QRTEA POSH VIPS BZUN".split(),
+    "10. 傳統零售百貨": "WMT COST TGT DG DLTR KR SYY K DLTR BIG BBY BJ CFG SFM UNFI IMKTA SPTN ANDE VLGEA INTA GROC".split(),
+    "11. 核心消費品": "PG KO PEP PM MO EL CL KDP GIS HSY KHC CPB MKC MDLZ SJM CAG STZ TSN K CPB KHC GIS HSY CPB SJM TAP BF.B CHD POST".split(),
+    "12. 汽車製造商": "F GM STLA TM HMC RACE CARZ HOG WGO REV GOLF LCII WGO REVG SRG".split(),
+    "13. 電動車與自駕 (EV)": "TSLA RIVN LCID LI NIO XPEV MSTR UBER LYFT QS AUR GWB ALV LEA MGA BWA APTV VC THO DORM WGO PSNY FSR GOEV HYZN PTRA LEV VLTA".split(),
+    "14. 汽車零部件": "MGA APTV BWA LEA VC DAN ALV GNTX AXA FOXF SMP THO TEN CTB HY MLR SUP MOD PRG".split(),
+    "15. 航空航天與國防": "LMT RTX NOC GD BA TDG HWM LHX LDOS TXT HEI WWD SPR BWXT AVAV KTOS MRCY ATRO NP KEX ESLT CW ST VSEC ASIX AJRD KAMN".split(),
+    "16. 重型機械裝備": "CAT DE CMI PCAR OSK TEX TRN ALG GGW HY ALG REVG B RC BRC RAIL ARNC WNC GBX".split(),
+    "17. 工業綜合集團": "GE HON MMM EMR ITW ETN PH ROK DOV URI IR PNR GWW NDSN AOS SWK SNA FLS LECO IEX GGG TTC NVT HUBB".split(),
+    "18. 運輸與物流": "UNP UPS FDX NSC CSX LSTR OPY SAIA MATX ARCB XPO KNX SNDR HTLD PTEN CVTI WERN HUBG MRIN YELL EEX USX".split(),
+    "19. 航空與機場": "LUV DAL AAL UAL ALK JBLU SAVE HA SKYW SNC LTM ULCC MESA JOBY ACHR".split(),
+    "20. 旅遊酒店博彩": "BKNG ABNB MAR HLT LVS WYNN MGM RCL CCL EXPE NCLH WH CHH PENN CZR BALY CHDN RRR GDEN PLCE SG".split(),
+    "21. 餐飲連鎖": "MCD SBUX YUM CMG DPZ DRI QSR YUMC TXRH DARD BLMN EAT CAKE PLAY DENN RUTH PZZA WEN SHAK JACK TACO CHUY".split(),
+    "22. 商業銀行巨頭": "JPM BAC WFC C GS MS AXP BLK V MA PYPL DFS SYF ALL COF COF AXP DFS SYF ALL RF CFG FITB MTB HBAN KEY CMA ZION".split(),
+    "23. 區域性銀行": "KRE PNC TFC USB EWBC WAL PACW FRC SNV FHN BOKF WTFC CFR CUBI PB CTBI ONB BOH UMBF CBSH FNB CATY".split(),
+    "24. 投資與資產管理": "BLK BX TROW APO KKC KKR CG ARES OWL OAK STEP BEN STT BK NTRS IVZ JHG AMG LAZ APAM".split(),
+    "25. 金融科技與支付": "V MA SQ PYPL AFRM SOFI NU GPN FIS FI FISV TOST MQ BILL FLYW REVG BKI LPRO IIIV HAE FOR EVTC RPCE FLT WEX REVG".split(),
+    "26. 保險經紀與服務": "CB PGR TRV MET AIG PRU TRV HIG AFL L AL MKL CINF RGA RE WRB GL CNA AFG SIGI THG KMPR".split(),
+    "27. 傳統製藥巨頭": "LLY NVO JNJ MRK ABBV PFE AMGN VRTX REGN GILD BMY BMY GSK SNY AZN NVS TEVA TAK RHHBY".split(),
+    "28. 大中型生物科技": "MRNA BNTX BIIB INCY BMRN ALXN SGEN EXAS ILMN ALNY SRPT VRTX BMRN UTHR ARGX DNA CRSP NTLA EDIT BEAM".split(),
+    "29. 醫療設備與器械": "MDT ABT SYK BSX EW BDX ISRG ZBH STE ALGN RMD HOLX XRAY COO TFX PEN RES IART GMED OMCL".split(),
+    "30. 醫療服務與管理": "UNH ELV CVS CI HUM HCA CNC MOH ACHC SEM EHC CHE MODV OPK ADUS DVA USPH AMN EHC NHC CHE".split(),
+    "31. 基因與生命科學": "ILMN TMO A TMO DHR CTLT WAT IQV MTD BRKR PKI CRL BIO TECH MED PINC QGEN NEO NEO EXAS".split(),
+    "32. 傳統能源 (油氣)": "XOM CVX COP SLB HAL MPC PSX VLO OXY HES DVN EOG PXD FANG CXO CLR MRO PXD FANG MUR MRO APA MTDR".split(),
+    "33. 油氣設備與服務": "SLB HAL BKR FTI NBR NOV CHX WTTR PTEN LBRT OIS RES HLX NCS NEX NINE SOI WTTR".split(),
+    "34. 太陽能與清潔能源": "FSLR ENPH SEDG RUN SHLS NEE BE CWEN AY NOVA MAXN SPWR ARRY STEM PLUG DQ JKS CSIQ NEP HASI BEP PEGI TPIC".split(),
+    "35. 公用事業 (水電)": "NEE SO DUK SRE AEP D EXC PCG FE ED PEG XEL WEC ES AWK LNT CMS NI ATO EVRG PNW CNP DTE PPL".split(),
+    "36. 基礎與特殊化工": "LIN APD DOW LYB CE IFF ECL FMC EMN CF MOS NTR SMG WLK HUN ALB OLN ASH KRA GRA GGG FUL".split(),
+    "37. 鋼鐵與基礎金屬": "NUE STLD X CLF RS RS CMP WOR RYI TMST CRS HAYN KALU ATI SCHN USAP ZEUS".split(),
+    "38. 黃金與貴金屬": "NEM GOLD FCX SCCO AEM KGC WPM RGLD FNV HL CDE EXK IAG GORO GSS SA MUX TRX EGO AUY".split(),
+    "39. 住宅房地產開發": "LEN DHI PHM TOL NVR KBH TMHC MDC MHO LGIH GRBK CCS BLD BZH HOV TPH".split(),
+    "40. 商業地產 REITs": "PLD AMT EQIX CCI PSA O SPG VICI CBRE ARE DRE EXR DLR MAA AVB WELL VTR PEAK INV INVH CPT ESS UDR EQR".split(),
+    "41. 特殊與基建 REITs": "AMT CCI SBAC DLR EQIX CONE COR QTS IRM LAMR OUT UNIT GLPI VICI EPR LXP".split(),
+    "42. 加密貨幣與區塊鏈": "COIN MSTR MARA RIOT HUT CLSK CIFR BITF HIVE SDIG BTBT GLXY WULF CORZ ARBK IREN".split(),
+    "43. 農業與肥料": "DE CTVA CF MOS NTR FMC SMG SQM IPI UAN SEB BIOC LMNR AVD CVA LNN".split(),
+    "44. 體育戶外與服飾": "NKE LULU UA UAA CROX DECK ONON SKX PLCE FL LEVI VFC KTB BOOT WWW SHOO TBLA RCKY".split(),
+    "45. 教育科技": "CHGG COUR LRN TWOU PRDO STRA APEI ATGE LOPE UTI LAUR BFAM".split(),
+    "46. 太空與前沿探索": "SPCE RKLB PL BKSY ASTS RDW MNTS LLAP SIDU SPIR SATS SPIR LUNR ACHR JOBY".split(),
+    "47. 機器人與自動化": "PATH SYM CGNX ISGN KEX LECO ROK PTC FARO FLIR ALTR NVMI ACLS CAMT ICHR COHU".split(),
+    "48. 中型價值精選": "WSM GPC WSM WILLIAMS TSCO ODFL MIDD SAIA R EXPD CHRW GGG DOV NDSN LECO WTS ITW".split(),
+    "49. 小型爆發精選": "CELH WING APP ELF ANF MOD MSTR SMCI TMDX AXON FOUR INDI VRT ALKT ACLS MOD ONTO POWI".split(),
+    "50. 超微型探索 (Micro)": "SOUN RXRX AI BBAI HIVE VLD IONQ BBAI CRDO NRDS INDI LUNA QBTS KTRA RGTI ARQQ INVZ".split()
+}
 
-def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force_return=False, vcp_52w=False, vcp_ath=False):
-    if len(df) < 252: return None 
-    
-    # =======================================================
-    # 0. 基礎數據準備
-    # =======================================================
-    c = df['Close']; h = df['High']; l = df['Low']; o = df['Open']; v = df['Volume']
-    curr_p = c.iloc[-1]; pct = c.pct_change().fillna(0); change = pct * 100
-    ma20_v = v.rolling(20).mean(); ma60_v = v.rolling(60).mean(); ma50 = c.rolling(50).mean()
-    v_std20 = v.rolling(20).std(); v_upper = ma20_v + (2.0 * v_std20)
-    ema10 = c.ewm(span=10, adjust=False).mean()
-    ema20 = c.ewm(span=20, adjust=False).mean()
-    
-    var1 = c - l; var2 = h - c; var3 = np.maximum(h - l, 0.001)
-    buyvol = v * var1 / var3; sellvol = v * var2 / var3; netvol = buyvol - sellvol
-    netma10 = netvol.rolling(10).mean()
-    obv = (np.sign(pct) * v).cumsum()
+US_ETF_MAP = {
+    "U1. Thematic 主題 A (1-70)": "BWET OIH LIT GSG XTL PDBC DBC SOXX FCG SLX IXC REMX ROKT FENY VDE AIS SMH XOP IYE XLE AIRR UFO XBI IDGT TAN DTCR ICLN XME KRE GRID IFRA PAVE XSMO XMMO KBWB VIS SPHB XLI SLYG IJK XSD IJT IVOG EXI ARTY URNM ROBO FXR IWM RSPT QTUM VBK IXN IWO VTWG ARKQ ARKX NUKZ URA NLR GNR GUNR SIL COPX GDX GDXJ IAU GLD IBB GDE QQQ VOX".split(),
+    "U2. Thematic 主題 B (71-140)": "FCOM ONEQ MLPX FBCG SPMO IVW SPYG XLK IGM QGRW FTEC VGT QTEC TDIV IYW AIQ XT FELG MGK VUG IWF IWY SCHG MAGS EMLP XLB KOMP BOTZ VAW SOYB AMLP BCI ARKG FTGC KBE CORN EUFN USRT RWR SPXT ICF SCHH NFRA RWO DFAR DIA IYJ REET FUTY VPU IYR VNQ FREL DFGR UTES IMCG FTC SLV XAR SILJ ITA WEAT PPLT VEGI MOO IGF TAGS VDC".split(),
+    "U3. Thematic 主題 C (141-214)": "FSTA XLP DBA FXU SPY IDU XLU XLRE CGW QQQE IYF XLC IAI JGRO FDIS VCR SHLD ARKK BLOK SPLV XLY FTXG IYK IXJ IYG PALL XHB BKCH ARKW LQD HYG VHT FHLC IYH XLV VNQI IYC QQEW ITB TLT FIW XLF VFH FNCL IWP CIBR HACK VOT FDN SKYY IHI PHO BIZD CANE BUG IGV GBTC BTC HODL FBTC ARKB BITB IBIT BITO ARKF ETHA".split(),
+    "U4. SPDR 核心板塊": "XLE XBI XLI XLK XLB XLP XLU XLRE XLC XLY XLV XLF".split(),
+    "U5. 全球國家/地區": "EWY EWZ ILF EIS EWT TUR ECH EFNL EWC EWP EWH EWI EPOL EPU EWW THD VNM EWM EWA EWJ EWN EWS EWQ EZA EWU EWL SPY KSA EWD EWG UAE QAT EPHE FXI EIDO INDA".split()
+}
 
-    is_burst = (v > v_upper) & (v > ma60_v * 1.9) & (abs(change) > 2.0)
-    is_magenta = is_burst & (c <= o)
-    is_cyan = is_burst & (c > o)
-    
-    # =======================================================
-    # 🏎️ 秘法 3.7 終極狀態機版 
-    # =======================================================
-    ma63 = c.rolling(63).mean(); ma126 = c.rolling(126).mean()
-    ma189 = c.rolling(189).mean(); ma252 = c.rolling(252).mean()
-    
-    rs_secret = (2 * c / ma63.replace(0, np.nan)) + (c / ma126.replace(0, np.nan)) + (c / ma189.replace(0, np.nan)) + (c / ma252.replace(0, np.nan))
-    power_secret = rs_secret - 5
-    current_power = power_secret.iloc[-1]
-    
-    gt_05 = power_secret > 0.5
-    block_id = (~gt_05).cumsum()
-    power_inc = power_secret > power_secret.shift(1)
-    is_base_car = (gt_05.rolling(7).sum() == 7) & (power_inc.rolling(7).sum() >= 3)
-    
-    whale_buy = (v > ma20_v) & (c > o) & (c > c.shift(1))
-    whale_in_7d = whale_buy.rolling(7).sum() >= 2
-    
-    ignition_pulse = is_base_car & (power_secret.shift(7) <= 0.5) & whale_in_7d
-    ignited_in_block = ignition_pulse.groupby(block_id).cummax().fillna(False)
-    
-    is_secret_bonus = ignited_in_block & (ignition_pulse.rolling(10).sum() > 0)
-    is_secret_cruise = ignited_in_block & (~is_secret_bonus) & gt_05
-    
-    recent_high_pow = power_secret.rolling(30).max() >= 5
-    drop_below_3 = (power_secret < 3).rolling(3).sum() == 3
-    airplane_crash = recent_high_pow & drop_below_3
+# --- 黑魂 UI 設定 ---
+st.set_page_config(page_title="龍魂神殿 5.0", layout="wide")
+st.markdown("""
+    <style>
+    .stApp { background-color: #0e1117 !important; color: #FFFFFF !important; }
+    div.stButton > button { background-color: #000000 !important; color: #FFFFFF !important; border: 2px solid #FFFFFF !important; border-radius: 0px !important; font-weight: 900 !important; width: 100%; margin-bottom: 5px; }
+    div.stButton > button:hover { background-color: #FFFFFF !important; color: #000000 !important; }
+    .dragon-card { border-left: 5px solid #00FFCC; background-color: #111111; padding: 15px; margin-bottom: 10px; border-radius: 5px; box-shadow: 0 0 10px rgba(0,255,204,0.1); }
+    .data-row { font-size: 0.95rem; color: #CCCCCC; margin-top: 8px; line-height: 1.6; }
+    .bear-warning { color: #FF0000 !important; font-size: 1.5rem; font-weight: 900; text-align: center; border: 3px dashed red; background-color: #220000; padding: 15px; margin: 10px 0; border-radius: 10px;}
+    </style>
+""", unsafe_allow_html=True)
 
-    # =======================================================
-    # 🚀 TTM 2.0 雙重保險版
-    # =======================================================
-    n_ttm = 20
-    ma_ttm = c.rolling(n_ttm).mean()
-    std_ttm = c.rolling(n_ttm).std()
-    atr_ttm = (h - l).rolling(n_ttm).mean()
-    is_squeezing = (ma_ttm + 2*std_ttm < ma_ttm + 1.5*atr_ttm) & (ma_ttm - 2*std_ttm > ma_ttm - 1.5*atr_ttm)
-    squeeze_fired = (is_squeezing.shift(1) == True) & (is_squeezing == False)
-
-    weights_20 = np.arange(1, 21) / 210.0
-    var1_ttm = (h.rolling(20).max() + l.rolling(20).min()) / 2 + ma_ttm
-    delta_ttm = c - (var1_ttm / 2)
-    var2_ttm = 3 * delta_ttm.rolling(20).apply(lambda x: np.dot(x, weights_20), raw=True) - 2 * delta_ttm.rolling(20).mean()
-
-    ema12 = c.ewm(span=12, adjust=False).mean(); ema26 = c.ewm(span=26, adjust=False).mean()
-    dif = ema12 - ema26; dea = dif.ewm(span=9, adjust=False).mean()
-    dif_up = (dif > dea) & (dif > dif.shift(1))
-
-    ttm_2_trigger = (squeeze_fired | ((var2_ttm > 0) & (var2_ttm.shift(1) <= 0))) & dif_up
-    ttm_2_active = (ttm_2_trigger.rolling(6).sum() > 0) & (var2_ttm > 0) & (dif > dea)
-
-    # =======================================================
-    # 🔄 IND1 回升/回落
-    # =======================================================
-    llv55 = l.rolling(55).min(); hhv55 = h.rolling(55).max()
-    denom = (hhv55 - llv55).replace(0, np.nan)
-    ema2 = c.ewm(span=2, adjust=False).mean()
-    ind1_raw = (ema2 - llv55) / denom
-    ind1 = ind1_raw.ewm(span=13, adjust=False).mean()
+# --- 能量副圖 ---
+def add_energy_subplots(fig, df, dates_chart, row_start):
+    var1 = df['Close'] - df['Low']; var2 = df['High'] - df['Close']; var3 = np.maximum(df['High'] - df['Low'], 0.001)
+    buyvol = np.where(var3 > 0, df['Volume'] * var1 / var3, 0)
+    sellvol = np.where(var3 > 0, df['Volume'] * var2 / var3, 0)
+    netvol = buyvol - sellvol
+    netma = pd.Series(netvol).rolling(10, min_periods=1).mean()
     
-    up_arrow = (ind1 > 0.501) & (ind1.shift(1) <= 0.501) & (ind1 >= ind1.rolling(2).max())
-    down_arrow = (ind1 < 0.499) & (ind1.shift(1) >= 0.499) & (ind1 <= ind1.rolling(2).min())
+    fig.add_trace(go.Bar(x=dates_chart, y=buyvol, marker_color='#808000', name='買盤', opacity=0.6, hoverinfo='skip'), row=row_start, col=1)
+    fig.add_trace(go.Bar(x=dates_chart, y=-sellvol, marker_color='#800000', name='賣盤', opacity=0.6, hoverinfo='skip'), row=row_start, col=1)
+    net_colors = ['#00FF00' if val > 0 else '#FF0000' for val in netvol]
+    fig.add_trace(go.Bar(x=dates_chart, y=netvol, marker_color=net_colors, name='淨勝方', width=0.4), row=row_start, col=1)
+    fig.add_trace(go.Scatter(x=dates_chart, y=netma, mode='lines', line=dict(color='white', width=2), name='氣脈10MA'), row=row_start, col=1)
+
+    v_ma = df['Volume'].rolling(20, min_periods=1).mean()
+    v_std = df['Volume'].rolling(20, min_periods=1).std().fillna(0)
+    v_upper = v_ma + (2.0 * v_std); ma60 = df['Volume'].rolling(60, min_periods=1).mean(); roc = abs(df['Close'].pct_change()) * 100
+    is_burst = (df['Volume'] > v_upper) & (df['Volume'] > ma60 * 1.9) & (roc > 2.0)
+    burst_colors = ['#00FFFF' if (is_burst.iloc[i] and df['Close'].iloc[i] > df['Open'].iloc[i]) else ('#FF00FF' if is_burst.iloc[i] else 'rgba(136,136,136,0.3)') for i in range(len(df))]
+    fig.add_trace(go.Bar(x=dates_chart, y=df['Volume'], marker_color=burst_colors, name='能量雷達'), row=row_start+1, col=1)
+
+    daily_change = df['Close'].pct_change() * 100
+    change_colors = ['#00FF00' if val >= 0 else '#FF0000' for val in daily_change]
+    fig.add_trace(go.Bar(x=dates_chart, y=daily_change, marker_color=change_colors, name='日波幅%'), row=row_start+2, col=1)
+
+# --- 🏠 狀態管理 ---
+if 'page' not in st.session_state: st.session_state.page = 'HOME'
+if 'target' not in st.session_state: st.session_state.target = 'NONE'
+if 'scan_mode' not in st.session_state: st.session_state.scan_mode = 'NORMAL'
+
+if st.session_state.page == 'HOME':
+    st.markdown("<h1 style='text-align:center;font-size:4rem;margin-top:80px;color:#FFD700;'>🐲 龍魂戰略總部</h1>", unsafe_allow_html=True)
+    c1, c2, c3 = st.columns(3)
     
-    last_up_idx = -1; last_down_idx = -1
-    for i in range(1, 31):
-        idx = -i
-        if len(ind1) >= i:
-            if last_up_idx == -1 and up_arrow.iloc[idx]: last_up_idx = i
-            if last_down_idx == -1 and down_arrow.iloc[idx]: last_down_idx = i
+    if c1.button("🐉 龍魂神殿 (普通掃描)"): 
+        st.session_state.page = 'DRAGON'
+        st.session_state.scan_mode = 'NORMAL'
+        st.rerun()
+        
+    if c2.button("📈 VCP 獵龍 (高勝率模式)"): 
+        st.session_state.page = 'DRAGON'
+        st.session_state.scan_mode = 'VCP'
+        st.rerun()
+        
+    if c3.button("🐢 海龜加注"): 
+        st.info("海龜 模式運作中")
+        st.session_state.page = 'DRAGON'
+        st.session_state.scan_mode = 'NORMAL'
+        st.rerun()
+
+# --- 🐉 龍魂神殿 5.0 ---
+elif st.session_state.page == 'DRAGON':
+    mode_display = "📈 VCP 高勝率獵龍" if st.session_state.scan_mode == 'VCP' else "🐉 龍魂神殿 5.0 旗艦雷達"
+    st.markdown(f"<h1 style='text-align:center; color:#00FFCC;'>{mode_display}</h1>", unsafe_allow_html=True)
+    
+    nav = st.columns(6)
+    if nav[0].button("⬅️ 返回總部"): 
+        st.session_state.page = 'HOME'
+        st.rerun()
+    if nav[1].button("🇭🇰 港股"): st.session_state.target = 'HK'
+    if nav[2].button("🇺🇸 美股"): st.session_state.target = 'US'
+    if nav[3].button("📦 ETF"): st.session_state.target = 'ETF'
+    if nav[4].button("🔍 個股"): st.session_state.target = 'SINGLE'
+    
+    st.markdown("---")
+    
+    c_ath, c_btn = st.columns([3, 1])
+    with c_ath: 
+        is_ath_mode = st.checkbox("🔥 啟動 ATH 歷史新高極致過濾")
+        vcp_52w = st.checkbox("🎯 啟動 MM 原汁原味 52週高位 25% 內過濾")
+    
+    selected_tickers = []; market_mode = "HK"; btn_radar = False
+
+    if st.session_state.target == 'US':
+        st.write("### 🇺🇸 選擇美股戰略名單：")
+        m = st.columns(5)
+        files = [("SP500_Equities.csv", "大藍籌"), ("Market_Focus.csv", "精選"), ("Industry_Focus.csv", "行業"), ("Core_Stocks.csv", "核心"), ("US_ETFs.csv", "美股ETF")]
+        for i, (f, name) in enumerate(files):
+            if m[i].button(f"選定 {name}"): 
+                st.session_state.active_file = f
+                st.success(f"✅ 已選定 {f}")
+        with c_btn: btn_radar = st.button("📡 啟動 5.0 雙線雷達", use_container_width=True)
+
+    elif st.session_state.target == 'SINGLE':
+        st.write("### 🔍 個股自訂掃描：")
+        col1, col2 = st.columns([3, 1])
+        with col1: single_t = st.text_input("輸入股票代號 (例: NVDA, 0700.HK, TSLA)", "").upper().strip()
+        with col2:
+            st.write("<br>", unsafe_allow_html=True)
+            if st.button("📡 立即分析此股", use_container_width=True): 
+                if single_t:
+                    selected_tickers = [(single_t, "自選個股")]
+                    btn_radar = True
+                else: st.warning("請先輸入代號！")
+
+    elif st.session_state.target == 'HK':
+        st.write("### 🇭🇰 港股板塊掃描 (雲端 600 隻實時同步)：")
+        df_hk = fetch_github_list(HK_STOCK_CSV_URL)
+        hk_sectors = sorted(df_hk['Sector'].dropna().unique().tolist()) if not df_hk.empty else []
+        s_choice = st.selectbox("選擇範圍", ["🌐 啟動全星系大規模搜索"] + hk_sectors)
+        with c_btn: btn_radar = st.button("📡 啟動 5.0 雙線雷達", use_container_width=True)
+
+    elif st.session_state.target == 'ETF':
+        st.write("### 📦 港股/美股 ETF 掃描 (雲端 140 隻實時同步)：")
+        df_etf = fetch_github_list(HK_ETF_CSV_URL)
+        etf_sectors = sorted(df_etf['Sector'].dropna().unique().tolist()) if not df_etf.empty else []
+        s_choice = st.selectbox("選擇範圍", ["🌐 啟動全星系大規模搜索 (僅限港股 ETF)"] + etf_sectors + list(US_ETF_MAP.keys()))
+        with c_btn: btn_radar = st.button("📡 啟動 5.0 雙線雷達", use_container_width=True)
+
+    # ==========================================
+    # 🚀 執行 5.0 雷達邏輯
+    # ==========================================
+    if btn_radar:
+        if st.session_state.target == 'SINGLE': market_mode = "US" if not selected_tickers[0][0].endswith(".HK") else "HK"
+        elif st.session_state.target == 'US' and hasattr(st.session_state, 'active_file'):
+            try:
+                df_csv = pd.read_csv(st.session_state.active_file)
+                col = [c for c in df_csv.columns if c.lower() in ['ticker', 'symbol', '代號']][0]
+                selected_tickers = [(t, "美股戰略") for t in df_csv[col].dropna().unique()]
+                market_mode = "US"
+            except: st.error("讀取 CSV 失敗，請檢查檔案是否存在。")
+        elif st.session_state.target == 'HK':
+            df_hk = fetch_github_list(HK_STOCK_CSV_URL)
+            if not df_hk.empty:
+                if "全星系" in s_choice: selected_tickers = list(df_hk.itertuples(index=False, name=None))
+                else: selected_tickers = list(df_hk[df_hk['Sector'] == s_choice].itertuples(index=False, name=None))
+            market_mode = "HK"
+        elif st.session_state.target == 'ETF':
+            df_etf = fetch_github_list(HK_ETF_CSV_URL)
+            raw_list = []
+            if "全星系" in s_choice:
+                if not df_etf.empty: raw_list.extend(list(df_etf.itertuples(index=False, name=None)))
+                selected_tickers = raw_list
+                market_mode = "HK"
+            else:
+                if s_choice in US_ETF_MAP:
+                    selected_tickers = [(t, s_choice) for t in US_ETF_MAP[s_choice]]
+                    market_mode = "US"
+                else:
+                    selected_tickers = list(df_etf[df_etf['Sector'] == s_choice].itertuples(index=False, name=None))
+                    market_mode = "HK"
+
+        if selected_tickers:
+            st.info(f"🚀 5.0 引擎掃描中 ({len(selected_tickers)} 隻) | 模式: {st.session_state.scan_mode}...")
+            results = []; sl_list = []; pb = st.progress(0)
+            is_single_mode = (st.session_state.target == 'SINGLE')
+            
+            for i, (t, sec) in enumerate(selected_tickers):
+                pb.progress((i+1)/len(selected_tickers))
+                df = smart_fetch(t)
+                if not df.empty:
+                    if is_ath_mode and (df['Close'].iloc[-1] / df['High'].tail(252).max()) < 0.93: 
+                        if not is_single_mode: continue
+                    if check_stop_loss(df): sl_list.append(t)
+                    
+                    res = scan_dragon_logic(df, t, sec, market_mode, mode=st.session_state.scan_mode, force_return=is_single_mode, vcp_52w=vcp_52w, vcp_ath=is_ath_mode)
+                    if res: results.append(res)
+            
+            pb.empty()
+            
+            if results:
+                sector_counts = {}
+                for r in results:
+                    if not r.get('IsDead'):
+                        sec = r['Sector']
+                        sector_counts[sec] = sector_counts.get(sec, 0) + 1
                 
-    is_rebound_active = (last_up_idx != -1) and (last_up_idx <= 6)
-    is_weak_active = (last_down_idx != -1) and (last_down_idx <= 30)
-    if is_weak_active and (last_up_idx != -1) and (last_up_idx < last_down_idx): is_weak_active = False
+                results = sorted(results, key=lambda x: x['Score'], reverse=True)
+                for r in results:
+                    if not r.get('IsDead') and sector_counts.get(r['Sector'], 0) >= 3:
+                        if "📊" not in r['Icons']: r['Icons'] += " 📊"
+                
+                st.session_state.dragon_results = results
+                st.session_state.sl_list = sl_list
+                
+                try:
+                    with open(MEMORY_FILE, 'w', encoding='utf-8') as f:
+                        json.dump({'results': results, 'sl_list': sl_list}, f, ensure_ascii=False)
+                except Exception as e: st.error(f"儲存記憶失敗: {e}")
 
-    # =======================================================
-    # 第二階段 (PRUDEN + WEIS)
-    # =======================================================
-    e50 = c.ewm(span=50, adjust=False).mean(); e150 = c.ewm(span=150, adjust=False).mean(); e200 = c.ewm(span=200, adjust=False).mean()
-    pruden_score = (c > e50).astype(int) + (e50 > e150).astype(int) + (e150 > e200).astype(int) + (((c - e50)/e50*100) > 0).astype(int)
-    pruden_break = (pruden_score == 4) & (pruden_score.shift(1) < 4)
-    weis_dir = np.sign(c - c.shift(1)); weis_vol = abs(v * weis_dir)
-    buy_f = pd.Series(np.where(weis_dir > 0, weis_vol, 0), index=c.index).rolling(5).sum()
-    sell_f = pd.Series(np.where(weis_dir < 0, weis_vol, 0), index=c.index).rolling(5).sum()
-    net_thrust = buy_f - sell_f
-    thrust_3_inc = (net_thrust > net_thrust.shift(1)) & (net_thrust.shift(1) > net_thrust.shift(2)) & (net_thrust.shift(2) > (0.3 * 1e6))
-    stage_2_signal = thrust_3_inc & pruden_break.rolling(14).max().fillna(0).astype(bool)
+                if is_single_mode: st.session_state.force_chart_ticker = selected_tickers[0][0]
+                
+                st.success("✅ 掃描完成！結果已自動封裝入記憶體，唔會再消失！")
+                time.sleep(0.5)
+                st.rerun() 
+            else: 
+                if not is_single_mode: st.warning("💤 萬人坑內無生還者。")
 
-    # =======================================================
-    # 🚨 第一層：7大禁示 + 死線判定
-    # =======================================================
-    foul_points = 0; foul_list = []
-    if is_magenta.tail(20).any(): foul_points += 10; foul_list.append("犯1(-10)")
-    if ((change > 0) & (netvol < 0)).tail(20).any(): foul_points += 10; foul_list.append("犯2(-10)")
-    if ((v > ma60_v * 2.0) & (change < 2.0) & (change >= 0)).tail(20).any(): foul_points += 10; foul_list.append("犯3(-10)")
-    if (netvol.rolling(5).sum() < 0).tail(20).any(): foul_points += 10; foul_list.append("犯4(-10)")
-    if ((change.shift(1) > 5.0) & (v < v.shift(1) * 0.5)).tail(20).any(): foul_points += 10; foul_list.append("犯5(-10)")
-    if ((((c - ma50)/ma50)*100 > 15) & (v > ma60_v * 3.0)).tail(20).any(): foul_points += 10; foul_list.append("犯6(-10)")
-    if ((c >= c.shift(10)) & (obv < obv.shift(10))).tail(20).any(): foul_points += 10; foul_list.append("犯7(-10)")
 
-    rs_val = 80 + (curr_p / ma50.iloc[-1] * 10)
-    ej_val = 85 + (netvol.tail(20).sum() / max(ma20_v.iloc[-1]*20, 1) * 5)
-    se_val = 75 + (pct.tail(20).sum() * 100)
-    conc = (abs(netvol.tail(20)).max() / max(abs(netvol.tail(20)).sum(), 1)) * 100
-    bias = ((curr_p - ma50.iloc[-1]) / ma50.iloc[-1]) * 100
-    
-    obv_curr = obv.iloc[-1] - obv.iloc[-21] if len(obv)>20 else 0
-    obv_prev = obv.iloc[-21] - obv.iloc[-41] if len(obv)>40 else 1
-    obv_pct = (obv_curr - obv_prev) / max(abs(obv_prev), 1) * 100
-    p_trend = c.iloc[-1] - c.iloc[-21]
-    if p_trend >= 0:
-        if obv_curr > 0: obv_state = 1 if obv_pct > 50 else 2
-        else: obv_state = 5 if obv_pct < -50 else 6
-    else:
-        if obv_curr < 0: obv_state = 3 if obv_pct < -50 else 4
-        else: obv_state = 7 if obv_pct > 50 else 8
-
-    is_dead = False; death_reason = ""
-    if curr_p <= ma50.iloc[-1]: is_dead = True; death_reason = "跌穿50天線"
-    elif is_magenta.iloc[-1]: is_dead = True; death_reason = "今日粉紅爆缸"
-    elif not (rs_val > 60 and ej_val > 85 and se_val > 75 and netvol.tail(20).sum() > 0): 
-        is_dead = True; death_reason = "SE或錢流不達標"
-    elif obv_state not in [1, 2, 7, 8]: is_dead = True; death_reason = f"OBV狀態({obv_state})"
-    
-    high_52w = h.tail(252).max()
-    pct_from_52w_high = ((high_52w - curr_p) / high_52w) * 100
-    if not is_dead and vcp_52w and (pct_from_52w_high > 25.0):
-        is_dead = True; death_reason = f"距離52週高位太遠({pct_from_52w_high:.1f}%)"
-    if not is_dead and vcp_ath and (curr_p < h.max() * 0.98):
-        is_dead = True; death_reason = "未達歷史新高(ATH)極致區"
+    # =========================================================
+    # 🏆 顯示掃描結果 (事後動態過濾！)
+    # =========================================================
+    if st.session_state.get('dragon_results'):
         
-    if is_dead and not force_return: return None
-
-    # =======================================================
-    # 🏆 核心計分系統
-    # =======================================================
-    bonus_list = []; core_p = 0; bias_p = 0
-    is_vcp_trend = False; is_vcp_burst_7d = False
-    
-    if mode == 'VCP':
-        score = 0.0 
-        ret_40d = (curr_p - c.iloc[-40]) / c.iloc[-40] if len(c) > 40 else 0
-        if curr_p > ema10.iloc[-1] > ema20.iloc[-1] > ma50.iloc[-1]:
-            score += 50; bonus_list.append("VCP趨勢👑(+50)"); is_vcp_trend = True
-        power_series = buyvol / np.where(sellvol > 0, sellvol, 0.1)
-        vcp_burst_cond = (v > ma20_v * 1.5) & (power_series > 1.2) & (c > o)
-        if vcp_burst_cond.tail(7).any():
-            score += 30; bonus_list.append("VCP爆量⚡(+30)"); is_vcp_burst_7d = True 
-        if ret_40d > 0.15:
-            score += 20; bonus_list.append("VCP強勢🔥(+20)")
-    else:
-        score = 100.0 
-
-    if is_secret_bonus.iloc[-1]: score += 20; bonus_list.append("秘法起步🏎️(+20)")
-    if airplane_crash.iloc[-1]: core_p += 50; foul_list.append("高位墜機🛬(-50)")
-    if is_rebound_active: score += 10; bonus_list.append("回升(+10)")
-    if is_weak_active: core_p += 60; foul_list.append("弱勢(-60)")
-    if ttm_2_active.iloc[-1]: score += 15; bonus_list.append("TTM🚀(+15)")
-
-    if stage_2_signal.tail(4).any(): score += 30; bonus_list.append("第二階段 ♂(+30)")
-    if se_val >= 90.0: score += 5; bonus_list.append("動能(+5)")
-    if (buyvol.iloc[-1] / (sellvol.iloc[-1] if sellvol.iloc[-1]>0 else 0.1)) > 1.5: score += 5; bonus_list.append("兵力(+5)")
-    if obv_state in [1, 7]: score += 10; bonus_list.append("OBV(+10)")
-    total_v60 = max(v.tail(60).sum(), 1)
-    if netvol.tail(60).sum() > (total_v60 * 0.12): score += 5; bonus_list.append("穩定流入(+5)") 
-    if rs_val >= 92.0: score += 5; bonus_list.append("RS(+5)")
-    if curr_p >= h.tail(60).max(): score += 5; bonus_list.append("破頂(+5)")
-
-    limit = 10 if market == "HK" else 5
-    if bias > limit:
-        core_p += 25; bias_p = 50 + (bias - limit) * 10
-        if mode == 'VCP': score -= 40 
-    elif mode == 'VCP' and bias > 8: score -= 40
-    
-    if mode != 'VCP': 
-        if netvol.tail(60).sum() < 0: core_p += 30
-        if v.iloc[-1] > ma60_v.iloc[-1] * 2.5: core_p += 20
-        if (var2.iloc[-1] / var3.iloc[-1]) > 0.5: core_p += 15
-
-    # =======================================================
-    # 🔮 隱藏公仔裝盤 
-    # =======================================================
-    hidden_icons = []
-    if is_squeezing.iloc[-1]: hidden_icons.append("🤐(蓄勢)")
-    if is_secret_cruise.iloc[-1]: hidden_icons.append("🏎️")
+        if st.session_state.get('sl_list'):
+            st.markdown(f"<div class='bear-warning'>🛡️ 戰損置頂: {' | '.join(st.session_state.sl_list)} 跌穿 10-EMA！</div>", unsafe_allow_html=True)
         
-    cond_cyan = is_cyan & (netvol > netvol.rolling(10).mean())
-    cond_narrow = (netma10 > netma10.shift(1)) & ((var3 / l * 100) < 1.5)
-    cond_shield = (change < 0) & (netvol > 0)
-    cond_pit = (change < -1) & is_magenta
-    cond_vcp = (netma10 > 0) & (netma10.shift(1) < 0) & (v < ma20_v)
-    cond_lightning = (v > v_upper) & (buyvol > sellvol * 2)
-    whale_days = sum((v.tail(10) > ma60_v.tail(10) * 1.5) & (netvol.tail(10) > 0))
+        # 💡 神級事後動態過濾開關
+        st.write("---")
+        col_f1, col_f2 = st.columns([1, 3])
+        with col_f1:
+            show_n_shape_only = st.toggle("🔍 只顯示 🪃 N字突破 (今日/昨日剛破頂)")
+        
+        st.write("---")
+        for r in st.session_state.dragon_results:
+            # 💡 一秒隱藏沒有 🪃 的股票，保留所有視覺狀態！
+            if show_n_shape_only and "🪃" not in r['Icons']:
+                continue 
+            
+            border_color = "#FF4B4B" if r.get('IsDead') else "#00FFCC"
+            st.markdown(f"""
+            <div class='dragon-card' style='border-left: 5px solid {border_color};'>
+                <div style='font-size:1.4rem;font-weight:bold;'>{r['Status']} {r['Ticker']} <span style='color:#00FFCC;'>({r['Sector']})</span> {r['Icons']}</div>
+                <div class='data-row'>
+                    <b>戰術總分: {r['Score']}分</b> | 
+                    <b style='color:#FF9900;'>原始戰力: {r.get('RawPower', 0)} 🔥</b> | 
+                    <b style='color:#FF4B4B;'>扣分: {r.get('Penalty', 0)} 🛑</b> | 
+                    <span style='color:#FF4B4B; font-weight:bold;'>🛑 止損(10-EMA): ${r['EMA10']}</span> | Bias: {r['Bias']}%<br>
+                    📈 RS: {r['RS']} | 🔋 EJ: {r['EJ']} | ⚡ SE: {r['SE']} | 🔥 買盤力: {r['Power']}x | 📊 OBV: {r.get('OBV', 'N/A')}
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
 
-    if cond_cyan.tail(4).any(): hidden_icons.append("💰🔥")
-    if cond_narrow.tail(4).any(): hidden_icons.append("💰🤫")
-    if cond_shield.tail(4).any(): hidden_icons.append("💰🛡️")
-    if cond_vcp.tail(4).any(): hidden_icons.append("🧧")
-    if cond_lightning.tail(4).any(): hidden_icons.append("⚡")
-    if cond_pit.tail(20).any(): hidden_icons.append("💎/😱")
-    if whale_days > 0: hidden_icons.append(f"🐋({whale_days}/10)")
-    if netvol.tail(20).sum() > 0 and "🧧" not in hidden_icons: hidden_icons.append("🧧")
+    # =========================================================
+    # 📈 X 光戰術圖 
+    # =========================================================
+    chart_t = None
+    if st.session_state.get('dragon_results'):
+        st.write("---")
+        chart_t = st.selectbox("🎯 查看 X 光戰術圖", [r['Ticker'] for r in st.session_state.dragon_results])
+    elif st.session_state.target == 'SINGLE' and hasattr(st.session_state, 'force_chart_ticker'):
+        chart_t = st.session_state.force_chart_ticker
 
-    # =======================================================
-    # 🪃 事後動態過濾：N 字突破 (捕捉第1日及第2日)
-    # =======================================================
-    # 取過去一週半的最高點作為「阻力前頂」(排除今昨2日，給予洗盤空間)
-    lookback = 8 
-    a_point = h.shift(2).rolling(lookback).max().iloc[-1]
-    a_point_yest = h.shift(3).rolling(lookback).max().iloc[-1]
-    
-    # Day 1: 今日剛突破
-    is_breakout_today = (c.iloc[-1] > a_point) and (c.iloc[-2] <= a_point)
-    # Day 2: 昨日剛突破 (供考慮即日高追)
-    is_breakout_yest = (c.iloc[-2] > a_point_yest) and (c.iloc[-3] <= a_point_yest)
-    
-    if is_breakout_today or is_breakout_yest:
-        score += 20
-        bonus_list.append("N字突破🪃(+20)")
-        hidden_icons.append("🪃")
+    if chart_t:
+        with st.spinner("正在繪製全黑戰術圖表..."):
+            try:
+                df_c = smart_fetch(chart_t, period="6mo")
+                if not df_c.empty:
+                    ema10 = df_c['Close'].ewm(span=10, adjust=False).mean()
+                    dates_chart = df_c.index.strftime('%Y-%m-%d').tolist()
+                    
+                    fig = make_subplots(rows=5, cols=1, shared_xaxes=True, row_heights=[0.45, 0.1, 0.2, 0.15, 0.1], vertical_spacing=0.02)
+                    
+                    fig.add_trace(go.Candlestick(x=dates_chart, open=df_c['Open'], high=df_c['High'], low=df_c['Low'], close=df_c['Close'], name="K線"), row=1, col=1)
+                    fig.add_trace(go.Scatter(x=dates_chart, y=df_c['Close'].rolling(50).mean(), mode='lines', name='50MA', line=dict(color='yellow', width=1.5)), row=1, col=1)
+                    fig.add_trace(go.Scatter(x=dates_chart, y=ema10, name="10 EMA", line=dict(color='orange', width=2, dash='dot')), row=1, col=1)
+                    
+                    recent_high = df_c['High'].tail(20).max()
+                    fig.add_hline(y=recent_high, line_dash="dash", line_color="#00FFCC", annotation_text=f"🎯 買入點: ${recent_high:.2f}", annotation_position="top right", annotation_font=dict(color="white", size=13), row=1, col=1)
+                    
+                    counts, bins = np.histogram(df_c['Close'], bins=30, weights=df_c['Volume'])
+                    max_c = max(counts) if len(counts) > 0 and max(counts) > 0 else 1
+                    hvn_p = (bins[np.argmax(counts)] + bins[np.argmax(counts)+1]) / 2
+                    stop_loss = hvn_p * 0.985
+                    fig.add_hline(y=stop_loss, line_dash="solid", line_color="#FF4B4B", annotation_text=f"🛑 重貨止損: ${stop_loss:.2f}", annotation_position="bottom right", annotation_font=dict(color="white", size=13), row=1, col=1)
+                    
+                    fig.add_trace(go.Bar(y=(bins[:-1]+bins[1:])/2, x=counts, orientation='h', marker_color='rgba(136,136,136,0.4)', name='重貨區', hoverinfo='skip', xaxis='x6', yaxis='y1'))
 
-    # =======================================================
-    # 結算與回傳
-    # =======================================================
-    status_prefix = ""
-    if mode == 'VCP':
-        if is_vcp_trend and cond_narrow.tail(4).any() and cond_vcp.tail(4).any() and ((whale_days > 0) or cond_lightning.tail(4).any()) and is_vcp_burst_7d:
-            status_prefix = "🐲 [真龍 VCP 股出現！請注意！] "
-            score += 50 
+                    v_colors = ['#00FF00' if df_c['Close'].iloc[i] >= df_c['Open'].iloc[i] else '#FF0000' for i in range(len(df_c))]
+                    fig.add_trace(go.Bar(x=dates_chart, y=df_c['Volume'], marker_color=v_colors, name="成交量"), row=2, col=1)
+                    
+                    df_c['Vol50'] = df_c['Volume'].rolling(50).mean()
+                    stars = df_c[(df_c['Close'] > df_c['Open']) & (df_c['Volume'] > df_c['Vol50'] * 1.5)]
+                    if not stars.empty:
+                        star_dates = stars.index.strftime('%Y-%m-%d').tolist()
+                        fig.add_trace(go.Scatter(x=star_dates, y=stars['Volume'], mode='markers', marker=dict(symbol='star', size=14, color='#FFD700'), name='大戶星星'), row=2, col=1)
 
-    final_score = score - core_p - bias_p - foul_points
-    icons_final = " ".join(hidden_icons)
-    display_info = bonus_list + foul_list
-    if display_info: icons_final += " | 🎖️" + ",".join(display_info)
-    base_status = f"[☠️ 落選: {death_reason}]" if is_dead else ("[⚠️ 末段]" if bias > limit else "[👑 趨勢]")
-
-    return {
-        "Ticker": ticker, "Sector": sector_name, "Score": round(final_score, 1), 
-        "RawPower": round(ej_val, 1), "Penalty": round(core_p + bias_p + foul_points, 1),
-        "RS": round(rs_val, 1),
-        "EJ": round(current_power, 3), 
-        "SE": round(se_val, 1),
-        "Flow": f"{netvol.tail(20).sum()/1e6:.1f}M", "Conc": f"{conc:.1f}%", "OBV": f"狀態 {obv_state}",
-        "Power": round(buyvol.iloc[-1]/sellvol.iloc[-1] if sellvol.iloc[-1]>0 else 1, 1), 
-        "Bias": round(bias, 1), "EMA10": round(ema10.iloc[-1], 2),
-        "Status": status_prefix + base_status, 
-        "Icons": icons_final, "IsDead": is_dead
-    }
+                    add_energy_subplots(fig, df_c, dates_chart, row_start=3)
+                    
+                    fig.update_layout(
+                        template="plotly_dark", paper_bgcolor='#0e1117', plot_bgcolor='#111111', height=950, barmode='overlay', 
+                        showlegend=False, hovermode='x unified',
+                        xaxis_rangeslider_visible=False,
+                        xaxis6=dict(overlaying='x1', anchor='y1', side='top', range=[0, max_c*1.1], showgrid=False, showticklabels=False), 
+                        xaxis=dict(type='category', showticklabels=False), xaxis5=dict(type='category', title="日期")
+                    )
+                    st.plotly_chart(fig, use_container_width=True, theme=None)
+            except Exception as e: st.error(f"繪圖出錯: {e}")
