@@ -288,12 +288,9 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
     }
 
 # =======================================================
-# 🔥 爺爺新增：究極資產拔河龍虎榜核心 (防爆對齊 + 手機換行版)
+# 🔥 爺爺新增：究極資產拔河龍虎榜核心 (回歸穩健兩行版)
 # =======================================================
 class AssetRanker:
-    """
-    究極資產排名運算核心 - V188.5 (相對回報Alpha + 防爆對齊 + 手機換行情報)
-    """
     @staticmethod
     def get_rank_and_acceleration(tickers, lookback_days, category_name):
         is_sector_battle = "1029" in category_name
@@ -302,38 +299,31 @@ class AssetRanker:
         if data.empty: return pd.DataFrame()
         
         if isinstance(data.columns, pd.MultiIndex):
-            close_df = data['Close']
-            open_df = data['Open']
-            high_df = data['High']
-            vol_df = data['Volume']
+            close_df = data['Close']; open_df = data['Open']
+            high_df = data['High']; vol_df = data['Volume']
         else:
-            close_df = pd.DataFrame({tickers[0]: data['Close']})
-            open_df = pd.DataFrame({tickers[0]: data['Open']})
-            high_df = pd.DataFrame({tickers[0]: data['High']})
-            vol_df = pd.DataFrame({tickers[0]: data['Volume']})
+            close_df = pd.DataFrame(data['Close'].values, index=data.index, columns=tickers)
+            open_df = pd.DataFrame(data['Open'].values, index=data.index, columns=tickers)
+            high_df = pd.DataFrame(data['High'].values, index=data.index, columns=tickers)
+            vol_df = pd.DataFrame(data['Volume'].values, index=data.index, columns=tickers)
 
-        # 🚀 救命關鍵：先清走完全無數據嘅死股，然後將 Pandas 索引對齊！
+        # 🚀 防爆對齊機制
         close_df = close_df.dropna(axis=1, how='all')
         valid_tickers = close_df.columns
-        
-        open_df = open_df.reindex(columns=valid_tickers).ffill()
-        high_df = high_df.reindex(columns=valid_tickers).ffill()
-        vol_df = vol_df.reindex(columns=valid_tickers).ffill()
-        close_df = close_df.ffill()
+        open_df = open_df[valid_tickers]; high_df = high_df[valid_tickers]; vol_df = vol_df[valid_tickers]
+        close_df = close_df.ffill(); open_df = open_df.ffill(); high_df = high_df.ffill(); vol_df = vol_df.ffill()
 
         if len(close_df) < lookback_days + 10: return pd.DataFrame()
 
-        # 🚀 建立指標 (透過 Series 自動對齊 Ticker，完全消滅 ValueError)
+        # 計算指標
         curr_ret_abs = ((close_df.iloc[-1] - close_df.iloc[-(lookback_days+1)]) / close_df.iloc[-(lookback_days+1)]) * 100
         past_ret_abs = ((close_df.iloc[-6] - close_df.iloc[-(lookback_days+6)]) / close_df.iloc[-(lookback_days+6)]) * 100
-        relative_ret = curr_ret_abs - curr_ret_abs.mean()
+        relative_ret = curr_ret_abs - curr_ret_abs.mean() 
 
         high_52w = high_df.tail(252).max().replace(0, np.nan)
         dist_to_52w = (((high_52w - close_df.iloc[-1]) / high_52w) * 100).fillna(999)
-        
         avg_vol_20 = vol_df.tail(20).mean().replace(0, np.nan)
         rvol = (vol_df.iloc[-1] / avg_vol_20).fillna(0)
-
         prev_close = close_df.iloc[-2].replace(0, np.nan)
         gap_pct = (((open_df.iloc[-1] - prev_close) / prev_close) * 100).fillna(0)
 
@@ -345,27 +335,24 @@ class AssetRanker:
         idx_200d = -201 if len(close_df) >= 201 else 0
         ret_200d = ((close_df.iloc[-1] - close_df.iloc[idx_200d]) / close_df.iloc[idx_200d]) * 100
 
-        # 將數據打包入 DataFrame
         df = pd.DataFrame({
-            'Abs_Return': curr_ret_abs,
-            'Current_Return': relative_ret,
-            'Past_Abs': past_ret_abs,
-            'Rank_200d': ret_200d,
-            'RVOL': rvol,
-            'Dist_52W': dist_to_52w,
-            'Gap': gap_pct,
-            'Streak': streak_3d
-        })
-        df.index.name = 'Ticker'
-        df = df.reset_index().dropna()
+            'Ticker': valid_tickers,
+            'Abs_Return': curr_ret_abs.values,
+            'Current_Return': relative_ret.values,
+            'Past_Abs': past_ret_abs.values,
+            'Rank_200d': ret_200d.values,
+            'RVOL': rvol.values,
+            'Dist_52W': dist_to_52w.values,
+            'Gap': gap_pct.values,
+            'Streak': streak_3d.values
+        }).dropna()
 
-        # 名次計算
         df['Current_Rank'] = df['Abs_Return'].rank(ascending=False, method='min')
         df['Past_Rank'] = df['Past_Abs'].rank(ascending=False, method='min')
         df['Rank_Change'] = df['Past_Rank'] - df['Current_Rank']
         top_10_threshold = max(1, int(len(df) * 0.1))
 
-        # 🚀 救命關鍵：為手機版特設嘅「換行標籤 <br>」
+        # 🚀 救命關鍵：回歸最穩健嘅兩行版
         def generate_label(row):
             chg = int(row['Rank_Change'])
             ticker = row['Ticker']
@@ -390,17 +377,18 @@ class AssetRanker:
 
             tags = f"{vol_tag}{top_tag}{streak_tag}{gap_tag}"
             
-            # 如果有情報，就拆做兩行 (<br>) 顯示，減低左邊闊度負擔
             if tags:
-                return f"{icon} | {rocket}{ticker} ({rel_val:+.1f}%)<br><span style='color:#aaaaaa;font-size:10px;'>{tags}</span>"
+                return f"{icon} | {rocket}{ticker}<br><span style='color:#aaaaaa;font-size:10px;'>({rel_val:+.1f}%) {tags}</span>"
             else:
-                return f"{icon} | {rocket}{ticker} ({rel_val:+.1f}%)"
+                return f"{icon} | {rocket}{ticker}<br><span style='color:#aaaaaa;font-size:10px;'>({rel_val:+.1f}%)</span>"
 
         df['Display_Label'] = df.apply(generate_label, axis=1)
         df = df.sort_values(by='Current_Return', ascending=False).reset_index(drop=True)
 
+        # 12. 行業股過濾
         if is_sector_battle:
             n_30 = max(1, int(len(df) * 0.3))
-            df = pd.concat([df.head(n_30), pd.DataFrame([{'Ticker':'...', 'Current_Return':0, 'Display_Label':'✂️ 中間隱藏雜訊區域 (40%) ✂️'}]), df.tail(n_30)], ignore_index=True)
+            sep = pd.DataFrame([{'Ticker':'...', 'Current_Return':0, 'Display_Label':'✂️ 中間隱藏雜訊區域 ✂️'}])
+            df = pd.concat([df.head(n_30), sep, df.tail(n_30)], ignore_index=True)
 
         return df.iloc[::-1].reset_index(drop=True)
