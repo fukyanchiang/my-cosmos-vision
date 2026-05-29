@@ -288,7 +288,7 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
     }
 
 # =======================================================
-# 🔥 爺爺新增：究極資產拔河龍虎榜核心 (回歸最完美兩行版)
+# 🔥 爺爺新增：究極資產拔河龍虎榜核心 (V188.5 最終滿血版)
 # =======================================================
 class AssetRanker:
     @staticmethod
@@ -352,11 +352,10 @@ class AssetRanker:
         df['Rank_Change'] = df['Past_Rank'] - df['Current_Rank']
         top_10_threshold = max(1, int(len(df) * 0.1))
 
-        # 🚀 兩行排版，將 % 放喺灰色第二行
+        # 🚀 救命關鍵：左邊標籤淨係留公仔，徹底刪除百分比，等畫面更乾淨！
         def generate_label(row):
             chg = int(row['Rank_Change'])
             ticker = row['Ticker']
-            rel_val = row['Current_Return']
             
             is_rocket = (row['Rank_200d'] <= top_10_threshold) and (chg > 0)
             rocket = "🚀 " if is_rocket else ""
@@ -377,10 +376,11 @@ class AssetRanker:
 
             tags = f"{vol_tag}{top_tag}{streak_tag}{gap_tag}".strip()
             
+            # 百分比移出！只顯示公仔情報
             if tags:
-                return f"{icon} | {rocket}{ticker}<br><span style='color:#aaaaaa;font-size:10px;'>({rel_val:+.1f}%) {tags}</span>"
+                return f"{icon} | {rocket}{ticker}<br><span style='color:#aaaaaa;font-size:10px;'>{tags}</span>"
             else:
-                return f"{icon} | {rocket}{ticker}<br><span style='color:#aaaaaa;font-size:10px;'>({rel_val:+.1f}%)</span>"
+                return f"{icon} | {rocket}{ticker}"
 
         df['Display_Label'] = df.apply(generate_label, axis=1)
         df = df.sort_values(by='Current_Return', ascending=False).reset_index(drop=True)
