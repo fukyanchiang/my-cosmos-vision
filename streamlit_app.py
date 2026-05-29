@@ -88,7 +88,7 @@ US_ETF_MAP = {
 }
 
 # ==========================================
-# 🎛️ 側邊欄主控台 (分流切換掣，100%隔離舊功能)
+# 🎛️ 側邊欄主控台
 # ==========================================
 with st.sidebar:
     st.markdown("### 🎛️ 系統主指揮中心")
@@ -101,7 +101,7 @@ with st.sidebar:
 
 
 # ==========================================
-# 🌌 模式一：原本的龍魂雷達系統 (完全原封不動，一條毛都無改)
+# 🌌 模式一：原本的龍魂雷達系統 (原封不動)
 # ==========================================
 if operation_mode == "🐉 龍魂神殿雷達系統":
 
@@ -414,13 +414,41 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
 
 
 # ==========================================
-# 🔥 模式二：新研發 - 究極資產拔河龍虎榜 (V188.5 最終滿血版)
+# 🔥 模式二：新研發 - 究極資產拔河龍虎榜 (加入 8 大情報說明書)
 # ==========================================
 elif operation_mode == "📊 究極資產拔河龍虎榜":
     from core_logic import AssetRanker
     
     st.markdown("<h1 style='text-align:center; color:#FFD700;'>🔥 全宇宙資金流相對強度矩陣</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align:center; color:#888;'>動態監控大戶資金移防，自動派發四大超級情報 🚀🔋🎯⚡</p>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align:center; color:#888;'>動態監控大戶資金移防，自動派發 8 大情報公仔 🚀🔋🎯⚡</p>", unsafe_allow_html=True)
+    st.write("---")
+
+    # ==========================================
+    # 📖 爺爺新增：情報公仔說明書 UI 
+    # ==========================================
+    with st.expander("📖 爺爺的 8 大情報密碼說明書 (按此展開睇秘笈)", expanded=False):
+        st.markdown("""
+        <div style='background-color:#111111; padding: 15px; border-radius: 5px; border-left: 5px solid #FFD700;'>
+            <h4>🟢 / 🔵 排名急升急跌</h4>
+            <ul style='color:#ccc;'>
+                <li><b>🟢 綠色波波：</b> 排名大幅急升 (上升 ≥ 30名)，大戶正在瘋狂搶入！</li>
+                <li><b>🔵 藍色波波：</b> 排名大幅下跌 (下跌 ≥ 30名)，資金正在撤離，萬人坑勿近！</li>
+            </ul>
+            <h4>🚀 / 🔋 引擎與量能</h4>
+            <ul style='color:#ccc;'>
+                <li><b>🚀 火箭公仔：</b> 長線王者！代表該股處於全市場 200 日長線回報嘅前 10%！</li>
+                <li><b>🔋 單個電池：</b> 動能增加，成交量大過平時 1.5 倍，引擎開始熱。</li>
+                <li><b>🔋🔋 兩個電池：</b> 極致爆量！成交量大過平時 3 倍，大戶準備噴射！</li>
+            </ul>
+            <h4>🎯 / 🔥 / ⚡ 價格行為</h4>
+            <ul style='color:#ccc;'>
+                <li><b>🎯 準破頂：</b> 距離 52 週高位不到 3%，隨時 N 字突破爆上！</li>
+                <li><b>🔥 火炎公仔：</b> 連續強勢！排名比前兩日持續進步，熱度爆燈！</li>
+                <li><b>⚡ 閃電 GAP：</b> 今日開市跳空超過 +1.5%，有突發利好消息！</li>
+            </ul>
+        </div>
+        """, unsafe_allow_html=True)
+    
     st.write("---")
 
     col1, col2 = st.columns([2, 1])
@@ -498,12 +526,12 @@ elif operation_mode == "📊 究極資產拔河龍虎榜":
                         orientation='h',
                         color='Current_Return', 
                         color_continuous_scale='YlOrRd', 
-                        # 🚀 顯示右邊的百分比數值
+                        # 🚀 右邊完美出百分比
                         text=df_result.apply(lambda row: f"{row['Current_Return']:.1f}%" if row['Ticker'] != '...' else "", axis=1)
                     )
 
                     fig.update_layout(
-                        title=f"📊 {target_category} - {lookback_days}日 相對回報龍虎榜 (含四大情報補丁)",
+                        title=f"📊 {target_category} - {lookback_days}日 相對回報龍虎榜 (含 8 大情報密碼)",
                         title_font=dict(size=18, color="white"),
                         plot_bgcolor='#0e1117',
                         paper_bgcolor='#0e1117',
@@ -520,18 +548,18 @@ elif operation_mode == "📊 究極資產拔河龍虎榜":
                         ),
                         height=max(600, len(df_result) * 35), 
                         coloraxis_showscale=False,
-                        # 🚀 拉闊右邊 (r=80) 留夠位畀百分比
+                        # 🚀 鎖死左邊界 160 保留公仔，右邊界 80 保留百分比，完美避開螢幕切割
                         margin=dict(l=160, r=80, t=60, b=20),
                         hovermode=False 
                     )
 
-                    # 🚀 救命絕招：cliponaxis=False 確保文字出界都照樣顯示，永不隱藏！
+                    # 🚀 cliponaxis=False 確保文字就算長過邊界都唔會消失
                     fig.update_traces(textposition='outside', textfont=dict(color='white', size=12), cliponaxis=False)
                     
                     # 🛡️ 啟動「手機保險罩」：鎖死縮放，禁止手指誤觸
                     st.plotly_chart(fig, use_container_width=True, config={
                         'staticPlot': False, 'scrollZoom': False, 'doubleClick': False, 'displayModeBar': False, 'editable': False
                     })
-                    st.success("✅ 情報站部署完成！快去尋找集齊 🚀🔋🎯🔥 嘅終極大魔王啦！")
+                    st.success("✅ 情報站部署完成！快去尋找集齊 🚀🔋🎯🔥 嘅終極大魔王啦！可以隨時撳開上面本『說明書』溫書！")
         else:
             st.warning("⚠️ 標的名單為空，無法執行掃描。")
