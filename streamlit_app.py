@@ -414,7 +414,7 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
 
 
 # ==========================================
-# 🔥 模式二：新研發 - 究極資產拔河龍虎榜 (V188.5 回歸兩行穩定版)
+# 🔥 模式二：新研發 - 究極資產拔河龍虎榜 (V188.5 最終滿血版)
 # ==========================================
 elif operation_mode == "📊 究極資產拔河龍虎榜":
     from core_logic import AssetRanker
@@ -498,7 +498,8 @@ elif operation_mode == "📊 究極資產拔河龍虎榜":
                         orientation='h',
                         color='Current_Return', 
                         color_continuous_scale='YlOrRd', 
-                        text=df_result.apply(lambda row: "" if row['Ticker'] == '...' else "", axis=1) # 清空 Bar 上的文字，保持乾淨
+                        # 🚀 救命關鍵：喺右手邊出返個百分比
+                        text=df_result.apply(lambda row: f"{row['Current_Return']:.1f}%" if row['Ticker'] != '...' else "", axis=1)
                     )
 
                     fig.update_layout(
@@ -519,9 +520,9 @@ elif operation_mode == "📊 究極資產拔河龍虎榜":
                         ),
                         height=max(600, len(df_result) * 35), 
                         coloraxis_showscale=False,
-                        # 🚀 救命關鍵：固定 Margin 到 160，確保手機睇得見最左邊嘅綠色點
-                        margin=dict(l=160, r=40, t=60, b=20),
-                        hovermode=False # 徹底鎖死懸浮提示與點擊放大效果
+                        # 加闊右邊 Margin (r=50) 確保個 % 夠位顯示
+                        margin=dict(l=160, r=50, t=60, b=20),
+                        hovermode=False 
                     )
 
                     fig.update_traces(textposition='outside', textfont=dict(color='white'))
