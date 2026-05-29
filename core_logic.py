@@ -288,82 +288,103 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
     }
 
 # =======================================================
-# 🔥 爺爺新增：究極資產拔河龍虎榜核心 (AssetRanker V188.5 終極版)
+# 🔥 爺爺新增：究極資產拔河龍虎榜核心 (防爆對齊修復版)
 # =======================================================
 class AssetRanker:
     """
-    究極資產排名運算核心 - V188.5 (相對回報Alpha + 30/30過濾 + 四大情報補丁)
+    究極資產排名運算核心 - V188.5 (相對回報Alpha + 防爆對齊 + 四大情報補丁)
     """
     @staticmethod
     def get_rank_and_acceleration(tickers, lookback_days, category_name):
-        # 1. 顯示比例設定：只有「行業股 1029」切斷中間 40%，其餘全部 100% 顯示
         is_sector_battle = "1029" in category_name
         
-        # 2. 批量下載數據 (同時獲取 Open, High, Close, Volume)
+        # 1. 批量下載數據
         data = yf.download(tickers, period="1y", progress=False, threads=True)
         if data.empty: return pd.DataFrame()
         
-        close_df = data['Close'] if isinstance(data.columns, pd.MultiIndex) else pd.DataFrame(data['Close'], columns=tickers)
-        open_df = data['Open'] if isinstance(data.columns, pd.MultiIndex) else pd.DataFrame(data['Open'], columns=tickers)
-        high_df = data['High'] if isinstance(data.columns, pd.MultiIndex) else pd.DataFrame(data['High'], columns=tickers)
-        vol_df = data['Volume'] if isinstance(data.columns, pd.MultiIndex) else pd.DataFrame(data['Volume'], columns=tickers)
+        # 2. 獲取四大數據列
+        if isinstance(data.columns, pd.MultiIndex):
+            close_df = data['Close']
+            open_df = data['Open']
+            high_df = data['High']
+            vol_df = data['Volume']
+        else:
+            close_df = pd.DataFrame(data['Close'].values, index=data.index, columns=tickers)
+            open_df = pd.DataFrame(data['Open'].values, index=data.index, columns=tickers)
+            high_df = pd.DataFrame(data['High'].values, index=data.index, columns=tickers)
+            vol_df = pd.DataFrame(data['Volume'].values, index=data.index, columns=tickers)
+
+        # 🚀 救命關鍵：先清走完全無數據嘅死股，然後將名單對齊！
+        close_df = close_df.dropna(axis=1, how='all')
+        valid_tickers = close_df.columns # 取得真正存活的股票名單
         
-        # 向前填補假期/停牌空缺
-        close_df = close_df.dropna(axis=1, how='all').ffill()
-        open_df = open_df.ffill(); high_df = high_df.ffill(); vol_df = vol_df.ffill()
+        # 強制對齊其餘三個 DataFrame，確保長度 100% 一致！
+        open_df = open_df[valid_tickers]
+        high_df = high_df[valid_tickers]
+        vol_df = vol_df[valid_tickers]
+
+        # 填補停牌空缺
+        close_df = close_df.ffill()
+        open_df = open_df.ffill()
+        high_df = high_df.ffill()
+        vol_df = vol_df.ffill()
 
         if len(close_df) < lookback_days + 10: return pd.DataFrame()
 
-        # 3. 基本回報與相對回報 (Alpha) 計算
+        # 3. 計算回報與相對回報 (Alpha)
         curr_ret_abs = ((close_df.iloc[-1] - close_df.iloc[-(lookback_days+1)]) / close_df.iloc[-(lookback_days+1)]) * 100
         past_ret_abs = ((close_df.iloc[-6] - close_df.iloc[-(lookback_days+6)]) / close_df.iloc[-(lookback_days+6)]) * 100
         avg_ret = curr_ret_abs.mean()
-        relative_ret = curr_ret_abs - avg_ret # 計算跑贏/跑輸名單平均之 Alpha %
+        relative_ret = curr_ret_abs - avg_ret 
 
-        # 4. 🎯 52週高位距離 (加入除0保護)
+        # 4. 🎯 52週高位距離
         high_52w = high_df.tail(252).max().replace(0, np.nan)
         dist_to_52w = (((high_52w - close_df.iloc[-1]) / high_52w) * 100).fillna(999)
         
-        # 5. 🔋 成交量倍數 (RVOL) (加入除0保護)
+        # 5. 🔋 成交量倍數 (RVOL)
         avg_vol_20 = vol_df.tail(20).mean().replace(0, np.nan)
         rvol = (vol_df.iloc[-1] / avg_vol_20).fillna(0)
 
-        # 6. ⚡ 跳空缺口 (Gap %) (加入除0保護)
+        # 6. ⚡ 跳空缺口 (Gap %)
         prev_close = close_df.iloc[-2].replace(0, np.nan)
         gap_pct = (((open_df.iloc[-1] - prev_close) / prev_close) * 100).fillna(0)
 
-        # 7. 🔥 連勝排名 (Streak - 連續3天排名上升)
+        # 7. 🔥 連勝排名 (Streak)
         ret_t0 = ((close_df.iloc[-1] - close_df.iloc[-(lookback_days+1)]) / close_df.iloc[-(lookback_days+1)]) * 100
         ret_t1 = ((close_df.iloc[-2] - close_df.iloc[-(lookback_days+2)]) / close_df.iloc[-(lookback_days+2)]) * 100
         ret_t2 = ((close_df.iloc[-3] - close_df.iloc[-(lookback_days+3)]) / close_df.iloc[-(lookback_days+3)]) * 100
         streak_3d = (ret_t0.rank(ascending=False) < ret_t1.rank(ascending=False)) & (ret_t1.rank(ascending=False) < ret_t2.rank(ascending=False))
 
-        # 8. 整合所有數據入 DataFrame
+        # 8. 長線 200天回報
+        idx_200d = -201 if len(close_df) >= 201 else 0
+        ret_200d = ((close_df.iloc[-1] - close_df.iloc[idx_200d]) / close_df.iloc[idx_200d]) * 100
+
+        # 9. 整合入 DataFrame
         df = pd.DataFrame({
-            'Ticker': close_df.columns,
+            'Ticker': valid_tickers,
             'Abs_Return': curr_ret_abs.values,
             'Current_Return': relative_ret.values,
             'Past_Abs': past_ret_abs.values,
-            'Rank_200d': (((close_df.iloc[-1] - close_df.iloc[-201]) / close_df.iloc[-201]) * 100).values if len(close_df)>=201 else 0,
+            'Rank_200d': ret_200d.values,
             'RVOL': rvol.values,
             'Dist_52W': dist_to_52w.values,
             'Gap': gap_pct.values,
             'Streak': streak_3d.values
         }).dropna()
 
-        # 9. 計算名次與超車動能
+        # 10. 名次計算
         df['Current_Rank'] = df['Abs_Return'].rank(ascending=False, method='min')
         df['Past_Rank'] = df['Past_Abs'].rank(ascending=False, method='min')
         df['Rank_Change'] = df['Past_Rank'] - df['Current_Rank']
         top_10_threshold = max(1, int(len(df) * 0.1))
 
-        # 10. 生成超級情報標籤
+        # 11. 生成情報標籤
         def generate_label(row):
             chg = int(row['Rank_Change'])
             ticker = row['Ticker']
             rel_val = row['Current_Return']
             
-            # --- 火箭與升跌符號 ---
+            # 火箭與動能符號
             is_rocket = (row['Rank_200d'] <= top_10_threshold) and (chg > 0)
             rocket = "🚀 " if is_rocket else ""
             
@@ -373,7 +394,7 @@ class AssetRanker:
             elif chg < 0: icon = f"▼ {abs(chg)}"
             else: icon = "- 0"
 
-            # --- 四大情報補丁 ---
+            # 情報補丁
             vol_tag = ""
             if row['RVOL'] >= 3.0: vol_tag = f"[{row['RVOL']:.1f}x 🔋🔋]"
             elif row['RVOL'] >= 1.5: vol_tag = f"[{row['RVOL']:.1f}x 🔋]"
@@ -387,7 +408,7 @@ class AssetRanker:
         df['Display_Label'] = df.apply(generate_label, axis=1)
         df = df.sort_values(by='Current_Return', ascending=False).reset_index(drop=True)
 
-        # 11. 行業股過濾邏輯 (頭30% / 尾30%)
+        # 12. 行業股過濾
         if is_sector_battle:
             n_30 = max(1, int(len(df) * 0.3))
             df = pd.concat([df.head(n_30), pd.DataFrame([{'Ticker':'...', 'Current_Return':0, 'Display_Label':'✂️ 中間隱藏雜訊區域 (40%) ✂️'}]), df.tail(n_30)], ignore_index=True)
