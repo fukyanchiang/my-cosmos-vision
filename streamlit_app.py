@@ -38,7 +38,7 @@ US_STOCK_MAP = {
     "9. 電子商務與零售": "AMZN EBAY ETSY MELI SHOP PDD BABA JD SE CPNG W GMED CVNA FAIR FTCH CHWY OSTK REAL RVLV PRTS QRTEA POSH VIPS BZUN".split(),
     "10. 傳統零售百貨": "WMT COST TGT DG DLTR KR SYY K DLTR BIG BBY BJ CFG SFM UNFI IMKTA SPTN ANDE VLGEA INTA GROC".split(),
     "11. 核心消費品": "PG KO PEP PM MO EL CL KDP GIS HSY KHC CPB MKC MDLZ SJM CAG STZ TSN K CPB KHC GIS HSY CPB SJM TAP BF.B CHD POST".split(),
-    "12. 汽車製造商": "F GM STLA TM HMC RACE CARZ HOG WGO REV GOLF LCII WGO REVG SRG".split(),
+    "12. 汽车製造商": "F GM STLA TM HMC RACE CARZ HOG WGO REV GOLF LCII WGO REVG SRG".split(),
     "13. 電動車與自駕 (EV)": "TSLA RIVN LCID LI NIO XPEV MSTR UBER LYFT QS AUR GWB ALV LEA MGA BWA APTV VC THO DORM WGO PSNY FSR GOEV HYZN PTRA LEV VLTA".split(),
     "14. 汽車零部件": "MGA APTV BWA LEA VC DAN ALV GNTX AXA FOXF SMP THO TEN CTB HY MLR SUP MOD PRG".split(),
     "15. 航空航天與國防": "LMT RTX NOC GD BA TDG HWM LHX LDOS TXT HEI WWD SPR BWXT AVAV KTOS MRCY ATRO NP KEX ESLT CW ST VSEC ASIX AJRD KAMN".split(),
@@ -414,7 +414,7 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
 
 
 # ==========================================
-# 🔥 模式二：新研發 - 究極資產拔河龍虎榜 (V188.5 終極情報防誤觸版)
+# 🔥 模式二：新研發 - 究極資產拔河龍虎榜 (V188.5 最終滿血版)
 # ==========================================
 elif operation_mode == "📊 究極資產拔河龍虎榜":
     from core_logic import AssetRanker
@@ -498,7 +498,8 @@ elif operation_mode == "📊 究極資產拔河龍虎榜":
                         orientation='h',
                         color='Current_Return', 
                         color_continuous_scale='YlOrRd', 
-                        text=df_result.apply(lambda row: f"{row['Current_Return']:.1f}%" if row['Ticker'] != '...' else "", axis=1)
+                        # 🚀 救命關鍵：清空 Bar 上的文字，保持乾淨
+                        text=df_result.apply(lambda row: "" , axis=1) 
                     )
 
                     fig.update_layout(
@@ -507,24 +508,21 @@ elif operation_mode == "📊 究極資產拔河龍虎榜":
                         plot_bgcolor='#0e1117',
                         paper_bgcolor='#0e1117',
                         font=dict(color="white"),
-                        # 🚀 救命關鍵：移除硬性 350 Margin，改用 automargin=True 畀 Plotly 自己計位！
                         yaxis=dict(
                             showgrid=False, title="", 
-                            tickfont=dict(size=10, color="white", family="Courier New"),
-                            fixedrange=True,
-                            automargin=True 
+                            tickfont=dict(size=11, color="white", family="Courier New"),
+                            fixedrange=True
                         ),
-                        # 🚀 鎖死 X 軸防縮放
                         xaxis=dict(
                             showgrid=False, zeroline=True, zerolinecolor='#444', 
                             title="相對平均之超額回報 (Alpha %)",
                             fixedrange=True 
                         ),
-                        height=max(600, len(df_result) * 35), # 稍微拉長間距，因為依家有兩行字
+                        height=max(600, len(df_result) * 35), 
                         coloraxis_showscale=False,
-                        # 左邊 Margin 設返做基本 10 就得，由 automargin 幫你拉闊
-                        margin=dict(l=10, r=40, t=60, b=20),
-                        hovermode=False # 🚀 徹底鎖死懸浮提示與點擊放大效果
+                        # 🚀 救命關鍵：固定 Margin 到 160，確保手機睇得見最左邊嘅綠色點
+                        margin=dict(l=160, r=40, t=60, b=20),
+                        hovermode=False # 徹底鎖死懸浮提示與點擊放大效果
                     )
 
                     fig.update_traces(textposition='outside', textfont=dict(color='white'))
