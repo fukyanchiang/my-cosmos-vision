@@ -38,7 +38,7 @@ US_STOCK_MAP = {
     "9. 電子商務與零售": "AMZN EBAY ETSY MELI SHOP PDD BABA JD SE CPNG W GMED CVNA FAIR FTCH CHWY OSTK REAL RVLV PRTS QRTEA POSH VIPS BZUN".split(),
     "10. 傳統零售百貨": "WMT COST TGT DG DLTR KR SYY K DLTR BIG BBY BJ CFG SFM UNFI IMKTA SPTN ANDE VLGEA INTA GROC".split(),
     "11. 核心消費品": "PG KO PEP PM MO EL CL KDP GIS HSY KHC CPB MKC MDLZ SJM CAG STZ TSN K CPB KHC GIS HSY CPB SJM TAP BF.B CHD POST".split(),
-    "12. 汽车製造商": "F GM STLA TM HMC RACE CARZ HOG WGO REV GOLF LCII WGO REVG SRG".split(),
+    "12. 汽車製造商": "F GM STLA TM HMC RACE CARZ HOG WGO REV GOLF LCII WGO REVG SRG".split(),
     "13. 電動車與自駕 (EV)": "TSLA RIVN LCID LI NIO XPEV MSTR UBER LYFT QS AUR GWB ALV LEA MGA BWA APTV VC THO DORM WGO PSNY FSR GOEV HYZN PTRA LEV VLTA".split(),
     "14. 汽車零部件": "MGA APTV BWA LEA VC DAN ALV GNTX AXA FOXF SMP THO TEN CTB HY MLR SUP MOD PRG".split(),
     "15. 航空航天與國防": "LMT RTX NOC GD BA TDG HWM LHX LDOS TXT HEI WWD SPR BWXT AVAV KTOS MRCY ATRO NP KEX ESLT CW ST VSEC ASIX AJRD KAMN".split(),
@@ -498,8 +498,8 @@ elif operation_mode == "📊 究極資產拔河龍虎榜":
                         orientation='h',
                         color='Current_Return', 
                         color_continuous_scale='YlOrRd', 
-                        # 🚀 救命關鍵：清空 Bar 上的文字，保持乾淨
-                        text=df_result.apply(lambda row: "" , axis=1) 
+                        # 🚀 顯示右邊的百分比數值
+                        text=df_result.apply(lambda row: f"{row['Current_Return']:.1f}%" if row['Ticker'] != '...' else "", axis=1)
                     )
 
                     fig.update_layout(
@@ -520,12 +520,13 @@ elif operation_mode == "📊 究極資產拔河龍虎榜":
                         ),
                         height=max(600, len(df_result) * 35), 
                         coloraxis_showscale=False,
-                        # 🚀 救命關鍵：固定 Margin 到 160，確保手機睇得見最左邊嘅綠色點
-                        margin=dict(l=160, r=40, t=60, b=20),
-                        hovermode=False # 徹底鎖死懸浮提示與點擊放大效果
+                        # 🚀 拉闊右邊 (r=80) 留夠位畀百分比
+                        margin=dict(l=160, r=80, t=60, b=20),
+                        hovermode=False 
                     )
 
-                    fig.update_traces(textposition='outside', textfont=dict(color='white'))
+                    # 🚀 救命絕招：cliponaxis=False 確保文字出界都照樣顯示，永不隱藏！
+                    fig.update_traces(textposition='outside', textfont=dict(color='white', size=12), cliponaxis=False)
                     
                     # 🛡️ 啟動「手機保險罩」：鎖死縮放，禁止手指誤觸
                     st.plotly_chart(fig, use_container_width=True, config={
