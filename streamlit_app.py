@@ -201,7 +201,7 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
         
         c_ath, c_btn = st.columns([3, 1])
         with c_ath: 
-            is_ath_mode = st.checkbox("🔥 啟動 ATH 歷史新高極致過濾")
+            is_ath_mode = st.checkbox("🔥 啟爬 ATH 歷史新高極致過濾")
             vcp_52w = st.checkbox("🎯 啟動 MM 原汁原味 52週高位 25% 內過濾")
         
         selected_tickers = []; market_mode = "HK"; btn_radar = False
@@ -507,7 +507,7 @@ elif operation_mode == "📊 究極資產拔河龍虎榜":
                         plot_bgcolor='#0e1117',
                         paper_bgcolor='#0e1117',
                         font=dict(color="white"),
-                        # 🚀 救命關鍵：移除硬性 350 Margin，改用 automargin=True 畀 Plotly 自己計位！
+                        # 🚀 救命關鍵：移除硬性 Margin，改用 automargin=True 畀 Plotly 自己計位！
                         yaxis=dict(
                             showgrid=False, title="", 
                             tickfont=dict(size=10, color="white", family="Courier New"),
