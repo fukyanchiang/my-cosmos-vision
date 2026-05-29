@@ -288,12 +288,9 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
     }
 
 # =======================================================
-# 🔥 爺爺新增：究極資產拔河龍虎榜核心 (防撞膠 + 終極排版)
+# 🔥 爺爺新增：究極資產拔河龍虎榜核心 (V188.5 左右開弓版)
 # =======================================================
 class AssetRanker:
-    """
-    究極資產排名運算核心 - V188.5 (相對回報Alpha + 防爆對齊 + 手機雙行防切斷版)
-    """
     @staticmethod
     def get_rank_and_acceleration(tickers, lookback_days, category_name):
         is_sector_battle = "1029" in category_name
@@ -302,38 +299,31 @@ class AssetRanker:
         if data.empty: return pd.DataFrame()
         
         if isinstance(data.columns, pd.MultiIndex):
-            close_df = data['Close']
-            open_df = data['Open']
-            high_df = data['High']
-            vol_df = data['Volume']
+            close_df = data['Close']; open_df = data['Open']
+            high_df = data['High']; vol_df = data['Volume']
         else:
-            close_df = pd.DataFrame({tickers[0]: data['Close']})
-            open_df = pd.DataFrame({tickers[0]: data['Open']})
-            high_df = pd.DataFrame({tickers[0]: data['High']})
-            vol_df = pd.DataFrame({tickers[0]: data['Volume']})
+            close_df = pd.DataFrame(data['Close'].values, index=data.index, columns=tickers)
+            open_df = pd.DataFrame(data['Open'].values, index=data.index, columns=tickers)
+            high_df = pd.DataFrame(data['High'].values, index=data.index, columns=tickers)
+            vol_df = pd.DataFrame(data['Volume'].values, index=data.index, columns=tickers)
 
-        # 🚀 救命關鍵：先清走完全無數據嘅死股，然後將 Pandas 索引對齊！
+        # 🚀 防爆對齊機制
         close_df = close_df.dropna(axis=1, how='all')
         valid_tickers = close_df.columns
-        
-        open_df = open_df.reindex(columns=valid_tickers).ffill()
-        high_df = high_df.reindex(columns=valid_tickers).ffill()
-        vol_df = vol_df.reindex(columns=valid_tickers).ffill()
-        close_df = close_df.ffill()
+        open_df = open_df[valid_tickers]; high_df = high_df[valid_tickers]; vol_df = vol_df[valid_tickers]
+        close_df = close_df.ffill(); open_df = open_df.ffill(); high_df = high_df.ffill(); vol_df = vol_df.ffill()
 
         if len(close_df) < lookback_days + 10: return pd.DataFrame()
 
-        # 🚀 建立指標
+        # 計算指標
         curr_ret_abs = ((close_df.iloc[-1] - close_df.iloc[-(lookback_days+1)]) / close_df.iloc[-(lookback_days+1)]) * 100
         past_ret_abs = ((close_df.iloc[-6] - close_df.iloc[-(lookback_days+6)]) / close_df.iloc[-(lookback_days+6)]) * 100
-        relative_ret = curr_ret_abs - curr_ret_abs.mean()
+        relative_ret = curr_ret_abs - curr_ret_abs.mean() 
 
         high_52w = high_df.tail(252).max().replace(0, np.nan)
         dist_to_52w = (((high_52w - close_df.iloc[-1]) / high_52w) * 100).fillna(999)
-        
         avg_vol_20 = vol_df.tail(20).mean().replace(0, np.nan)
         rvol = (vol_df.iloc[-1] / avg_vol_20).fillna(0)
-
         prev_close = close_df.iloc[-2].replace(0, np.nan)
         gap_pct = (((open_df.iloc[-1] - prev_close) / prev_close) * 100).fillna(0)
 
@@ -345,63 +335,54 @@ class AssetRanker:
         idx_200d = -201 if len(close_df) >= 201 else 0
         ret_200d = ((close_df.iloc[-1] - close_df.iloc[idx_200d]) / close_df.iloc[idx_200d]) * 100
 
-        # 將數據打包入 DataFrame
         df = pd.DataFrame({
-            'Abs_Return': curr_ret_abs,
-            'Current_Return': relative_ret,
-            'Past_Abs': past_ret_abs,
-            'Rank_200d': ret_200d,
-            'RVOL': rvol,
-            'Dist_52W': dist_to_52w,
-            'Gap': gap_pct,
-            'Streak': streak_3d
-        })
-        df.index.name = 'Ticker'
-        df = df.reset_index().dropna()
+            'Ticker': valid_tickers,
+            'Abs_Return': curr_ret_abs.values,
+            'Current_Return': relative_ret.values,
+            'Past_Abs': past_ret_abs.values,
+            'Rank_200d': ret_200d.values,
+            'RVOL': rvol.values,
+            'Dist_52W': dist_to_52w.values,
+            'Gap': gap_pct.values,
+            'Streak': streak_3d.values
+        }).dropna()
 
-        # 名次計算
         df['Current_Rank'] = df['Abs_Return'].rank(ascending=False, method='min')
         df['Past_Rank'] = df['Past_Abs'].rank(ascending=False, method='min')
         df['Rank_Change'] = df['Past_Rank'] - df['Current_Rank']
         top_10_threshold = max(1, int(len(df) * 0.1))
 
-        # 🚀 救命關鍵：隱形防撞膠 & 兩行排版，徹底解決文字切斷問題！
-        def generate_label(row):
-            chg = int(row['Rank_Change'])
-            ticker = row['Ticker']
-            rel_val = row['Current_Return']
-            
+        # 🚀 救命關鍵：將標籤斬開兩份 (Y_Label 放左邊，Bar_Text 放右邊)
+        def generate_y_label(row):
+            chg = int(row['Rank_Change']); ticker = row['Ticker']
             is_rocket = (row['Rank_200d'] <= top_10_threshold) and (chg > 0)
             rocket = "🚀 " if is_rocket else ""
-            
-            # 加入 &nbsp;&nbsp; 作為隱形防撞膠，逼 Plotly 向右推
-            if chg >= 30: icon = f"&nbsp;&nbsp;🟢 ▲ {chg}"
-            elif chg <= -30: icon = f"&nbsp;&nbsp;🔵 ▼ {abs(chg)}"
-            elif chg > 0: icon = f"&nbsp;&nbsp;▲ {chg}"
-            elif chg < 0: icon = f"&nbsp;&nbsp;▼ {abs(chg)}"
-            else: icon = "&nbsp;&nbsp;- 0"
+            if chg >= 30: icon = f"🟢 ▲{chg}"
+            elif chg <= -30: icon = f"🔵 ▼{abs(chg)}"
+            elif chg > 0: icon = f"▲{chg}"
+            elif chg < 0: icon = f"▼{abs(chg)}"
+            else: icon = "- 0"
+            return f"{icon} | {rocket}{ticker}"
 
+        def generate_bar_text(row):
+            rel_val = row['Current_Return']
             vol_tag = ""
-            if row['RVOL'] >= 3.0: vol_tag = f"[{row['RVOL']:.1f}x 🔋🔋]"
-            elif row['RVOL'] >= 1.5: vol_tag = f"[{row['RVOL']:.1f}x 🔋]"
-            
-            top_tag = "[🎯 準破頂]" if row['Dist_52W'] <= 3.0 else ""
-            streak_tag = "[🔥 3D]" if row['Streak'] else ""
-            gap_tag = f"[⚡ GAP {row['Gap']:+.1f}%]" if abs(row['Gap']) >= 1.5 else ""
+            if row['RVOL'] >= 3.0: vol_tag = f"[{row['RVOL']:.1f}x🔋🔋] "
+            elif row['RVOL'] >= 1.5: vol_tag = f"[{row['RVOL']:.1f}x🔋] "
+            top_tag = "[🎯] " if row['Dist_52W'] <= 3.0 else ""
+            streak_tag = "[🔥3D] " if row['Streak'] else ""
+            gap_tag = f"[⚡{row['Gap']:+.1f}%] " if abs(row['Gap']) >= 1.5 else ""
+            tags = f"{vol_tag}{top_tag}{streak_tag}{gap_tag}".strip()
+            return f"{rel_val:+.1f}%  {tags}"
 
-            tags = f"{vol_tag}{top_tag}{streak_tag}{gap_tag}"
-            
-            # 第一行保留名次同代號，第二行放 % 同情報，縮短行闊！
-            if tags:
-                return f"{icon} | {rocket}{ticker}<br><span style='color:#aaaaaa;font-size:10px;'>({rel_val:+.1f}%) {tags}</span>"
-            else:
-                return f"{icon} | {rocket}{ticker}<br><span style='color:#aaaaaa;font-size:10px;'>({rel_val:+.1f}%)</span>"
-
-        df['Display_Label'] = df.apply(generate_label, axis=1)
+        df['Y_Label'] = df.apply(generate_y_label, axis=1)
+        df['Bar_Text'] = df.apply(generate_bar_text, axis=1)
         df = df.sort_values(by='Current_Return', ascending=False).reset_index(drop=True)
 
+        # 12. 行業股過濾
         if is_sector_battle:
             n_30 = max(1, int(len(df) * 0.3))
-            df = pd.concat([df.head(n_30), pd.DataFrame([{'Ticker':'...', 'Current_Return':0, 'Display_Label':'✂️ 中間隱藏雜訊區域 (40%) ✂️'}]), df.tail(n_30)], ignore_index=True)
+            sep = pd.DataFrame([{'Ticker':'...', 'Current_Return':0, 'Y_Label':'✂️ 中間隱藏雜訊區域 ✂️', 'Bar_Text':''}])
+            df = pd.concat([df.head(n_30), sep, df.tail(n_30)], ignore_index=True)
 
         return df.iloc[::-1].reset_index(drop=True)
