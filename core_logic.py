@@ -288,7 +288,7 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
     }
 
 # =======================================================
-# 🔥 爺爺新增：究極資產拔河龍虎榜核心 (AssetRanker V188.5)
+# 🔥 爺爺新增：究極資產拔河龍虎榜核心 (AssetRanker V188.5 終極版)
 # =======================================================
 class AssetRanker:
     """
@@ -320,16 +320,17 @@ class AssetRanker:
         avg_ret = curr_ret_abs.mean()
         relative_ret = curr_ret_abs - avg_ret # 計算跑贏/跑輸名單平均之 Alpha %
 
-        # 4. 🎯 52週高位距離
-        high_52w = high_df.tail(252).max()
-        dist_to_52w = ((high_52w - close_df.iloc[-1]) / high_52w) * 100
+        # 4. 🎯 52週高位距離 (加入除0保護)
+        high_52w = high_df.tail(252).max().replace(0, np.nan)
+        dist_to_52w = (((high_52w - close_df.iloc[-1]) / high_52w) * 100).fillna(999)
         
-        # 5. 🔋 成交量倍數 (RVOL)
-        avg_vol_20 = vol_df.tail(20).mean()
-        rvol = vol_df.iloc[-1] / avg_vol_20
+        # 5. 🔋 成交量倍數 (RVOL) (加入除0保護)
+        avg_vol_20 = vol_df.tail(20).mean().replace(0, np.nan)
+        rvol = (vol_df.iloc[-1] / avg_vol_20).fillna(0)
 
-        # 6. ⚡ 跳空缺口 (Gap %)
-        gap_pct = ((open_df.iloc[-1] - close_df.iloc[-2]) / close_df.iloc[-2]) * 100
+        # 6. ⚡ 跳空缺口 (Gap %) (加入除0保護)
+        prev_close = close_df.iloc[-2].replace(0, np.nan)
+        gap_pct = (((open_df.iloc[-1] - prev_close) / prev_close) * 100).fillna(0)
 
         # 7. 🔥 連勝排名 (Streak - 連續3天排名上升)
         ret_t0 = ((close_df.iloc[-1] - close_df.iloc[-(lookback_days+1)]) / close_df.iloc[-(lookback_days+1)]) * 100
