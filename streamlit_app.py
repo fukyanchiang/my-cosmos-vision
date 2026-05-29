@@ -87,7 +87,6 @@ US_ETF_MAP = {
     "U5. 全球國家/地區": "EWY EWZ ILF EIS EWT TUR ECH EFNL EWC EWP EWH EWI EPOL EPU EWW THD VNM EWM EWA EWJ EWN EWS EWQ EZA EWU EWL SPY KSA EWD EWG UAE QAT EPHE FXI EIDO INDA".split()
 }
 
-
 # ==========================================
 # 🎛️ 側邊欄主控台 (分流切換掣，100%隔離舊功能)
 # ==========================================
@@ -98,7 +97,7 @@ with st.sidebar:
         ["🐉 龍魂神殿雷達系統", "📊 究極資產拔河龍虎榜"]
     )
     st.markdown("---")
-    st.caption("👴 爺爺的操盤矩陣 V188.0")
+    st.caption("👴 爺爺的操盤矩陣 V188.5")
 
 
 # ==========================================
@@ -415,16 +414,15 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
 
 
 # ==========================================
-# 🔥 模式二：新研發 - 全宇宙資金流熱力矩陣 (大師排名系統)
+# 🔥 模式二：新研發 - 究極資產拔河龍虎榜 (V188.5 旗艦版)
 # ==========================================
 elif operation_mode == "📊 究極資產拔河龍虎榜":
     from core_logic import AssetRanker
     
     st.markdown("<h1 style='text-align:center; color:#FFD700;'>🔥 全宇宙資金流相對強度矩陣</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align:center; color:#888;'>動態監控大戶資金移防，自動派發 🚀火箭(長強短更強)及 ▲超車箭咀</p>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align:center; color:#888;'>動態監控大戶資金移防，自動派發四大超級情報 🚀🔋🎯⚡</p>", unsafe_allow_html=True)
     st.write("---")
 
-    # 頂部控制面板
     col1, col2 = st.columns([2, 1])
     
     with col1:
@@ -447,15 +445,14 @@ elif operation_mode == "📊 究極資產拔河龍虎榜":
         )
         lookback_days = int(lookback_str.replace("天", ""))
 
-    # 啟動拔河掃描
     if st.button("🚀 啟動熱力拔河掃描！", use_container_width=True):
         current_tickers = []
         
-        # 動態解包與載入對應的資產池
+        # 根據選擇動態載入資產名單
         if target_category == "📦 美股 ETF (~360隻)":
             for sub_list in US_ETF_MAP.values():
                 current_tickers.extend(sub_list)
-            current_tickers = list(set(current_tickers)) # 去除重複
+            current_tickers = list(set(current_tickers)) 
             
         elif target_category == "📦 港股 ETF (139隻)":
             df_etf_list = fetch_github_list(HK_ETF_CSV_URL)
@@ -472,33 +469,27 @@ elif operation_mode == "📊 究極資產拔河龍虎榜":
                 df_csv = pd.read_csv("Market_Focus.csv")
                 col = [c for c in df_csv.columns if c.lower() in ['ticker', 'symbol', '代號']][0]
                 current_tickers = df_csv[col].dropna().unique().tolist()
-            except:
-                st.error("⚠️ 無法讀取 Market_Focus.csv，請檢查檔案是否放置於根目錄！")
+            except: st.error("⚠️ 無法讀取 Market_Focus.csv")
                 
         elif target_category == "🇺🇸 美股大藍籌 (500隻)":
             try:
                 df_csv = pd.read_csv("SP500_Equities.csv")
                 col = [c for c in df_csv.columns if c.lower() in ['ticker', 'symbol', '代號']][0]
                 current_tickers = df_csv[col].dropna().unique().tolist()
-            except:
-                st.error("⚠️ 無法讀取 SP500_Equities.csv，請檢查檔案是否放置於根目錄！")
+            except: st.error("⚠️ 無法讀取 SP500_Equities.csv")
                 
         elif target_category == "🏭 美股選定行業 (1029隻)":
             for sub_list in US_STOCK_MAP.values():
                 current_tickers.extend(sub_list)
             current_tickers = list(set(current_tickers))
 
-        # 執行數據運算
         if current_tickers:
             with st.spinner(f"正在與納斯達克/港交所衛星連線，深度計算 {target_category} 的資金矩陣..."):
                 df_result = AssetRanker.get_rank_and_acceleration(current_tickers, lookback_days, target_category)
                 
                 if df_result.empty:
-                    st.error("⚠️ 運算失敗或回傳數據為空。請確保 Ticker 列表正確，且本地歷史數據充裕。")
+                    st.error("⚠️ 運算失敗或回傳數據為空。請確保 Ticker 列表正確。")
                 else:
-                    # ==========================================
-                    # 📊 繪製究極龍虎榜
-                    # ==========================================
                     import plotly.express as px
                     fig = px.bar(
                         df_result, 
@@ -506,26 +497,33 @@ elif operation_mode == "📊 究極資產拔河龍虎榜":
                         y='Display_Label', 
                         orientation='h',
                         color='Current_Return', 
-                        color_continuous_scale='YlOrRd', # 完美深紅-金黃漸變
-                        text=df_result['Current_Return'].apply(lambda x: f"{x:.1f}%" if x != 0.0 else "")
+                        color_continuous_scale='YlOrRd', 
+                        # 顯示相對回報 (Alpha) %
+                        text=df_result.apply(lambda row: f"{row['Current_Return']:.1f}%" if row['Ticker'] != '...' else "", axis=1)
                     )
 
-                    # 佈局美化
                     fig.update_layout(
-                        title=f"📊 {target_category} - {lookback_days}日 資產相對強度龍虎榜",
-                        title_font=dict(size=22, color="white"),
+                        title=f"📊 {target_category} - {lookback_days}日 相對回報龍虎榜 (含四大情報補丁)",
+                        title_font=dict(size=18, color="white"),
                         plot_bgcolor='#0e1117',
                         paper_bgcolor='#0e1117',
                         font=dict(color="white"),
-                        height=max(600, len(df_result) * 28), # 動態高度自適應
-                        xaxis=dict(showgrid=False, zeroline=True, zerolinecolor='#333', title="回報率 (%)"),
-                        yaxis=dict(showgrid=False, title="", tickfont=dict(size=14, color="white", family="Courier New")),
-                        coloraxis_showscale=False, # 隱藏色譜條
-                        margin=dict(l=20, r=20, t=60, b=20)
+                        yaxis=dict(
+                            showgrid=False, title="", 
+                            tickfont=dict(size=10, color="white", family="Courier New") # 細一級確保符號全顯
+                        ),
+                        xaxis=dict(showgrid=False, zeroline=True, zerolinecolor='#444', title="相對平均之超額回報 (%)"),
+                        height=max(600, len(df_result) * 26), 
+                        coloraxis_showscale=False,
+                        margin=dict(l=350, r=30, t=60, b=20) # 極闊左邊界防切斷
                     )
 
                     fig.update_traces(textposition='outside', textfont=dict(color='white'))
-                    st.plotly_chart(fig, use_container_width=True)
-                    st.success("✅ 資金流向熱力圖繪製完成！")
+                    
+                    # 🛡️ 啟動「手機保險罩」：鎖死縮放，禁止手指誤觸
+                    st.plotly_chart(fig, use_container_width=True, config={
+                        'staticPlot': False, 'scrollZoom': False, 'doubleClick': False, 'displayModeBar': False, 'editable': False
+                    })
+                    st.success("✅ 情報站部署完成！快去尋找集齊 🚀🔋🎯🔥 嘅終極大魔王啦！")
         else:
             st.warning("⚠️ 標的名單為空，無法執行掃描。")
