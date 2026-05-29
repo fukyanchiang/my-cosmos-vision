@@ -414,7 +414,7 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
 
 
 # ==========================================
-# 🔥 模式二：新研發 - 究極資產拔河龍虎榜 (V188.5 終極情報防誤觸版)
+# 🔥 模式二：新研發 - 究極資產拔河龍虎榜 (V188.5 回歸兩行穩定版)
 # ==========================================
 elif operation_mode == "📊 究極資產拔河龍虎榜":
     from core_logic import AssetRanker
@@ -498,7 +498,7 @@ elif operation_mode == "📊 究極資產拔河龍虎榜":
                         orientation='h',
                         color='Current_Return', 
                         color_continuous_scale='YlOrRd', 
-                        text=df_result.apply(lambda row: f"{row['Current_Return']:.1f}%" if row['Ticker'] != '...' else "", axis=1)
+                        text=df_result.apply(lambda row: "" if row['Ticker'] == '...' else "", axis=1) # 清空 Bar 上的文字，保持乾淨
                     )
 
                     fig.update_layout(
@@ -507,24 +507,21 @@ elif operation_mode == "📊 究極資產拔河龍虎榜":
                         plot_bgcolor='#0e1117',
                         paper_bgcolor='#0e1117',
                         font=dict(color="white"),
-                        # 🚀 救命關鍵：移除硬性 350 Margin，改用 automargin=True 畀 Plotly 自己計位！
                         yaxis=dict(
                             showgrid=False, title="", 
-                            tickfont=dict(size=10, color="white", family="Courier New"),
-                            fixedrange=True,
-                            automargin=True 
+                            tickfont=dict(size=11, color="white", family="Courier New"),
+                            fixedrange=True
                         ),
-                        # 🚀 鎖死 X 軸防縮放
                         xaxis=dict(
                             showgrid=False, zeroline=True, zerolinecolor='#444', 
                             title="相對平均之超額回報 (Alpha %)",
                             fixedrange=True 
                         ),
-                        height=max(600, len(df_result) * 35), # 稍微拉長間距，因為依家有兩行字
+                        height=max(600, len(df_result) * 35), 
                         coloraxis_showscale=False,
-                        # 左邊 Margin 設返做基本 10 就得，由 automargin 幫你拉闊
-                        margin=dict(l=10, r=40, t=60, b=20),
-                        hovermode=False # 🚀 徹底鎖死懸浮提示與點擊放大效果
+                        # 🚀 救命關鍵：固定 Margin 到 160，確保手機睇得見最左邊嘅綠色點
+                        margin=dict(l=160, r=40, t=60, b=20),
+                        hovermode=False # 徹底鎖死懸浮提示與點擊放大效果
                     )
 
                     fig.update_traces(textposition='outside', textfont=dict(color='white'))
