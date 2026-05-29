@@ -288,11 +288,11 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
     }
 
 # =======================================================
-# 🔥 爺爺新增：究極資產拔河龍虎榜核心 (防爆對齊 + 手機換行版)
+# 🔥 爺爺新增：究極資產拔河龍虎榜核心 (防撞膠 + 終極排版)
 # =======================================================
 class AssetRanker:
     """
-    究極資產排名運算核心 - V188.5 (相對回報Alpha + 防爆對齊 + 手機換行情報)
+    究極資產排名運算核心 - V188.5 (相對回報Alpha + 防爆對齊 + 手機雙行防切斷版)
     """
     @staticmethod
     def get_rank_and_acceleration(tickers, lookback_days, category_name):
@@ -323,7 +323,7 @@ class AssetRanker:
 
         if len(close_df) < lookback_days + 10: return pd.DataFrame()
 
-        # 🚀 建立指標 (透過 Series 自動對齊 Ticker，完全消滅 ValueError)
+        # 🚀 建立指標
         curr_ret_abs = ((close_df.iloc[-1] - close_df.iloc[-(lookback_days+1)]) / close_df.iloc[-(lookback_days+1)]) * 100
         past_ret_abs = ((close_df.iloc[-6] - close_df.iloc[-(lookback_days+6)]) / close_df.iloc[-(lookback_days+6)]) * 100
         relative_ret = curr_ret_abs - curr_ret_abs.mean()
@@ -365,7 +365,7 @@ class AssetRanker:
         df['Rank_Change'] = df['Past_Rank'] - df['Current_Rank']
         top_10_threshold = max(1, int(len(df) * 0.1))
 
-        # 🚀 救命關鍵：為手機版特設嘅「換行標籤 <br>」
+        # 🚀 救命關鍵：隱形防撞膠 & 兩行排版，徹底解決文字切斷問題！
         def generate_label(row):
             chg = int(row['Rank_Change'])
             ticker = row['Ticker']
@@ -374,11 +374,12 @@ class AssetRanker:
             is_rocket = (row['Rank_200d'] <= top_10_threshold) and (chg > 0)
             rocket = "🚀 " if is_rocket else ""
             
-            if chg >= 30: icon = f"🟢 ▲ {chg}"
-            elif chg <= -30: icon = f"🔵 ▼ {abs(chg)}"
-            elif chg > 0: icon = f"▲ {chg}"
-            elif chg < 0: icon = f"▼ {abs(chg)}"
-            else: icon = "- 0"
+            # 加入 &nbsp;&nbsp; 作為隱形防撞膠，逼 Plotly 向右推
+            if chg >= 30: icon = f"&nbsp;&nbsp;🟢 ▲ {chg}"
+            elif chg <= -30: icon = f"&nbsp;&nbsp;🔵 ▼ {abs(chg)}"
+            elif chg > 0: icon = f"&nbsp;&nbsp;▲ {chg}"
+            elif chg < 0: icon = f"&nbsp;&nbsp;▼ {abs(chg)}"
+            else: icon = "&nbsp;&nbsp;- 0"
 
             vol_tag = ""
             if row['RVOL'] >= 3.0: vol_tag = f"[{row['RVOL']:.1f}x 🔋🔋]"
@@ -390,11 +391,11 @@ class AssetRanker:
 
             tags = f"{vol_tag}{top_tag}{streak_tag}{gap_tag}"
             
-            # 如果有情報，就拆做兩行 (<br>) 顯示，減低左邊闊度負擔
+            # 第一行保留名次同代號，第二行放 % 同情報，縮短行闊！
             if tags:
-                return f"{icon} | {rocket}{ticker} ({rel_val:+.1f}%)<br><span style='color:#aaaaaa;font-size:10px;'>{tags}</span>"
+                return f"{icon} | {rocket}{ticker}<br><span style='color:#aaaaaa;font-size:10px;'>({rel_val:+.1f}%) {tags}</span>"
             else:
-                return f"{icon} | {rocket}{ticker} ({rel_val:+.1f}%)"
+                return f"{icon} | {rocket}{ticker}<br><span style='color:#aaaaaa;font-size:10px;'>({rel_val:+.1f}%)</span>"
 
         df['Display_Label'] = df.apply(generate_label, axis=1)
         df = df.sort_values(by='Current_Return', ascending=False).reset_index(drop=True)
