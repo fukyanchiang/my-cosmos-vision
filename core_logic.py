@@ -244,14 +244,11 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
     # =======================================================
     # 🪃 事後動態過濾：N 字突破 (捕捉第1日及第2日)
     # =======================================================
-    # 取過去一週半的最高點作為「阻力前頂」(排除今昨2日，給予洗盤空間)
     lookback = 8 
     a_point = h.shift(2).rolling(lookback).max().iloc[-1]
     a_point_yest = h.shift(3).rolling(lookback).max().iloc[-1]
     
-    # Day 1: 今日剛突破
     is_breakout_today = (c.iloc[-1] > a_point) and (c.iloc[-2] <= a_point)
-    # Day 2: 昨日剛突破 (供考慮即日高追)
     is_breakout_yest = (c.iloc[-2] > a_point_yest) and (c.iloc[-3] <= a_point_yest)
     
     if is_breakout_today or is_breakout_yest:
@@ -288,7 +285,7 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
     }
 
 # =======================================================
-# 🔥 爺爺新增：究極資產拔河龍虎榜核心 (V188.5 最終滿血版)
+# 🔥 爺爺新增：究極資產拔河龍虎榜核心 (8大情報滿血版)
 # =======================================================
 class AssetRanker:
     @staticmethod
@@ -352,31 +349,39 @@ class AssetRanker:
         df['Rank_Change'] = df['Past_Rank'] - df['Current_Rank']
         top_10_threshold = max(1, int(len(df) * 0.1))
 
-        # 🚀 救命關鍵：左邊標籤淨係留公仔，徹底刪除百分比，等畫面更乾淨！
+        # 🚀 爺爺為你精心打造的 8大情報公仔對齊引擎
         def generate_label(row):
             chg = int(row['Rank_Change'])
             ticker = row['Ticker']
             
-            is_rocket = (row['Rank_200d'] <= top_10_threshold) and (chg > 0)
-            rocket = "🚀 " if is_rocket else ""
-            
+            # 1 & 2. 綠波/藍波 (Rank_Change)
             if chg >= 30: icon = f"🟢 ▲ {chg}"
             elif chg <= -30: icon = f"🔵 ▼ {abs(chg)}"
             elif chg > 0: icon = f"▲ {chg}"
             elif chg < 0: icon = f"▼ {abs(chg)}"
             else: icon = "- 0"
 
+            # 3. 火箭 (Top 10% on 200d)
+            is_rocket = (row['Rank_200d'] <= top_10_threshold) and (chg > 0)
+            rocket = "🚀 " if is_rocket else ""
+            
+            # 4 & 5. 雙電池/單電池 (RVOL)
             vol_tag = ""
             if row['RVOL'] >= 3.0: vol_tag = f"[{row['RVOL']:.1f}x 🔋🔋]"
             elif row['RVOL'] >= 1.5: vol_tag = f"[{row['RVOL']:.1f}x 🔋]"
             
+            # 6. 準破頂 (Dist_52W)
             top_tag = "[🎯 準破頂]" if row['Dist_52W'] <= 3.0 else ""
-            streak_tag = "[🔥 3D]" if row['Streak'] else ""
+            
+            # 7. 火炎公仔 (連續強勢)
+            streak_tag = "[🔥 連續強勢]" if row['Streak'] else ""
+            
+            # 8. 閃電 (跳空 GAP)
             gap_tag = f"[⚡ GAP {row['Gap']:+.1f}%]" if abs(row['Gap']) >= 1.5 else ""
 
             tags = f"{vol_tag}{top_tag}{streak_tag}{gap_tag}".strip()
             
-            # 百分比移出！只顯示公仔情報
+            # 兩行排版，左邊乾淨，刪走百分比，等右邊顯示
             if tags:
                 return f"{icon} | {rocket}{ticker}<br><span style='color:#aaaaaa;font-size:10px;'>{tags}</span>"
             else:
