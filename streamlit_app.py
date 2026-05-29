@@ -414,7 +414,7 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
 
 
 # ==========================================
-# 🔥 模式二：新研發 - 究極資產拔河龍虎榜 (V188.5 旗艦版)
+# 🔥 模式二：新研發 - 究極資產拔河龍虎榜 (V188.5 終極情報版)
 # ==========================================
 elif operation_mode == "📊 究極資產拔河龍虎榜":
     from core_logic import AssetRanker
@@ -512,7 +512,7 @@ elif operation_mode == "📊 究極資產拔河龍虎榜":
                             showgrid=False, title="", 
                             tickfont=dict(size=10, color="white", family="Courier New") # 細一級確保符號全顯
                         ),
-                        xaxis=dict(showgrid=False, zeroline=True, zerolinecolor='#444', title="相對平均之超額回報 (%)"),
+                        xaxis=dict(showgrid=False, zeroline=True, zerolinecolor='#444', title="相對平均之超額回報 (Alpha %)"),
                         height=max(600, len(df_result) * 26), 
                         coloraxis_showscale=False,
                         margin=dict(l=350, r=30, t=60, b=20) # 極闊左邊界防切斷
