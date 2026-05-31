@@ -465,19 +465,19 @@ elif operation_mode == "📊 究極資產拔河龍虎榜":
         else: st.warning("⚠️ 標的名單為空，無法執行掃描。")
 
 # =========================================================================
-# 💰 模式三：大戶資金流透視 (福德金字塔) - 爺爺黑底霓虹五大框版
+# 💰 模式三：大戶資金流透視 (福德金字塔) - 爺爺黑底霓虹五大獨立框版
 # =========================================================================
 elif operation_mode == "💰 大戶資金流透視 (福德金字塔)":
     from core_logic import scan_fude_logic
     
-    # 🌟 強制注入全黑底色與霓虹表格 CSS
+    # 🌟 強制注入全黑底色與霓虹獨立表格 CSS
     st.markdown("""
         <style>
         .stApp { background-color: #000000 !important; }
-        .fude-card { background-color: #050505 !important; border: 2px solid; border-radius: 12px; padding: 15px; margin-bottom: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.8); }
-        .fude-title { font-size: 1.3rem; font-weight: 900; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
-        .fude-table { width: 100%; color: #ddd; font-size: 1.05rem; border-collapse: collapse; margin-bottom: 10px; }
-        .fude-table td { padding: 6px 0; border-bottom: 1px solid #222; }
+        .fude-card-ind { background-color: #000000 !important; border: 2px solid; border-radius: 12px; padding: 20px; margin-bottom: 25px; box-shadow: 0 4px 15px rgba(0,0,0,1); }
+        .fude-title { font-size: 1.4rem; font-weight: 900; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
+        .fude-table { width: 100%; color: #ddd; font-size: 1.1rem; border-collapse: collapse; margin-bottom: 15px; }
+        .fude-table td { padding: 8px 0; border-bottom: 1px solid #222; }
         .fude-table td:nth-child(2), .fude-table td:nth-child(3) { text-align: right; font-weight: bold; }
         .val-pos { color: #00FFCC !important; }
         .val-neg { color: #FF4B4B !important; }
@@ -521,115 +521,107 @@ elif operation_mode == "💰 大戶資金流透視 (福德金字塔)":
                         st.markdown(f"<div class='dragon-card' style='border-color:#BC13FE; height:220px; display:flex; flex-direction:column; justify-content:center;'><div style='font-size:1.2rem;color:#ccc;'>🎯 過去200日成交大本營 (POC)</div><div style='font-size:3rem; font-weight:900; color:#BC13FE;'>${poc_price:.2f}</div><div style='font-size:1.1rem; font-weight:bold; color:{poc_color}; margin-top:5px;'>{poc_status}</div></div>", unsafe_allow_html=True)
                     with c3: st.markdown(f"<div class='dragon-card' style='border-color:#00FFFF; height:220px; display:flex; flex-direction:column; justify-content:center;'><div style='font-size:1.2rem;color:#ccc;'>🔍 大戶底氣標籤</div><div style='display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin-top:15px; font-weight:bold;'>{' '.join(tags) if tags else '無明顯大戶特徵'}</div></div>", unsafe_allow_html=True)
                     
+                    # ===============================================
+                    # 🔥 爺爺加建：五大獨立顯示框 (從上至下，絕對唔合併)
+                    # ===============================================
                     st.write("---")
-                    st.markdown(f"### 🌊 獨家解密：主力資金池透視 (大戶目前：<span style='color:#FFD700;'>{fude_data['Mood']}</span>)", unsafe_allow_html=True)
+                    st.markdown(f"### 🌊 獨家解密：主力資金池透視 (5大獨立指標)", unsafe_allow_html=True)
 
                     def fmt(val): return f"{'+' if val>0 else ''}${val/1e8:.1f}億" if abs(val)>=1e8 else (f"{'+' if val>0 else ''}${val/1e6:.1f}M" if abs(val)>=1e6 else f"{'+' if val>0 else ''}${val:,.0f}")
                     def color_class(val): return "val-pos" if val >= 0 else "val-neg"
+                    
                     def get_pulse_fig(pulse_vals):
                         colors = ['#00FFCC' if v >= 0 else '#FF4B4B' for v in pulse_vals]
                         fig_p = go.Figure(go.Bar(x=list(range(len(pulse_vals))), y=pulse_vals, marker_color=colors, hoverinfo='skip'))
-                        fig_p.update_layout(height=100, margin=dict(l=0,r=0,t=0,b=0), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', xaxis=dict(visible=False, fixedrange=True), yaxis=dict(visible=False, fixedrange=True), showlegend=False)
+                        fig_p.update_layout(height=120, margin=dict(l=0,r=0,t=0,b=0), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', xaxis=dict(visible=False, fixedrange=True), yaxis=dict(visible=False, fixedrange=True), showlegend=False)
                         return fig_p
+
                     def draw_triad_bar(val, color):
                         lit = int((min(120, max(0, val))/120)*21)
-                        html = "<div style='display:flex; gap:4px; margin-top: 10px;'>"
+                        html = "<div style='display:flex; gap:6px; margin-top: 15px;'>"
                         for idx in range(21):
                             c_code = "#FF4B4B" if idx<6 else ("#FFD700" if idx<12 else color)
                             bg = c_code if idx < lit else '#222'
                             op = 1 if idx < lit else 0.3
-                            html += f"<div style='width:14px; height:24px; background-color:{bg}; opacity:{op}; border-radius:2px;'></div>"
+                            html += f"<div style='width:18px; height:30px; background-color:{bg}; opacity:{op}; border-radius:3px;'></div>"
                         html += "</div>"
                         return html
 
-                    # 1 & 2 排 (Flow & OBV)
-                    r1_c1, r1_c2 = st.columns(2)
-                    with r1_c1:
-                        f20, p20 = fude_data['Flow']['20D']; f60, p60 = fude_data['Flow']['60D']; f200, p200 = fude_data['Flow']['200D']
-                        flow_color = "#00FFCC" if f20 >= 0 else "#FF4B4B"
-                        st.markdown(f"""
-                        <div class='fude-card' style='border-color:{flow_color};'>
-                            <div class='fude-title' style='color:{flow_color};'><span>💰 資金總數 (Money Flow)</span><span class='{color_class(f20)}'>{fmt(f20)}</span></div>
-                            <table class='fude-table'>
-                                <tr><td>20日總量</td><td class='{color_class(f20)}'>{fmt(f20)}</td><td class='{color_class(p20)}'>{p20:+.1f}%</td></tr>
-                                <tr><td>60日總量</td><td class='{color_class(f60)}'>{fmt(f60)}</td><td class='{color_class(p60)}'>{p60:+.1f}%</td></tr>
-                                <tr><td>200日總量</td><td class='{color_class(f200)}'>{fmt(f200)}</td><td class='{color_class(p200)}'>{p200:+.1f}%</td></tr>
-                            </table>
-                        </div>
-                        """, unsafe_allow_html=True)
-                        st.plotly_chart(get_pulse_fig(plot_df['Net_Flow'].tail(20).values), use_container_width=True, config={'displayModeBar': False})
+                    # 獨立框 1: EJ 錢流底氣
+                    st.markdown(f"""
+                    <div class='fude-card-ind' style='border-color:#00FFFF;'>
+                        <div class='fude-title' style='color:#00FFFF;'><span>🔋 EJ 錢流底氣</span><span class='val-pos'>{fude_data['EJ_20']:.1f}%</span></div>
+                        <table class='fude-table'>
+                            <tr><td>20日均值</td><td class='val-pos'>{fude_data['EJ_20']:.1f}%</td><td></td></tr>
+                            <tr><td>60日均值</td><td class='val-pos'>{fude_data['EJ_60']:.1f}%</td><td></td></tr>
+                            <tr><td>200日均值</td><td class='val-pos'>{fude_data['EJ_200']:.1f}%</td><td></td></tr>
+                        </table>
+                        {draw_triad_bar(fude_data['EJ_20'], "#00FFFF")}
+                    </div>
+                    """, unsafe_allow_html=True)
 
-                    with r1_c2:
-                        o20, p20_o = fude_data['OBV']['20D']; o60, p60_o = fude_data['OBV']['60D']; o200, p200_o = fude_data['OBV']['200D']
-                        obv_color = "#00FFCC" if o20 >= 0 else "#FF4B4B"; trend_str = "📈 流入" if o20 >= 0 else "📉 流出"
-                        st.markdown(f"""
-                        <div class='fude-card' style='border-color:{obv_color};'>
-                            <div class='fude-title' style='color:{obv_color};'><span>📈 OBV 軌跡</span><span>{trend_str}</span></div>
-                            <table class='fude-table'>
-                                <tr><td>20日累積量</td><td class='{color_class(o20)}'>{fmt(o20)}</td><td class='{color_class(p20_o)}'>{p20_o:+.1f}%</td></tr>
-                                <tr><td>60日累積量</td><td class='{color_class(o60)}'>{fmt(o60)}</td><td class='{color_class(p60_o)}'>{p60_o:+.1f}%</td></tr>
-                                <tr><td>200日累積量</td><td class='{color_class(o200)}'>{fmt(o200)}</td><td class='{color_class(p200_o)}'>{p200_o:+.1f}%</td></tr>
-                            </table>
-                        </div>
-                        """, unsafe_allow_html=True)
-                        st.plotly_chart(get_pulse_fig(plot_df['OBV_Daily'].tail(20).values), use_container_width=True, config={'displayModeBar': False})
+                    # 獨立框 2: 短期能量 BAR
+                    st.markdown(f"""
+                    <div class='fude-card-ind' style='border-color:#FF00FF;'>
+                        <div class='fude-title' style='color:#FF00FF;'><span>⚡ 短期能量 BAR</span><span class='val-pos'>{fude_data['SE_20']:.1f}%</span></div>
+                        <table class='fude-table'>
+                            <tr><td>20日動能</td><td class='val-pos'>{fude_data['SE_20']:.1f}%</td><td></td></tr>
+                            <tr><td>60日動能</td><td class='val-pos'>{fude_data['SE_60']:.1f}%</td><td></td></tr>
+                            <tr><td>200日動能</td><td class='val-pos'>{fude_data['SE_200']:.1f}%</td><td></td></tr>
+                        </table>
+                        {draw_triad_bar(fude_data['SE_20'], "#FF00FF")}
+                    </div>
+                    """, unsafe_allow_html=True)
 
-                    # 3 & 4 排 (EJ & SE)
-                    st.write("")
-                    r2_c1, r2_c2 = st.columns(2)
-                    with r2_c1:
-                        ej20 = fude_data['EJ']['20D']; ej60 = fude_data['EJ']['60D']; ej200 = fude_data['EJ']['200D']
-                        st.markdown(f"""
-                        <div class='fude-card' style='border-color:#00FFFF;'>
-                            <div class='fude-title' style='color:#00FFFF;'><span>🔋 EJ 錢流底氣</span><span class='val-pos'>{ej20:.1f}%</span></div>
-                            <table class='fude-table'>
-                                <tr><td>20日均值</td><td class='val-pos'>{ej20:.1f}%</td><td></td></tr>
-                                <tr><td>60日均值</td><td class='val-pos'>{ej60:.1f}%</td><td></td></tr>
-                                <tr><td>200日均值</td><td class='val-pos'>{ej200:.1f}%</td><td></td></tr>
-                            </table>
-                            {draw_triad_bar(ej20, "#00FFFF")}
-                        </div>
-                        """, unsafe_allow_html=True)
-                        # EJ Pulse Chart 模擬
-                        avg_vol = df['Volume'].tail(252).mean() or 1
-                        vol_ratio = (plot_df['Volume'].tail(20) / avg_vol).values; direction = np.where(plot_df['Close'].tail(20) >= plot_df['Open'].tail(20), 1, -1); ej_pulse_vals = vol_ratio * direction * 50 
-                        st.plotly_chart(get_pulse_fig(ej_pulse_vals), use_container_width=True, config={'displayModeBar': False})
+                    # 獨立框 3: 資金總數 (Money Flow)
+                    f20 = fude_data['Flow_20_val']; p20 = fude_data['Flow_20_pct']; f60 = fude_data['Flow_60_val']; p60 = fude_data['Flow_60_pct']; f200 = fude_data['Flow_200_val']; p200 = fude_data['Flow_200_pct']
+                    flow_color = "#00FFCC" if f20 >= 0 else "#FF4B4B"
+                    st.markdown(f"""
+                    <div class='fude-card-ind' style='border-color:{flow_color};'>
+                        <div class='fude-title' style='color:{flow_color};'><span>💰 資金總數 (Money Flow)</span><span class='{color_class(f20)}'>{fmt(f20)}</span></div>
+                        <table class='fude-table'>
+                            <tr><td>20日總量</td><td class='{color_class(f20)}'>{fmt(f20)}</td><td class='{color_class(p20)}'>{p20:+.1f}%</td></tr>
+                            <tr><td>60日總量</td><td class='{color_class(f60)}'>{fmt(f60)}</td><td class='{color_class(p60)}'>{p60:+.1f}%</td></tr>
+                            <tr><td>200日總量</td><td class='{color_class(f200)}'>{fmt(f200)}</td><td class='{color_class(p200)}'>{p200:+.1f}%</td></tr>
+                        </table>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    st.plotly_chart(get_pulse_fig(plot_df['Net_Flow'].tail(20).values), use_container_width=True, config={'displayModeBar': False})
 
-                    with r2_c2:
-                        se20 = fude_data['SE']['20D']; se60 = fude_data['SE']['60D']; se200 = fude_data['SE']['200D']
-                        st.markdown(f"""
-                        <div class='fude-card' style='border-color:#FF00FF;'>
-                            <div class='fude-title' style='color:#FF00FF;'><span>⚡ 短期能量 BAR</span><span class='val-pos'>{se20:.1f}%</span></div>
-                            <table class='fude-table'>
-                                <tr><td>20日動能</td><td class='val-pos'>{se20:.1f}%</td><td></td></tr>
-                                <tr><td>60日動能</td><td class='val-pos'>{se60:.1f}%</td><td></td></tr>
-                                <tr><td>200日動能</td><td class='val-pos'>{se200:.1f}%</td><td></td></tr>
-                            </table>
-                            {draw_triad_bar(se20, "#FF00FF")}
-                        </div>
-                        """, unsafe_allow_html=True)
-                        # SE Pulse Chart 模擬
-                        se_pulse_vals = plot_df['Close'].pct_change().tail(20).fillna(0).values * 200
-                        st.plotly_chart(get_pulse_fig(se_pulse_vals), use_container_width=True, config={'displayModeBar': False})
+                    # 獨立框 4: OBV 軌跡
+                    o20 = fude_data['OBV_20_val']; p20_o = fude_data['OBV_20_pct']; o60 = fude_data['OBV_60_val']; p60_o = fude_data['OBV_60_pct']; o200 = fude_data['OBV_200_val']; p200_o = fude_data['OBV_200_pct']
+                    obv_color = "#00FFCC" if o20 >= 0 else "#FF4B4B"; trend_str = "📈 流入" if o20 >= 0 else "📉 流出"
+                    st.markdown(f"""
+                    <div class='fude-card-ind' style='border-color:{obv_color};'>
+                        <div class='fude-title' style='color:{obv_color};'><span>📈 OBV 軌跡</span><span>{trend_str}</span></div>
+                        <table class='fude-table'>
+                            <tr><td>20日累積量</td><td class='{color_class(o20)}'>{fmt(o20)}</td><td class='{color_class(p20_o)}'>{p20_o:+.1f}%</td></tr>
+                            <tr><td>60日累積量</td><td class='{color_class(o60)}'>{fmt(o60)}</td><td class='{color_class(p60_o)}'>{p60_o:+.1f}%</td></tr>
+                            <tr><td>200日累積量</td><td class='{color_class(o200)}'>{fmt(o200)}</td><td class='{color_class(p200_o)}'>{p200_o:+.1f}%</td></tr>
+                        </table>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    st.plotly_chart(get_pulse_fig(plot_df['OBV_Daily'].tail(20).values), use_container_width=True, config={'displayModeBar': False})
 
-                    # 第 5 排 (Concentration)
-                    c20 = fude_data['Conc']['20D']; c60 = fude_data['Conc']['60D']; c200 = fude_data['Conc']['200D']
+                    # 獨立框 5: 資金部署集中度
+                    c20 = fude_data['Conc_20']; c60 = fude_data['Conc_60']; c200 = fude_data['Conc_200']
                     conc_color = "#FF4B4B" if c20 > 35 else ("#FFD700" if c20 > 15 else "#00FFCC")
                     conc_note = "（突發買入或掟貨）" if c20 > 35 else ("（公開正常進出）" if c20 > 15 else "（隱密吸籌/派發）")
                     st.markdown(f"""
-                    <div class='fude-card' style='border-color:#BC13FE; margin-top:15px;'>
-                        <div class='fude-title' style='color:#BC13FE;'><span>🎯 資金部署集中度</span><span style='color:{conc_color}; font-size:1.1rem;'>{conc_note}</span></div>
+                    <div class='fude-card-ind' style='border-color:#BC13FE;'>
+                        <div class='fude-title' style='color:#BC13FE;'><span>🎯 資金部署集中度</span><span style='color:{conc_color}; font-size:1.2rem;'>{conc_note}</span></div>
                         <table class='fude-table'>
-                            <tr><td style='width:30%;'>20日極值佔比</td><td style='color:{conc_color};'>{c20:.1f}%</td><td></td></tr>
+                            <tr><td style='width:40%;'>20日極值佔比</td><td style='color:{conc_color};'>{c20:.1f}%</td><td></td></tr>
                             <tr><td>60日極值佔比</td><td style='color:#FFF;'>{c60:.1f}%</td><td></td></tr>
                             <tr><td>200日極值佔比</td><td style='color:#FFF;'>{c200:.1f}%</td><td></td></tr>
                         </table>
-                        <div style='width:100%; background-color:#222; border-radius:10px; height:12px; margin-top:15px; border:1px solid #444;'>
-                            <div style='width:{c20}%; background-color:{conc_color}; height:100%; box-shadow:0 0 10px {conc_color};'></div>
+                        <div style='width:100%; background-color:#222; border-radius:10px; height:16px; margin-top:20px; border:1px solid #444;'>
+                            <div style='width:{c20}%; background-color:{conc_color}; height:100%; box-shadow:0 0 10px {conc_color}; border-radius:10px;'></div>
                         </div>
                     </div>
                     """, unsafe_allow_html=True)
 
+                    # --- 原裝戰術圖表保留區 ---
                     st.write("---")
                     st.markdown("### 📊 摩訶釋達・量價拆解戰術圖 (Force Index & VWAP)")
                     
