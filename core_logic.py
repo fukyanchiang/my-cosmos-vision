@@ -167,7 +167,7 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
     if not is_dead and vcp_52w and (pct_from_52w_high > 25.0):
         is_dead = True; death_reason = f"距離52週高位太遠({pct_from_52w_high:.1f}%)"
     if not is_dead and vcp_ath and (curr_p < h.max() * 0.98):
-        is_dead = True; death_reason = "未達歷史新高(ATH)極致區"
+        is_dead = True; death_reason = "未達歷史新高(ATH)极致區"
         
     if is_dead and not force_return: return None
 
@@ -398,7 +398,7 @@ class AssetRanker:
         return df.iloc[::-1].reset_index(drop=True)
 
 # =======================================================
-# 💰 爺爺全新研發：大戶資金流透視 (福德金字塔) 掃描器 
+# 💰 爺爺全新研發：大戶資金流透視 (福德金字塔) 掃描器 (三線數據升級版)
 # =======================================================
 def scan_fude_logic(df, ticker):
     """
