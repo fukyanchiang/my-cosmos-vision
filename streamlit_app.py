@@ -200,7 +200,7 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
             for i, (f, name) in enumerate(files):
                 if m[i].button(f"選定 {name}"): 
                     st.session_state.active_file = f; st.success(f"✅ 已選定 {f}")
-            with c_btn: btn_radar = st.button("📡 啟動 5.0 雙線雷達", use_container_width=True)
+            with c_btn: btn_radar = st.button("📡 啟仰 5.0 雙線雷達", use_container_width=True)
 
         elif st.session_state.target == 'SINGLE':
             st.write("### 🔍 個股自訂掃描：")
@@ -587,9 +587,9 @@ elif operation_mode == "💰 大戶資金流透視 (福德金字塔)":
                         {draw_triad_bar(ej20, ej_c)}
                     </div>
                     """, unsafe_allow_html=True)
-                    st.plotly_chart(get_pulse_fig(plot_df['Net_Flow'].tail(20).values), use_container_width=True, config={'displayModeBar': False})
+                    st.plotly_chart(get_pulse_fig(plot_df['Net_Flow'].tail(20).values), use_container_width=True, key="ej_20", config={'displayModeBar': False})
                     st.markdown(f"<div class='pulse-label' style='color:{ej_c};'>▲ 最近 20 天微觀錢流爆發</div>", unsafe_allow_html=True)
-                    st.plotly_chart(get_pulse_fig(plot_df['Net_Flow'].tail(60).values), use_container_width=True, config={'displayModeBar': False})
+                    st.plotly_chart(get_pulse_fig(plot_df['Net_Flow'].tail(60).values), use_container_width=True, key="ej_60", config={'displayModeBar': False})
                     st.markdown(f"<div class='pulse-label' style='color:{ej_c};'>▲ 最近 60 天中線建倉軌跡</div><br>", unsafe_allow_html=True)
 
                     # 2. 短期能量 BAR (雙層柱)
@@ -608,9 +608,9 @@ elif operation_mode == "💰 大戶資金流透視 (福德金字塔)":
                     """, unsafe_allow_html=True)
                     se_pulse_20 = plot_df['Close'].pct_change().tail(20).fillna(0).values * 100
                     se_pulse_60 = plot_df['Close'].pct_change().tail(60).fillna(0).values * 100
-                    st.plotly_chart(get_pulse_fig(se_pulse_20), use_container_width=True, config={'displayModeBar': False})
+                    st.plotly_chart(get_pulse_fig(se_pulse_20), use_container_width=True, key="se_20", config={'displayModeBar': False})
                     st.markdown(f"<div class='pulse-label' style='color:{se_c};'>▲ 最近 20 天動能波幅</div>", unsafe_allow_html=True)
-                    st.plotly_chart(get_pulse_fig(se_pulse_60), use_container_width=True, config={'displayModeBar': False})
+                    st.plotly_chart(get_pulse_fig(se_pulse_60), use_container_width=True, key="se_60", config={'displayModeBar': False})
                     st.markdown(f"<div class='pulse-label' style='color:{se_c};'>▲ 最近 60 天動能波幅</div><br>", unsafe_allow_html=True)
 
                     # 3. 資金總數 (Money Flow) (雙層柱)
@@ -626,9 +626,9 @@ elif operation_mode == "💰 大戶資金流透視 (福德金字塔)":
                         </table>
                     </div>
                     """, unsafe_allow_html=True)
-                    st.plotly_chart(get_pulse_fig(plot_df['Net_Flow'].tail(20).values), use_container_width=True, config={'displayModeBar': False})
+                    st.plotly_chart(get_pulse_fig(plot_df['Net_Flow'].tail(20).values), use_container_width=True, key="mf_20", config={'displayModeBar': False})
                     st.markdown(f"<div class='pulse-label' style='color:{flow_color};'>▲ 最近 20 天資金流向</div>", unsafe_allow_html=True)
-                    st.plotly_chart(get_pulse_fig(plot_df['Net_Flow'].tail(60).values), use_container_width=True, config={'displayModeBar': False})
+                    st.plotly_chart(get_pulse_fig(plot_df['Net_Flow'].tail(60).values), use_container_width=True, key="mf_60", config={'displayModeBar': False})
                     st.markdown(f"<div class='pulse-label' style='color:{flow_color};'>▲ 最近 60 天資金流向</div><br>", unsafe_allow_html=True)
 
                     # 4. OBV 軌跡 (雙層柱)
@@ -644,9 +644,9 @@ elif operation_mode == "💰 大戶資金流透視 (福德金字塔)":
                         </table>
                     </div>
                     """, unsafe_allow_html=True)
-                    st.plotly_chart(get_pulse_fig(plot_df['OBV_Daily'].tail(20).values), use_container_width=True, config={'displayModeBar': False})
+                    st.plotly_chart(get_pulse_fig(plot_df['OBV_Daily'].tail(20).values), use_container_width=True, key="obv_20", config={'displayModeBar': False})
                     st.markdown(f"<div class='pulse-label' style='color:{obv_color};'>▲ 最近 20 天 OBV 變動</div>", unsafe_allow_html=True)
-                    st.plotly_chart(get_pulse_fig(plot_df['OBV_Daily'].tail(60).values), use_container_width=True, config={'displayModeBar': False})
+                    st.plotly_chart(get_pulse_fig(plot_df['OBV_Daily'].tail(60).values), use_container_width=True, key="obv_60", config={'displayModeBar': False})
                     st.markdown(f"<div class='pulse-label' style='color:{obv_color};'>▲ 最近 60 天 OBV 變動</div><br>", unsafe_allow_html=True)
 
                     # 5. 資金部署集中度 (加股數 + 雙層有紅綠柱)
@@ -654,22 +654,22 @@ elif operation_mode == "💰 大戶資金流透視 (福德金字塔)":
                     conc_note = "（突發買入或掟貨）" if c20 > 35 else ("（公開正常進出）" if c20 > 15 else "（隱密吸籌/派發）")
                     st.markdown(f"""
                     <div class='fude-card-ind' style='border-color:#BC13FE;'>
-                        <div class='fude-title' style='color:#BC13FE;'><span>🎯 資金部署集中度</span><span style='color:{conc_color}; font-size:1.2rem;'>{conc_note}</span></div>
+                        <div class='fude-title' style='color:#BC13FE;'><span>🎯 資金部署集中度</span><span style='color:{conc_color}; font-size:1.1rem;'>{conc_note}</span></div>
                         <table class='fude-table'>
                             <tr><th>週期</th><th>極值佔比</th><th>變化 %</th><th>估算股數</th></tr>
                             <tr><td>20日</td><td style='color:{conc_color};'>{c20:.1f}%</td><td class='{color_class(c20_p)}'>{c20_p:+.1f}%</td><td class='{color_class(s20)}'>{'+' if s20>0 else ''}{s20:,} 股</td></tr>
                             <tr><td>60日</td><td style='color:#FFF;'>{c60:.1f}%</td><td class='{color_class(c60_p)}'>{c60_p:+.1f}%</td><td class='{color_class(s60)}'>{'+' if s60>0 else ''}{s60:,} 股</td></tr>
                             <tr><td>200日</td><td style='color:#FFF;'>{c200:.1f}%</td><td class='{color_class(c200_p)}'>{c200_p:+.1f}%</td><td class='{color_class(s200)}'>{'+' if s200>0 else ''}{s200:,} 股</td></tr>
                         </table>
-                        <div style='width:100%; background-color:#222; border-radius:10px; height:20px; margin-top:30px; margin-bottom:30px; border:1px solid #444;'>
-                            <div style='width:{min(100, c20)}%; background-color:{conc_color}; height:100%; box-shadow:0 0 15px {conc_color}; border-radius:10px;'></div>
+                        <div style='width:100%; background-color:#222; border-radius:10px; height:18px; margin-top:25px; margin-bottom:25px; border:1px solid #444;'>
+                            <div style='width:{min(100, c20)}%; background-color:{conc_color}; height:100%; box-shadow:0 0 12px {conc_color}; border-radius:10px;'></div>
                         </div>
                     </div>
                     """, unsafe_allow_html=True)
                     # 抽走 abs()，還原紅綠買賣方向
-                    st.plotly_chart(get_pulse_fig(plot_df['Net_Flow'].tail(20).values), use_container_width=True, config={'displayModeBar': False})
+                    st.plotly_chart(get_pulse_fig(plot_df['Net_Flow'].tail(20).values), use_container_width=True, key="conc_20", config={'displayModeBar': False})
                     st.markdown("<div class='pulse-label' style='color:#BC13FE;'>▲ 最近 20 天集中度分布 (綠=買, 紅=賣)</div>", unsafe_allow_html=True)
-                    st.plotly_chart(get_pulse_fig(plot_df['Net_Flow'].tail(60).values), use_container_width=True, config={'displayModeBar': False})
+                    st.plotly_chart(get_pulse_fig(plot_df['Net_Flow'].tail(60).values), use_container_width=True, key="conc_60", config={'displayModeBar': False})
                     st.markdown("<div class='pulse-label' style='color:#BC13FE;'>▲ 最近 60 天集中度分布 (綠=買, 紅=賣)</div><br>", unsafe_allow_html=True)
 
                     # --- 原裝戰術圖表保留區 ---
