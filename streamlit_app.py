@@ -94,7 +94,7 @@ with st.sidebar:
     st.markdown("### 🎛️ 系統主指揮中心")
     operation_mode = st.radio(
         "請選擇核心操作模式:",
-        ["🐉 龍魂神殿雷達系統", "📊 究極資產拔河龍虎榜"]
+        ["🐉 龍魂神殿雷達系統", "📊 究極資產拔河龍虎榜", "💰 大戶資金流透視 (福德金字塔)"]
     )
     st.markdown("---")
     st.caption("👴 爺爺的操盤矩陣 V188.5")
@@ -563,3 +563,101 @@ elif operation_mode == "📊 究極資產拔河龍虎榜":
                     st.success("✅ 情報站部署完成！快去尋找集齊 🚀🔋🎯🔥 嘅終極大魔王啦！可以隨時撳開上面本『說明書』溫書！")
         else:
             st.warning("⚠️ 標的名單為空，無法執行掃描。")
+
+# =========================================================================
+# 💰 模式三：大戶資金流透視 (福德金字塔) - 爺爺無米煮飯終極版
+# =========================================================================
+elif operation_mode == "💰 大戶資金流透視 (福德金字塔)":
+    from core_logic import scan_fude_logic
+    
+    st.markdown("<h1 style='text-align:center; color:#FFD700;'>💰 大戶資金流透視 (福德金字塔)</h1>", unsafe_allow_html=True)
+    st.markdown("""
+    <div style='background-color:#111; padding:15px; border-radius:10px; border-left: 5px solid #FFD700; margin-bottom: 20px;'>
+        <h3 style='color:#FFD700; margin-top:0;'>⛩️ 華爾街大鱷模擬器 (無米煮飯量價版)</h3>
+        <p style='color:#ddd; margin-bottom:0;'>透過 Yahoo 數據進行深度解構，拆解 <b>20日(熱錢) / 60日(底氣) / 200日(福德家底)</b>。<br>
+        結合 Force Index、CMF 及 VWAP 偏離度，透視大戶暗中吸籌與派發嘅真實意向。</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("<h3 style='color: white;'>🔍 個股大鱷探測：</h3>", unsafe_allow_html=True)
+    col_input, col_btn = st.columns([3, 1])
+    with col_input:
+        ticker = st.text_input("輸入股票代號 (例: NVDA, 0700.HK, TSLA)", "NVDA").upper().strip()
+    with col_btn:
+        st.write("<br>", unsafe_allow_html=True)
+        run_scan = st.button("📡 透視資金底牌", use_container_width=True)
+
+    if run_scan or ticker:
+        with st.spinner(f"⏳ 爺爺正在為你潛入深網，計算 {ticker} 嘅福德家底..."):
+            try:
+                df = smart_fetch(ticker, period="2y")
+                fude_data = scan_fude_logic(df, ticker)
+                
+                if not fude_data:
+                    st.error("⚠️ 數據不足 200 日，無法計算 200日線及重貨區！請轉換其他上市超過一年嘅股票。")
+                else:
+                    poc_price = fude_data["POC_Price"]
+                    curr_c = fude_data["Current_Price"]
+                    fude_col = fude_data["Fude_Color"]
+                    fude_lvl = fude_data["Fude_Level"]
+                    fude_desc = fude_data["Fude_Desc"]
+                    tags = fude_data["Tags"]
+                    plot_df = fude_data["Plot_Data"]
+                    
+                    st.markdown(f"### {ticker} 資金命格解讀")
+                    c1, c2, c3 = st.columns(3)
+                    
+                    with c1:
+                        st.markdown(f"<div class='dragon-card' style='border-color:{fude_col}; height:220px; display:flex; flex-direction:column; justify-content:center;'><div style='font-size:1.2rem;color:#ccc;'>⛩️ 福德等級 (200日)</div><div style='font-size:2rem; font-weight:bold; color:{fude_col}; margin-top:10px;'>{fude_lvl}</div><div style='font-size:1rem; color:#ccc; margin-top:10px;'>{fude_desc}</div></div>", unsafe_allow_html=True)
+                    with c2:
+                        poc_status = "✅ 股價已突圍大本營" if curr_c > poc_price else "⚠️ 處於天量套牢區之下"
+                        poc_color = "#00FFCC" if curr_c > poc_price else "#FF4B4B"
+                        st.markdown(f"<div class='dragon-card' style='border-color:#BC13FE; height:220px; display:flex; flex-direction:column; justify-content:center;'><div style='font-size:1.2rem;color:#ccc;'>🎯 過去200日成交大本營 (POC)</div><div style='font-size:3rem; font-weight:900; color:#BC13FE;'>${poc_price:.2f}</div><div style='font-size:1.1rem; font-weight:bold; color:{poc_color}; margin-top:5px;'>{poc_status}</div></div>", unsafe_allow_html=True)
+                    with c3:
+                        st.markdown(f"<div class='dragon-card' style='border-color:#00FFFF; height:220px; display:flex; flex-direction:column; justify-content:center;'><div style='font-size:1.2rem;color:#ccc;'>🔍 大戶底氣標籤</div><div style='display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin-top:15px; font-weight:bold;'>{' '.join(tags) if tags else '無明顯大戶特徵'}</div></div>", unsafe_allow_html=True)
+                    
+                    st.write("---")
+                    st.markdown("### 📊 摩訶釋達・量價拆解戰術圖 (Force Index & VWAP)")
+                    
+                    dates = plot_df.index.strftime('%Y-%m-%d')
+                    
+                    fig = make_subplots(rows=3, cols=1, shared_xaxes=True, row_heights=[0.5, 0.25, 0.25], vertical_spacing=0.03, subplot_titles=("股價與大鱷成本 (VWAP 20) + 🦈 強勢吸籌", "三層福德動力 (Force Index)", "中短線底氣流向 (CMF)"))
+                    
+                    # 第一層：股價與 VWAP
+                    fig.add_trace(go.Candlestick(x=dates, open=plot_df['Open'], high=plot_df['High'], low=plot_df['Low'], close=plot_df['Close'], name="K線"), row=1, col=1)
+                    fig.add_trace(go.Scatter(x=dates, y=plot_df['VWAP_20'], mode='lines', name='VWAP (20日成本)', line=dict(color='orange', width=2, dash='dot')), row=1, col=1)
+                    fig.add_hline(y=poc_price, line_dash="solid", line_color="#BC13FE", annotation_text=f"📌 POC 密集區: ${poc_price:.2f}", annotation_position="top left", annotation_font=dict(color="white", size=13), row=1, col=1)
+                    
+                    for i in range(len(plot_df)):
+                        if plot_df['RVOL'].iloc[i] > 1.5 and plot_df['Close'].iloc[i] > plot_df['VWAP_20'].iloc[i] and plot_df['Close'].iloc[i] > plot_df['Open'].iloc[i]:
+                            fig.add_annotation(x=dates[i], y=plot_df['Low'].iloc[i], text="🦈", showarrow=True, ax=0, ay=30, arrowcolor="#00FFCC", font=dict(size=18), row=1, col=1)
+
+                    # 第二層：Force Index (正則化處理等佢哋喺同一個 Scale)
+                    max_20 = max(plot_df['Merit_20'].abs().max(), 1)
+                    max_60 = max(plot_df['Merit_60'].abs().max(), 1)
+                    max_200 = max(plot_df['Merit_200'].abs().max(), 1)
+                    norm_20 = plot_df['Merit_20'] / max_20
+                    norm_60 = plot_df['Merit_60'] / max_60
+                    norm_200 = plot_df['Merit_200'] / max_200
+                    
+                    fig.add_trace(go.Scatter(x=dates, y=norm_20, mode='lines', name='熱錢 (20日)', line=dict(color='#FF4B4B', width=1.5)), row=2, col=1)
+                    fig.add_trace(go.Scatter(x=dates, y=norm_60, mode='lines', name='底氣 (60日)', line=dict(color='#00FFCC', width=2)), row=2, col=1)
+                    fig.add_trace(go.Scatter(x=dates, y=norm_200, mode='lines', name='福德 (200日)', line=dict(color='#FFD700', width=3)), row=2, col=1)
+                    fig.add_hline(y=0, line_dash="dash", line_color="rgba(255,255,255,0.3)", row=2, col=1)
+                    
+                    # 第三層：CMF
+                    fig.add_trace(go.Scatter(x=dates, y=plot_df['CMF_20'], mode='lines', name='CMF (20日)', line=dict(color='#FF00FF', width=1.5)), row=3, col=1)
+                    fig.add_trace(go.Scatter(x=dates, y=plot_df['CMF_60'], mode='lines', name='CMF (60日)', line=dict(color='white', width=2)), row=3, col=1)
+                    fig.add_hline(y=0, line_dash="dash", line_color="rgba(255,255,255,0.3)", row=3, col=1)
+                    
+                    fig.update_layout(template="plotly_dark", paper_bgcolor='#0e1117', plot_bgcolor='#0e1117', height=950,
+                                      hovermode='x unified', xaxis_rangeslider_visible=False,
+                                      xaxis=dict(type='category', showticklabels=False),
+                                      xaxis2=dict(type='category', showticklabels=False),
+                                      xaxis3=dict(type='category', showspikes=True, spikemode='across', spikecolor="white", spikethickness=1),
+                                      legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, font=dict(color="white", size=13)))
+                    
+                    st.plotly_chart(fig, use_container_width=True)
+                    
+            except Exception as e:
+                st.error(f"⚠️ 計算過程發生錯誤: {e}")
