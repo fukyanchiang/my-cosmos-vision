@@ -244,11 +244,14 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
     # =======================================================
     # 🪃 事後動態過濾：N 字突破 (捕捉第1日及第2日)
     # =======================================================
+    # 取過去一週半的最高點作為「阻力前頂」(排除今昨2日，給予洗盤空間)
     lookback = 8 
     a_point = h.shift(2).rolling(lookback).max().iloc[-1]
     a_point_yest = h.shift(3).rolling(lookback).max().iloc[-1]
     
+    # Day 1: 今日剛突破
     is_breakout_today = (c.iloc[-1] > a_point) and (c.iloc[-2] <= a_point)
+    # Day 2: 昨日剛突破 (供考慮即日高追)
     is_breakout_yest = (c.iloc[-2] > a_point_yest) and (c.iloc[-3] <= a_point_yest)
     
     if is_breakout_today or is_breakout_yest:
@@ -285,7 +288,7 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
     }
 
 # =======================================================
-# 🔥 爺爺新增：究極資產拔河龍虎榜核心 (8大情報滿血版)
+# 🔥 爺爺新增：究極資產拔河龍虎榜核心 (V188.5 最終滿血版)
 # =======================================================
 class AssetRanker:
     @staticmethod
@@ -349,39 +352,31 @@ class AssetRanker:
         df['Rank_Change'] = df['Past_Rank'] - df['Current_Rank']
         top_10_threshold = max(1, int(len(df) * 0.1))
 
-        # 🚀 爺爺為你精心打造的 8大情報公仔對齊引擎
+        # 🚀 救命關鍵：左邊標籤淨係留公仔，徹底刪除百分比，等畫面更乾淨！
         def generate_label(row):
             chg = int(row['Rank_Change'])
             ticker = row['Ticker']
             
-            # 1 & 2. 綠波/藍波 (Rank_Change)
+            is_rocket = (row['Rank_200d'] <= top_10_threshold) and (chg > 0)
+            rocket = "🚀 " if is_rocket else ""
+            
             if chg >= 30: icon = f"🟢 ▲ {chg}"
             elif chg <= -30: icon = f"🔵 ▼ {abs(chg)}"
             elif chg > 0: icon = f"▲ {chg}"
             elif chg < 0: icon = f"▼ {abs(chg)}"
             else: icon = "- 0"
 
-            # 3. 火箭 (Top 10% on 200d)
-            is_rocket = (row['Rank_200d'] <= top_10_threshold) and (chg > 0)
-            rocket = "🚀 " if is_rocket else ""
-            
-            # 4 & 5. 雙電池/單電池 (RVOL)
             vol_tag = ""
             if row['RVOL'] >= 3.0: vol_tag = f"[{row['RVOL']:.1f}x 🔋🔋]"
             elif row['RVOL'] >= 1.5: vol_tag = f"[{row['RVOL']:.1f}x 🔋]"
             
-            # 6. 準破頂 (Dist_52W)
             top_tag = "[🎯 準破頂]" if row['Dist_52W'] <= 3.0 else ""
-            
-            # 7. 火炎公仔 (連續強勢)
-            streak_tag = "[🔥 連續強勢]" if row['Streak'] else ""
-            
-            # 8. 閃電 (跳空 GAP)
+            streak_tag = "[🔥 3D]" if row['Streak'] else ""
             gap_tag = f"[⚡ GAP {row['Gap']:+.1f}%]" if abs(row['Gap']) >= 1.5 else ""
 
             tags = f"{vol_tag}{top_tag}{streak_tag}{gap_tag}".strip()
             
-            # 兩行排版，左邊乾淨，刪走百分比，等右邊顯示
+            # 百分比移出！只顯示公仔情報
             if tags:
                 return f"{icon} | {rocket}{ticker}<br><span style='color:#aaaaaa;font-size:10px;'>{tags}</span>"
             else:
@@ -396,3 +391,92 @@ class AssetRanker:
             df = pd.concat([df.head(n_30), sep, df.tail(n_30)], ignore_index=True)
 
         return df.iloc[::-1].reset_index(drop=True)
+
+# =======================================================
+# 💰 爺爺全新研發：大戶資金流透視 (福德金字塔) 掃描器 
+# =======================================================
+def scan_fude_logic(df, ticker):
+    """
+    此 Function 專門負責計算大戶底氣，完全不會干擾上面嘅掃股邏輯。
+    將傳入嘅 DataFrame (建議最少 2 年歷史數據) 轉化為福德金字塔及戰術指標。
+    """
+    if df is None or len(df) < 200:
+        return None  # 數據不足 200 日，無法計 POC 及 200日福德
+        
+    d = df.copy()  # 用 copy 防止污染原本嘅 df
+    
+    # 1. 典型價格 (TP) & 資金流 (MF)
+    d['TP'] = (d['High'] + d['Low'] + d['Close']) / 3
+    d['MF'] = d['TP'] * d['Volume']
+    
+    # 2. VWAP 模擬 (20日)
+    d['VWAP_20'] = d['MF'].rolling(20).sum() / np.maximum(d['Volume'].rolling(20).sum(), 1)
+    
+    # 3. Force Index (攻擊效率/推動力) & 20/60/200 累計 (Merit)
+    d['Force_Index'] = (d['Close'] - d['Close'].shift(1)) * d['Volume']
+    d['Merit_20'] = d['Force_Index'].rolling(20).sum()
+    d['Merit_60'] = d['Force_Index'].rolling(60).sum()
+    d['Merit_200'] = d['Force_Index'].rolling(200).sum()
+    
+    # 4. Chaikin Money Flow (CMF) - 20D & 60D
+    var3 = np.maximum(d['High'] - d['Low'], 0.001)
+    clv = ((d['Close'] - d['Low']) - (d['High'] - d['Close'])) / var3
+    d['AD'] = clv * d['Volume']
+    d['CMF_20'] = d['AD'].rolling(20).sum() / np.maximum(d['Volume'].rolling(20).sum(), 1)
+    d['CMF_60'] = d['AD'].rolling(60).sum() / np.maximum(d['Volume'].rolling(60).sum(), 1)
+    
+    # 5. RVOL (200D 平均異常成交量)
+    d['Vol_200MA'] = d['Volume'].rolling(200).mean()
+    d['RVOL'] = d['Volume'] / np.maximum(d['Vol_200MA'], 1)
+    
+    # 6. POC (200D 成交密集大本營)
+    recent_200 = d.tail(200)
+    counts, bins = np.histogram(recent_200['Close'], bins=40, weights=recent_200['Volume'])
+    poc_idx = np.argmax(counts)
+    poc_price = (bins[poc_idx] + bins[poc_idx+1]) / 2
+    
+    # 提取最後一日數值作 UI 顯示
+    curr_c = d['Close'].iloc[-1]
+    m20 = d['Merit_20'].iloc[-1]
+    m60 = d['Merit_60'].iloc[-1]
+    m200 = d['Merit_200'].iloc[-1]
+    m20_prev = d['Merit_20'].iloc[-2] if len(d) > 2 else 0
+    vwap_20 = d['VWAP_20'].iloc[-1]
+    
+    # 福德等級邏輯判定
+    if m20 > 0 and m60 > 0 and m200 > 0:
+        fude_lvl, fude_col, fude_desc = "🌟 福德深厚 (大金主)", "#FFD700", "三線資金皆正，長中短大戶齊心建倉，身家極厚。"
+    elif m200 > 0 and m60 > 0 and m20 <= 0:
+        fude_lvl, fude_col, fude_desc = "🕳️ 黃金坑 (長線好,短線洗)", "#00FFCC", "長中線底氣強大，短線游資流出僅為震倉，留意低吸。"
+    elif m20 > 0 and m200 <= 0:
+        fude_lvl, fude_col, fude_desc = "💨 虛火熱錢 (短線強,家底薄)", "#FF4B4B", "長線大戶派發中，只靠短線游資炒作，慎防接火棒。"
+    else:
+        fude_lvl, fude_col, fude_desc = "🥀 無主孤魂 (資金流失)", "#888888", "三線資金皆負，大戶徹底放棄，切勿胡亂撈底。"
+    
+    # 額外大戶底氣標籤
+    tags = []
+    if m200 > 0 and m60 > 0: tags.append("<span style='background:#111; border:1px solid #FFD700; color:#FFD700; padding:5px 10px; border-radius:5px;'>🌟 名門望族</span>")
+    if m20 > m20_prev: tags.append("<span style='background:#111; border:1px solid #FF4B4B; color:#FF4B4B; padding:5px 10px; border-radius:5px;'>🔥 熱錢湧入</span>")
+    if curr_c > vwap_20: tags.append("<span style='background:#111; border:1px solid #00FFCC; color:#00FFCC; padding:5px 10px; border-radius:5px;'>🛡️ 跌不破位</span>")
+    if m20 > 0 and m200 < 0: tags.append("<span style='background:#111; border:1px solid #FF00FF; color:#FF00FF; padding:5px 10px; border-radius:5px;'>⚠️ 虛有其表</span>")
+    
+    # 準備回傳 Dictionary 畀 Streamlit UI 繪圖
+    # 保留最後 120 日畫圖，避免前端過重
+    plot_data = d.tail(120)[['Open', 'High', 'Low', 'Close', 'Volume', 'VWAP_20', 'RVOL', 'Merit_20', 'Merit_60', 'Merit_200', 'CMF_20', 'CMF_60']]
+    
+    return {
+        "Ticker": ticker,
+        "Current_Price": curr_c,
+        "POC_Price": poc_price,
+        "VWAP_20": vwap_20,
+        "Merit_20": m20,
+        "Merit_60": m60,
+        "Merit_200": m200,
+        "CMF_20": d['CMF_20'].iloc[-1],
+        "CMF_60": d['CMF_60'].iloc[-1],
+        "Fude_Level": fude_lvl,
+        "Fude_Color": fude_col,
+        "Fude_Desc": fude_desc,
+        "Tags": tags,
+        "Plot_Data": plot_data
+    }
