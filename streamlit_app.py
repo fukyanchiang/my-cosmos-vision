@@ -1030,21 +1030,28 @@ elif app_mode == "🌊 海龜回測加注雷達 (Mode E)":
         if 'e_scanned_stocks' in st.session_state and not st.session_state.e_scanned_stocks:
             st.warning("💤 雷達掃描完畢，未有符合過濾之標的。")
 
+
 # =========================================================================
-# 💰 模式三：大戶資金流透視 (福德金字塔) - 爺爺無米煮飯終極版 + 獨家解密 5 大霓虹框
+# 💰 模式三：大戶資金流透視 (福德金字塔) - 爺爺黑底霓虹三線版
 # =========================================================================
 elif operation_mode == "💰 大戶資金流透視 (福德金字塔)":
     from core_logic import scan_fude_logic
     
-    st.markdown("<h1 style='text-align:center; color:#FFD700;'>💰 大戶資金流透視 (福德金字塔)</h1>", unsafe_allow_html=True)
+    # 強制注入黑底 CSS
     st.markdown("""
-    <div style='background-color:#111; padding:15px; border-radius:10px; border-left: 5px solid #FFD700; margin-bottom: 20px;'>
-        <h3 style='color:#FFD700; margin-top:0;'>⛩️ 華爾街大鱷模擬器 (無米煮飯量價版)</h3>
-        <p style='color:#ddd; margin-bottom:0;'>透過 Yahoo 數據進行深度解構，拆解 <b>20日(熱錢) / 60日(底氣) / 200日(福德家底)</b>。<br>
-        結合 Force Index、CMF 及 VWAP 偏離度，透視大戶暗中吸籌與派發嘅真實意向。</p>
-    </div>
+        <style>
+        .stApp { background-color: #000000 !important; }
+        .fude-box { background-color: #000 !important; border: 2px solid #333; border-radius: 15px; padding: 20px; margin-bottom: 20px; box-shadow: 0 0 15px rgba(255,255,255,0.05); }
+        .fude-header { font-size: 1.5rem; font-weight: 900; margin-bottom: 15px; display: flex; justify-content: space-between; }
+        .fude-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        .fude-table td { padding: 8px; border-bottom: 1px dashed #333; font-size: 1.1rem; color: #fff;}
+        .val-pos { color: #00FFCC; font-weight: bold; text-align: right; }
+        .val-neg { color: #FF4B4B; font-weight: bold; text-align: right; }
+        </style>
     """, unsafe_allow_html=True)
 
+    st.markdown("<h1 style='text-align:center; color:#FFD700;'>💰 大戶資金流透視 (福德金字塔)</h1>", unsafe_allow_html=True)
+    
     st.markdown("<h3 style='color: white;'>🔍 個股大鱷探測：</h3>", unsafe_allow_html=True)
     col_input, col_btn = st.columns([3, 1])
     with col_input:
@@ -1054,25 +1061,25 @@ elif operation_mode == "💰 大戶資金流透視 (福德金字塔)":
         run_scan = st.button("📡 透視資金底牌", use_container_width=True)
 
     if run_scan or ticker:
-        with st.spinner(f"⏳ 爺爺正在為你潛入深網，計算 {ticker} 嘅福德家底..."):
+        with st.spinner(f"⏳ 爺爺正在計算 {ticker} 嘅三線福德..."):
             try:
                 df = smart_fetch(ticker, period="2y")
-                fude_data = scan_fude_logic(df, ticker)
+                data = scan_fude_logic(df, ticker)
                 
-                if not fude_data:
+                if not data:
                     st.error("⚠️ 數據不足 200 日，無法計算 200日線及重貨區！請轉換其他上市超過一年嘅股票。")
                 else:
-                    poc_price = fude_data["POC_Price"]
-                    curr_c = fude_data["Current_Price"]
-                    fude_col = fude_data["Fude_Color"]
-                    fude_lvl = fude_data["Fude_Level"]
-                    fude_desc = fude_data["Fude_Desc"]
-                    tags = fude_data["Tags"]
-                    plot_df = fude_data["Plot_Data"]
+                    poc_price = data["POC_Price"]
+                    curr_c = data["Current_Price"]
+                    fude_col = data["Fude_Color"]
+                    fude_lvl = data["Fude_Level"]
+                    fude_desc = data["Fude_Desc"]
+                    tags = data["Tags"]
+                    plot_df = data["Plot_Data"]
                     
+                    # --- 頂部三大框 ---
                     st.markdown(f"### {ticker} 資金命格解讀")
                     c1, c2, c3 = st.columns(3)
-                    
                     with c1:
                         st.markdown(f"<div class='dragon-card' style='border-color:{fude_col}; height:220px; display:flex; flex-direction:column; justify-content:center;'><div style='font-size:1.2rem;color:#ccc;'>⛩️ 福德等級 (200日)</div><div style='font-size:2rem; font-weight:bold; color:{fude_col}; margin-top:10px;'>{fude_lvl}</div><div style='font-size:1rem; color:#ccc; margin-top:10px;'>{fude_desc}</div></div>", unsafe_allow_html=True)
                     with c2:
@@ -1081,209 +1088,109 @@ elif operation_mode == "💰 大戶資金流透視 (福德金字塔)":
                         st.markdown(f"<div class='dragon-card' style='border-color:#BC13FE; height:220px; display:flex; flex-direction:column; justify-content:center;'><div style='font-size:1.2rem;color:#ccc;'>🎯 過去200日成交大本營 (POC)</div><div style='font-size:3rem; font-weight:900; color:#BC13FE;'>${poc_price:.2f}</div><div style='font-size:1.1rem; font-weight:bold; color:{poc_color}; margin-top:5px;'>{poc_status}</div></div>", unsafe_allow_html=True)
                     with c3:
                         st.markdown(f"<div class='dragon-card' style='border-color:#00FFFF; height:220px; display:flex; flex-direction:column; justify-content:center;'><div style='font-size:1.2rem;color:#ccc;'>🔍 大戶底氣標籤</div><div style='display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin-top:15px; font-weight:bold;'>{' '.join(tags) if tags else '無明顯大戶特徵'}</div></div>", unsafe_allow_html=True)
+
+                    # --- 爺爺加強版：5 大黑底霓虹框 ---
+                    st.write("---")
+                    st.markdown(f"### 🌊 獨家解密：主力資金池透視 (大戶目前：<span style='color:#FFD700;'>{data['Mood']}</span>)", unsafe_allow_html=True)
                     
-                    # ===============================================
-                    # 🔥 爺爺加建：舊版柱狀圖與 % 數面板 (獨家解密 5 大框)
-                    # ===============================================
-                    def cap_pct(val):
-                        try:
-                            v = float(val)
-                            return max(-999.0, min(999.0, v)) if not np.isnan(v) and not np.isinf(v) else 0.0
-                        except: return 0.0
-                        
+                    def fmt(val): return f"{'+' if val>0 else ''}${val/1e8:.1f}億" if abs(val)>=1e8 else (f"{'+' if val>0 else ''}${val/1e6:.1f}M" if abs(val)>=1e6 else f"{'+' if val>0 else ''}${val:,.0f}")
+                    def color_class(val): return "val-pos" if val >= 0 else "val-neg"
                     def get_pulse_fig(pulse_vals):
-                        try:
-                            colors = ['#00FFCC' if v >= 0 else '#FF4B4B' for v in pulse_vals]
-                            fig_p = go.Figure(go.Bar(x=list(range(len(pulse_vals))), y=pulse_vals, marker_color=colors, hoverinfo='skip'))
-                            fig_p.update_layout(height=100, margin=dict(l=0,r=0,t=0,b=0), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', xaxis=dict(visible=False, fixedrange=True), yaxis=dict(visible=False, fixedrange=True), showlegend=False)
-                            return fig_p
-                        except: return go.Figure().update_layout(height=100, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', xaxis=dict(visible=False), yaxis=dict(visible=False))
-
+                        colors = ['#00FFCC' if v >= 0 else '#FF4B4B' for v in pulse_vals]
+                        fig_p = go.Figure(go.Bar(x=list(range(len(pulse_vals))), y=pulse_vals, marker_color=colors, hoverinfo='skip'))
+                        fig_p.update_layout(height=100, margin=dict(l=0,r=0,t=0,b=0), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', xaxis=dict(visible=False, fixedrange=True), yaxis=dict(visible=False, fixedrange=True), showlegend=False)
+                        return fig_p
                     def draw_triad_bar(val, color):
-                        lit = int((min(120, val)/120)*21); html = "<div style='display:flex; gap:8px; margin-bottom:5px;'>"
-                        for g in range(7):
-                            html += "<div style='display:flex; gap:3px;'>"
-                            for i in range(3):
-                                idx = g*3+i; c_code = "#FF4B4B" if idx<6 else ("#FFD700" if idx<12 else color)
-                                html += f"<div style='width:16px; height:35px; border-radius:2px; border:1.2px solid rgba(255,255,255,0.4); background-color:{c_code if idx < lit else '#222'}; opacity:{1 if idx < lit else 0.1};'></div>"
-                            html += "</div>"
-                        return html + "</div>"
+                        lit = int((min(120, max(0, val))/120)*21)
+                        html = "<div style='display:flex; gap:4px; margin-top: 10px;'>"
+                        for idx in range(21):
+                            c_code = "#FF4B4B" if idx<6 else ("#FFD700" if idx<12 else color)
+                            bg = c_code if idx < lit else '#222'
+                            op = 1 if idx < lit else 0.3
+                            html += f"<div style='width:14px; height:24px; background-color:{bg}; opacity:{op}; border-radius:2px;'></div>"
+                        html += "</div>"
+                        return html
 
-                    try:
-                        mf_df = df.copy()
-                        mf_df['Typical_Price'] = (mf_df['High'] + mf_df['Low'] + mf_df['Close']) / 3
-                        mf_df['Net_Flow'] = mf_df['Typical_Price'] * mf_df['Volume'] * np.where(mf_df['Close'] > mf_df['Close'].shift(1).fillna(mf_df['Close']), 1, -1)
-                        mf_df['OBV_Daily'] = (np.sign(mf_df['Close'].diff()) * mf_df['Volume']).fillna(0)
-                        mf_df['OBV'] = mf_df['OBV_Daily'].cumsum()
+                    # 1 & 2 排
+                    r1_c1, r1_c2 = st.columns(2)
+                    
+                    with r1_c1:
+                        flow_20, flow_p20 = data['Flow']['20D']
+                        flow_60, flow_p60 = data['Flow']['60D']
+                        flow_200, flow_p200 = data['Flow']['200D']
+                        flow_border = "#00FFCC" if flow_20 >= 0 else "#FF4B4B"
                         
-                        # Flow Logic (20, 60, 200)
-                        f_20 = mf_df['Net_Flow'].tail(20).sum(); f_60 = mf_df['Net_Flow'].tail(60).sum(); f_200 = mf_df['Net_Flow'].tail(200).sum()
-                        f_prev_20 = mf_df['Net_Flow'].iloc[-40:-20].sum() if len(mf_df)>40 else 0
-                        f_prev_60 = mf_df['Net_Flow'].iloc[-120:-60].sum() if len(mf_df)>120 else 0
-                        f_prev_200 = mf_df['Net_Flow'].iloc[-400:-200].sum() if len(mf_df)>400 else 0
+                        st.markdown(f"""<div class='fude-box' style='border-color:{flow_border};'>
+                            <div class='fude-header' style='color:{flow_border};'>💰 資金總數 (Money Flow) <span class='{color_class(flow_20)}'>{fmt(flow_20)}</span></div>
+                            <table class='fude-table'>
+                                <tr><td>20日總量</td><td class='{color_class(flow_20)}'>{fmt(flow_20)}</td><td class='{color_class(flow_p20)}'>{flow_p20:+.1f}%</td></tr>
+                                <tr><td>60日總量</td><td class='{color_class(flow_60)}'>{fmt(flow_60)}</td><td class='{color_class(flow_p60)}'>{flow_p60:+.1f}%</td></tr>
+                                <tr><td>200日總量</td><td class='{color_class(flow_200)}'>{fmt(flow_200)}</td><td class='{color_class(flow_p200)}'>{flow_p200:+.1f}%</td></tr>
+                            </table></div>""", unsafe_allow_html=True)
+                        st.plotly_chart(get_pulse_fig(plot_df['Net_Flow_Val'].tail(20).values), use_container_width=True, config={'displayModeBar': False})
+
+                    with r1_c2:
+                        obv_20, obv_p20 = data['OBV']['20D']
+                        obv_60, obv_p60 = data['OBV']['60D']
+                        obv_200, obv_p200 = data['OBV']['200D']
+                        obv_border = "#00FFCC" if obv_20 >= 0 else "#FF4B4B"
+                        trend_str = "📈 流入" if obv_20 >= 0 else "📉 流出"
                         
-                        def format_flow(val):
-                            if abs(val) >= 1e8: return f"{'+' if val>0 else ''}${val/1e8:.1f}億"
-                            elif abs(val) >= 1e6: return f"{'+' if val>0 else ''}${val/1e6:.1f}M"
-                            else: return f"{'+' if val>0 else ''}${val:,.0f}"
-                            
-                        diff_f_20 = cap_pct((f_20 - f_prev_20) / max(abs(f_prev_20), 1) * 100)
-                        diff_f_60 = cap_pct((f_60 - f_prev_60) / max(abs(f_prev_60), 1) * 100)
-                        diff_f_200 = cap_pct((f_200 - f_prev_200) / max(abs(f_prev_200), 1) * 100)
-                        
-                        flow_color = "#00FFCC" if f_20 > 0 else "#FF4B4B"
+                        st.markdown(f"""<div class='fude-box' style='border-color:{obv_border};'>
+                            <div class='fude-header' style='color:{obv_border};'>📈 OBV 軌跡 <span>狀態: {trend_str}</span></div>
+                            <table class='fude-table'>
+                                <tr><td>20日變化量</td><td class='{color_class(obv_20)}'>{fmt(obv_20)}</td><td class='{color_class(obv_20)}'>---</td></tr>
+                                <tr><td>60日變化量</td><td class='{color_class(obv_60)}'>{fmt(obv_60)}</td><td class='{color_class(obv_60)}'>---</td></tr>
+                                <tr><td>200日變化量</td><td class='{color_class(obv_200)}'>{fmt(obv_200)}</td><td class='{color_class(obv_200)}'>---</td></tr>
+                            </table></div>""", unsafe_allow_html=True)
+                        st.plotly_chart(get_pulse_fig(plot_df['OBV_Daily'].tail(20).values), use_container_width=True, config={'displayModeBar': False})
 
-                        # OBV Logic (20, 60, 200)
-                        obv_20 = mf_df['OBV'].iloc[-1] - mf_df['OBV'].iloc[-21] if len(mf_df)>20 else 0
-                        obv_60 = mf_df['OBV'].iloc[-1] - mf_df['OBV'].iloc[-61] if len(mf_df)>60 else 0
-                        obv_200 = mf_df['OBV'].iloc[-1] - mf_df['OBV'].iloc[-201] if len(mf_df)>200 else 0
-                        
-                        o_prev_20 = mf_df['OBV'].iloc[-21] - mf_df['OBV'].iloc[-41] if len(mf_df)>40 else 1
-                        o_prev_60 = mf_df['OBV'].iloc[-61] - mf_df['OBV'].iloc[-121] if len(mf_df)>120 else 1
-                        o_prev_200 = mf_df['OBV'].iloc[-201] - mf_df['OBV'].iloc[-401] if len(mf_df)>400 else 1
-                        
-                        diff_o_20 = cap_pct((obv_20 - o_prev_20) / max(abs(o_prev_20), 1) * 100)
-                        diff_o_60 = cap_pct((obv_60 - o_prev_60) / max(abs(o_prev_60), 1) * 100)
-                        diff_o_200 = cap_pct((obv_200 - o_prev_200) / max(abs(o_prev_200), 1) * 100)
+                    # 3 & 4 排
+                    r2_c1, r2_c2 = st.columns(2)
+                    
+                    with r2_c1:
+                        ej_20 = data['EJ']['20D']; ej_60 = data['EJ']['60D']; ej_200 = data['EJ']['200D']
+                        st.markdown(f"""<div class='fude-box' style='border-color:#00FFFF;'>
+                            <div class='fude-header' style='color:#00FFFF;'>🔋 EJ 錢流底氣 <span class='val-pos'>{ej_20:.1f}%</span></div>
+                            <table class='fude-table'>
+                                <tr><td>20日均值</td><td class='val-pos'>{ej_20:.1f}%</td></tr>
+                                <tr><td>60日均值</td><td class='val-pos'>{ej_60:.1f}%</td></tr>
+                                <tr><td>200日均值</td><td class='val-pos'>{ej_200:.1f}%</td></tr>
+                            </table><br>{draw_triad_bar(ej_20, "#00FFFF")}</div>""", unsafe_allow_html=True)
 
-                        price_trend = mf_df['Close'].iloc[-1] - mf_df['Close'].iloc[-21] if len(mf_df)>20 else 0
-                        if abs(obv_20) / max(mf_df['Volume'].tail(20).sum(), 1) < 0.02: 
-                            trend_str, trend_color = "9. 🧊 資金膠著盤整 (觀望)", "#888888"
-                        else:
-                            if price_trend >= 0:
-                                if obv_20 > 0: trend_str, trend_color = ("1. 👑 強烈流入", "#00FFCC") if diff_o_20 > 20 else ("2. 📈 流入", "#00FFCC")
-                                else: trend_str, trend_color = ("5. 💣 高位撤離 (大兇兆)", "#FF4B4B") if diff_o_20 < -20 else ("6. ⚠️ 高位撤離 (兇兆)", "#FF4B4B")
-                            else:
-                                if obv_20 < 0: trend_str, trend_color = ("3. 💀 持續派發 (強烈流出)", "#FF4B4B") if diff_o_20 < -20 else ("4. 📉 持續派發 (流出)", "#FF4B4B")
-                                else: trend_str, trend_color = ("7. 🐉 底部分歧掃貨 (大吉兆)", "#00FFCC") if diff_o_20 > 20 else ("8. 🐲 底部分歧掃貨 (吉兆)", "#00FFCC")
+                    with r2_c2:
+                        se_20 = data['SE']['20D']; se_60 = data['SE']['60D']; se_200 = data['SE']['200D']
+                        st.markdown(f"""<div class='fude-box' style='border-color:#FF00FF;'>
+                            <div class='fude-header' style='color:#FF00FF;'>⚡ 短期能量 BAR <span class='val-pos'>{se_20:.1f}%</span></div>
+                            <table class='fude-table'>
+                                <tr><td>20日動能</td><td class='val-pos'>{se_20:.1f}%</td></tr>
+                                <tr><td>60日動能</td><td class='val-pos'>{se_60:.1f}%</td></tr>
+                                <tr><td>200日動能</td><td class='val-pos'>{se_200:.1f}%</td></tr>
+                            </table><br>{draw_triad_bar(se_20, "#FF00FF")}</div>""", unsafe_allow_html=True)
 
-                        # Concentration Logic (20, 60, 200)
-                        def get_conc(period):
-                            daily_abs = abs(mf_df['Net_Flow'].tail(period))
-                            return (daily_abs.max() / max(daily_abs.sum(), 1)) * 100
-                        conc_20 = get_conc(20); conc_60 = get_conc(60); conc_200 = get_conc(200)
-                        if conc_20 > 35: conc_level, conc_color, conc_note = "⚡ 高度集中", "#FF4B4B", "（突發買入或掟貨）"
-                        elif conc_20 > 15: conc_level, conc_color, conc_note = "🌿 正常分佈", "#FFD700", "（公開正常進出）"
-                        else: conc_level, conc_color, conc_note = "💎 穩定分散", "#00FFCC", "（隱密吸籌/派發）"
+                    # 第 5 排 (集中度)
+                    c20 = data['Conc']['20D']; c60 = data['Conc']['60D']; c200 = data['Conc']['200D']
+                    conc_color = "#FF4B4B" if c20 > 35 else ("#FFD700" if c20 > 15 else "#00FFCC")
+                    conc_note = "（突發買入或掟貨）" if c20 > 35 else ("（公開正常進出）" if c20 > 15 else "（隱密吸籌/派發）")
+                    
+                    st.markdown(f"""<div class='fude-box' style='border-color:#BC13FE;'>
+                        <div class='fude-header' style='color:#BC13FE;'>🎯 資金部署集中度 <span style='color:{conc_color};'>{c20:.1f}% {conc_note}</span></div>
+                        <table class='fude-table'>
+                            <tr><td style='width:30%;'>20日集中度</td><td style='color:{conc_color}; font-weight:bold;'>{c20:.1f}%</td></tr>
+                            <tr><td>60日集中度</td><td style='color:#FFF;'>{c60:.1f}%</td></tr>
+                            <tr><td>200日集中度</td><td style='color:#FFF;'>{c200:.1f}%</td></tr>
+                        </table>
+                        <div style='width:100%; background-color:#222; border-radius:10px; height:12px; margin-top:15px; border:1px solid #444;'>
+                            <div style='width:{c20}%; background-color:{conc_color}; height:100%; box-shadow:0 0 10px {conc_color};'></div>
+                        </div></div>""", unsafe_allow_html=True)
 
-                        # EJ & SE Logic
-                        avg_252 = max(df['Volume'].tail(252).mean(), 1)
-                        ej_20 = cap_pct(df['Volume'].tail(20).mean() / avg_252 * 100)
-                        ej_60 = cap_pct(df['Volume'].tail(60).mean() / avg_252 * 100)
-                        ej_200 = cap_pct(df['Volume'].tail(200).mean() / avg_252 * 100)
-                        
-                        def get_ej_diff(curr, period):
-                            past_avg = df['Volume'].iloc[-(period*2):-period].mean() if len(df) > period*2 else avg_252
-                            return curr - cap_pct(past_avg / avg_252 * 100)
-
-                        diff_ej_20 = get_ej_diff(ej_20, 20); diff_ej_60 = get_ej_diff(ej_60, 60); diff_ej_200 = get_ej_diff(ej_200, 200)
-
-                        se_20 = cap_pct(50 + (df['Close'].iloc[-1] / df['Close'].iloc[-21] - 1) * 1200) if len(df)>20 else 50
-                        se_60 = cap_pct(50 + (df['Close'].iloc[-1] / df['Close'].iloc[-61] - 1) * 800) if len(df)>60 else 50
-                        se_200 = cap_pct(50 + (df['Close'].iloc[-1] / df['Close'].iloc[-201] - 1) * 400) if len(df)>200 else 50
-                        
-                        def get_se_diff(curr, period):
-                            if len(df) > period*2:
-                                past_se = cap_pct(50 + (df['Close'].iloc[-(period+1)] / df['Close'].iloc[-(period*2+1)] - 1) * 1200)
-                                return curr - past_se
-                            return 0
-                        diff_se_20 = get_se_diff(se_20, 20); diff_se_60 = get_se_diff(se_60, 60); diff_se_200 = get_se_diff(se_200, 200)
-
-                        st.write("")
-                        st.markdown("<h3 style='color:#FFF; margin-bottom:10px;'>🌊 獨家解密：主力資金池透視 (20 / 60 / 200日)</h3>", unsafe_allow_html=True)
-                        st.markdown("<div style='background-color:#000; border-radius:15px; padding:20px; border: 2px solid #333;'>", unsafe_allow_html=True)
-                        
-                        # --- 第一行：EJ & SE ---
-                        c1_top, c2_top = st.columns(2)
-                        with c1_top:
-                            st.markdown(f"""
-                            <div style='border: 3px solid #00FFFF; border-radius: 15px; padding: 15px; background-color: #000; margin-bottom: 15px; box-shadow: 0 0 15px rgba(0,255,255,0.2);'>
-                                <div style='display:flex; justify-content:space-between; align-items:flex-end; margin-bottom: 8px;'>
-                                    <span style='color:#00FFFF; font-size:1.4rem; font-weight:bold;'>EJ 錢流底氣: {ej_20:.1f}%</span>
-                                    <span style='color:{"#00FFCC" if diff_ej_20>=0 else "#FF4B4B"}; font-size:1.1rem; font-weight:bold;'>20日: {diff_ej_20:+.1f}%</span>
-                                </div>
-                                <div style='display:flex; justify-content:space-between; font-size:0.9rem; color:#aaa; margin-bottom: 12px; border-bottom: 1px dashed #333; padding-bottom: 8px;'>
-                                    <span>60日: {ej_60:.1f}% <b style='color:{"#00FFCC" if diff_ej_60>=0 else "#FF4B4B"};'>({diff_ej_60:+.1f}%)</b></span>
-                                    <span>200日: {ej_200:.1f}% <b style='color:{"#00FFCC" if diff_ej_200>=0 else "#FF4B4B"};'>({diff_ej_200:+.1f}%)</b></span>
-                                </div>
-                                {draw_triad_bar(ej_20, "#00FFFF")}
-                            </div>
-                            """, unsafe_allow_html=True)
-                        with c2_top:
-                            st.markdown(f"""
-                            <div style='border: 3px solid #FF00FF; border-radius: 15px; padding: 15px; background-color: #000; margin-bottom: 15px; box-shadow: 0 0 15px rgba(255,0,255,0.2);'>
-                                <div style='display:flex; justify-content:space-between; align-items:flex-end; margin-bottom: 8px;'>
-                                    <span style='color:#FF00FF; font-size:1.4rem; font-weight:bold;'>短期能量 BAR: {se_20:.1f}%</span>
-                                    <span style='color:{"#00FFCC" if diff_se_20>=0 else "#FF4B4B"}; font-size:1.1rem; font-weight:bold;'>20日: {diff_se_20:+.1f}%</span>
-                                </div>
-                                <div style='display:flex; justify-content:space-between; font-size:0.9rem; color:#aaa; margin-bottom: 12px; border-bottom: 1px dashed #333; padding-bottom: 8px;'>
-                                    <span>60日: {se_60:.1f}% <b style='color:{"#00FFCC" if diff_se_60>=0 else "#FF4B4B"};'>({diff_se_60:+.1f}%)</b></span>
-                                    <span>200日: {se_200:.1f}% <b style='color:{"#00FFCC" if diff_se_200>=0 else "#FF4B4B"};'>({diff_se_200:+.1f}%)</b></span>
-                                </div>
-                                {draw_triad_bar(se_20, "#FF00FF")}
-                            </div>
-                            """, unsafe_allow_html=True)
-
-                        # --- 第二行：資金總數 & OBV ---
-                        c3_mid, c4_mid = st.columns(2)
-                        with c3_mid:
-                            st.markdown(f"""
-                            <div style='border: 3px solid {flow_color}; border-radius: 15px; padding: 15px; background-color: #000; margin-bottom: 10px; box-shadow: 0 0 15px {flow_color}33;'>
-                                <div style='display:flex; justify-content:space-between; align-items:flex-end; margin-bottom: 8px;'>
-                                    <span style='color:{flow_color}; font-size:1.4rem; font-weight:bold;'>資金總數: {format_flow(f_20)}</span>
-                                    <span style='color:{"#00FFCC" if diff_f_20>=0 else "#FF4B4B"}; font-size:1.1rem; font-weight:bold;'>20日: {diff_f_20:+.1f}%</span>
-                                </div>
-                                <div style='display:flex; justify-content:space-between; font-size:0.9rem; color:#aaa; border-bottom: 1px dashed #333; padding-bottom: 8px; margin-bottom: 5px;'>
-                                    <span>60日: {format_flow(f_60)} <b style='color:{"#00FFCC" if diff_f_60>=0 else "#FF4B4B"};'>({diff_f_60:+.1f}%)</b></span>
-                                    <span>200日: {format_flow(f_200)} <b style='color:{"#00FFCC" if diff_f_200>=0 else "#FF4B4B"};'>({diff_f_200:+.1f}%)</b></span>
-                                </div>
-                            </div>
-                            """, unsafe_allow_html=True)
-                            st.plotly_chart(get_pulse_fig(mf_df['Net_Flow'].tail(20).values), use_container_width=True, theme=None, config={'displayModeBar': False})
-                        with c4_mid:
-                            st.markdown(f"""
-                            <div style='border: 3px solid {trend_color}; border-radius: 15px; padding: 15px; background-color: #000; margin-bottom: 10px; box-shadow: 0 0 15px {trend_color}33;'>
-                                <div style='display:flex; justify-content:space-between; align-items:flex-end; margin-bottom: 8px;'>
-                                    <span style='color:{trend_color}; font-size:1.4rem; font-weight:bold;'>OBV軌跡: {trend_str}</span>
-                                    <span style='color:{"#00FFCC" if diff_o_20>=0 else "#FF4B4B"}; font-size:1.1rem; font-weight:bold;'>20日: {diff_o_20:+.1f}%</span>
-                                </div>
-                                <div style='display:flex; justify-content:space-between; font-size:0.9rem; color:#aaa; border-bottom: 1px dashed #333; padding-bottom: 8px; margin-bottom: 5px;'>
-                                    <span>60日流入/流出: <b style='color:{"#00FFCC" if diff_o_60>=0 else "#FF4B4B"};'>{diff_o_60:+.1f}%</b></span>
-                                    <span>200日流入/流出: <b style='color:{"#00FFCC" if diff_o_200>=0 else "#FF4B4B"};'>{diff_o_200:+.1f}%</b></span>
-                                </div>
-                            </div>
-                            """, unsafe_allow_html=True)
-                            st.plotly_chart(get_pulse_fig(mf_df['OBV_Daily'].tail(20).values), use_container_width=True, theme=None, config={'displayModeBar': False})
-
-                        # --- 第三行：集中度 ---
-                        st.markdown(f"""
-                        <div style='margin-top:20px; border-top:1px dashed #444; padding-top:15px;'>
-                            <div style='display:flex; justify-content:space-between; margin-bottom:5px;'>
-                                <span style='font-weight:bold;'>🎯 資金部署集中度：<span style='color:{conc_color};'>{conc_level}</span></span>
-                                <span>20日極值: {conc_20:.1f}% <span style='color:{conc_color}; font-weight:bold;'>{conc_note}</span></span>
-                            </div>
-                            <div style='width:100%; background-color:#222; border-radius:10px; height:12px; border:1px solid #444;'>
-                                <div style='width:{conc_20}%; background-color:{conc_color}; height:100%; box-shadow:0 0 10px {conc_color};'></div>
-                            </div>
-                            <div style='display:flex; justify-content:space-between; margin-top:10px; font-size:0.95rem; color:#aaa;'>
-                                <span><b style='color:#FFF;'>60日</b>極值佔比: {conc_60:.1f}%</span>
-                                <span><b style='color:#FFF;'>200日</b>極值佔比: {conc_200:.1f}%</span>
-                            </div>
-                        </div>
-                        """, unsafe_allow_html=True)
-
-                        st.markdown("</div>", unsafe_allow_html=True)
-                    except Exception as e:
-                        st.warning(f"加載舊版資金圖表時出錯: {e}")
-
+                    # --- 戰術圖表 ---
                     st.write("---")
                     st.markdown("### 📊 摩訶釋達・量價拆解戰術圖 (Force Index & VWAP)")
                     
                     dates = plot_df.index.strftime('%Y-%m-%d')
-                    
                     fig = make_subplots(rows=3, cols=1, shared_xaxes=True, row_heights=[0.5, 0.25, 0.25], vertical_spacing=0.03, subplot_titles=("股價與大鱷成本 (VWAP 20) + 🦈 強勢吸籌", "三層福德動力 (Force Index)", "中短線底氣流向 (CMF)"))
                     
-                    # 第一層：股價與 VWAP
                     fig.add_trace(go.Candlestick(x=dates, open=plot_df['Open'], high=plot_df['High'], low=plot_df['Low'], close=plot_df['Close'], name="K線"), row=1, col=1)
                     fig.add_trace(go.Scatter(x=dates, y=plot_df['VWAP_20'], mode='lines', name='VWAP (20日成本)', line=dict(color='orange', width=2, dash='dot')), row=1, col=1)
                     fig.add_hline(y=poc_price, line_dash="solid", line_color="#BC13FE", annotation_text=f"📌 POC 密集區: ${poc_price:.2f}", annotation_position="top left", annotation_font=dict(color="white", size=13), row=1, col=1)
@@ -1292,7 +1199,6 @@ elif operation_mode == "💰 大戶資金流透視 (福德金字塔)":
                         if plot_df['RVOL'].iloc[i] > 1.5 and plot_df['Close'].iloc[i] > plot_df['VWAP_20'].iloc[i] and plot_df['Close'].iloc[i] > plot_df['Open'].iloc[i]:
                             fig.add_annotation(x=dates[i], y=plot_df['Low'].iloc[i], text="🦈", showarrow=True, ax=0, ay=30, arrowcolor="#00FFCC", font=dict(size=18), row=1, col=1)
 
-                    # 第二層：Force Index (正則化處理等佢哋喺同一個 Scale)
                     max_20 = max(plot_df['Merit_20'].abs().max(), 1)
                     max_60 = max(plot_df['Merit_60'].abs().max(), 1)
                     max_200 = max(plot_df['Merit_200'].abs().max(), 1)
@@ -1305,7 +1211,6 @@ elif operation_mode == "💰 大戶資金流透視 (福德金字塔)":
                     fig.add_trace(go.Scatter(x=dates, y=norm_200, mode='lines', name='福德 (200日)', line=dict(color='#FFD700', width=3)), row=2, col=1)
                     fig.add_hline(y=0, line_dash="dash", line_color="rgba(255,255,255,0.3)", row=2, col=1)
                     
-                    # 第三層：CMF
                     fig.add_trace(go.Scatter(x=dates, y=plot_df['CMF_20'], mode='lines', name='CMF (20日)', line=dict(color='#FF00FF', width=1.5)), row=3, col=1)
                     fig.add_trace(go.Scatter(x=dates, y=plot_df['CMF_60'], mode='lines', name='CMF (60日)', line=dict(color='white', width=2)), row=3, col=1)
                     fig.add_hline(y=0, line_dash="dash", line_color="rgba(255,255,255,0.3)", row=3, col=1)
