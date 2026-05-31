@@ -109,17 +109,11 @@ with st.sidebar:
     st.markdown("---")
     st.caption("👴 爺爺的操盤矩陣 V188.5")
 
-
 # ==========================================
 # 🌌 模式一：原本的龍魂雷達系統 (原封不動)
 # ==========================================
 if operation_mode == "🐉 龍魂神殿雷達系統":
-
-    # ==========================================
-    # 🧠 記憶體系統 
-    # ==========================================
     MEMORY_FILE = "dragon_memory.json"
-
     if 'dragon_results' not in st.session_state:
         st.session_state.dragon_results = []
         st.session_state.sl_list = []
@@ -131,7 +125,6 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
                     st.session_state.sl_list = saved_data.get('sl_list', [])
             except: pass
 
-    # --- 黑魂 UI 設定 ---
     st.markdown("""
         <style>
         .stApp { background-color: #0e1117 !important; color: #FFFFFF !important; }
@@ -143,7 +136,6 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
         </style>
     """, unsafe_allow_html=True)
 
-    # --- 能量副圖 ---
     def add_energy_subplots(fig, df, dates_chart, row_start):
         var1 = df['Close'] - df['Low']; var2 = df['High'] - df['Close']; var3 = np.maximum(df['High'] - df['Low'], 0.001)
         buyvol = np.where(var3 > 0, df['Volume'] * var1 / var3, 0)
@@ -168,7 +160,6 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
         change_colors = ['#00FF00' if val >= 0 else '#FF0000' for val in daily_change]
         fig.add_trace(go.Bar(x=dates_chart, y=daily_change, marker_color=change_colors, name='日波幅%'), row=row_start+2, col=1)
 
-    # --- 🏠 狀態管理 ---
     if 'page' not in st.session_state: st.session_state.page = 'HOME'
     if 'target' not in st.session_state: st.session_state.target = 'NONE'
     if 'scan_mode' not in st.session_state: st.session_state.scan_mode = 'NORMAL'
@@ -176,42 +167,28 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
     if st.session_state.page == 'HOME':
         st.markdown("<h1 style='text-align:center;font-size:4rem;margin-top:80px;color:#FFD700;'>🐲 龍魂戰略總部</h1>", unsafe_allow_html=True)
         c1, c2, c3 = st.columns(3)
-        
         if c1.button("🐉 龍魂神殿 (普通掃描)"): 
-            st.session_state.page = 'DRAGON'
-            st.session_state.scan_mode = 'NORMAL'
-            st.rerun()
-            
+            st.session_state.page = 'DRAGON'; st.session_state.scan_mode = 'NORMAL'; st.rerun()
         if c2.button("📈 VCP 獵龍 (高勝率模式)"): 
-            st.session_state.page = 'DRAGON'
-            st.session_state.scan_mode = 'VCP'
-            st.rerun()
-            
+            st.session_state.page = 'DRAGON'; st.session_state.scan_mode = 'VCP'; st.rerun()
         if c3.button("🐢 海龜加注"): 
-            st.info("海龜 模式運作中")
-            st.session_state.page = 'DRAGON'
-            st.session_state.scan_mode = 'NORMAL'
-            st.rerun()
+            st.info("海龜 模式運作中"); st.session_state.page = 'DRAGON'; st.session_state.scan_mode = 'NORMAL'; st.rerun()
 
-    # --- 🐉 龍魂神殿 5.0 ---
     elif st.session_state.page == 'DRAGON':
         mode_display = "📈 VCP 高勝率獵龍" if st.session_state.scan_mode == 'VCP' else "🐉 龍魂神殿 5.0 旗艦雷達"
         st.markdown(f"<h1 style='text-align:center; color:#00FFCC;'>{mode_display}</h1>", unsafe_allow_html=True)
         
         nav = st.columns(6)
-        if nav[0].button("⬅️ 返回總部"): 
-            st.session_state.page = 'HOME'
-            st.rerun()
+        if nav[0].button("⬅️ 返回總部"): st.session_state.page = 'HOME'; st.rerun()
         if nav[1].button("🇭🇰 港股"): st.session_state.target = 'HK'
         if nav[2].button("🇺🇸 美股"): st.session_state.target = 'US'
         if nav[3].button("📦 ETF"): st.session_state.target = 'ETF'
         if nav[4].button("🔍 個股"): st.session_state.target = 'SINGLE'
         
         st.markdown("---")
-        
         c_ath, c_btn = st.columns([3, 1])
         with c_ath: 
-            is_ath_mode = st.checkbox("🔥 啟மைப்பு ATH 歷史新高極致過濾")
+            is_ath_mode = st.checkbox("🔥 啟動 ATH 歷史新高極致過濾")
             vcp_52w = st.checkbox("🎯 啟動 MM 原汁原味 52週高位 25% 內過濾")
         
         selected_tickers = []; market_mode = "HK"; btn_radar = False
@@ -222,8 +199,7 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
             files = [("SP500_Equities.csv", "大藍籌"), ("Market_Focus.csv", "精選"), ("Industry_Focus.csv", "行業"), ("Core_Stocks.csv", "核心"), ("US_ETFs.csv", "美股ETF")]
             for i, (f, name) in enumerate(files):
                 if m[i].button(f"選定 {name}"): 
-                    st.session_state.active_file = f
-                    st.success(f"✅ 已選定 {f}")
+                    st.session_state.active_file = f; st.success(f"✅ 已選定 {f}")
             with c_btn: btn_radar = st.button("📡 啟動 5.0 雙線雷達", use_container_width=True)
 
         elif st.session_state.target == 'SINGLE':
@@ -252,9 +228,6 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
             s_choice = st.selectbox("選擇範圍", ["🌐 啟動全星系大規模搜索 (僅限港股 ETF)"] + etf_sectors + list(US_ETF_MAP.keys()))
             with c_btn: btn_radar = st.button("📡 啟動 5.0 雙線雷達", use_container_width=True)
 
-        # ==========================================
-        # 🚀 執行 5.0 雷達邏輯
-        # ==========================================
         if btn_radar:
             if st.session_state.target == 'SINGLE': market_mode = "US" if not selected_tickers[0][0].endswith(".HK") else "HK"
             elif st.session_state.target == 'US' and hasattr(st.session_state, 'active_file'):
@@ -331,27 +304,17 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
                 else: 
                     if not is_single_mode: st.warning("💤 萬人坑內無生還者。")
 
-
-        # =========================================================
-        # 🏆 顯示掃描結果 (事後動態過濾！)
-        # =========================================================
         if st.session_state.get('dragon_results'):
-            
             if st.session_state.get('sl_list'):
                 st.markdown(f"<div class='bear-warning'>🛡️ 戰損置頂: {' | '.join(st.session_state.sl_list)} 跌穿 10-EMA！</div>", unsafe_allow_html=True)
             
-            # 💡 神級事後動態過濾開關
             st.write("---")
             col_f1, col_f2 = st.columns([1, 3])
-            with col_f1:
-                show_n_shape_only = st.toggle("🔍 只顯示 🪃 N字突破 (今日/昨日剛破頂)")
+            with col_f1: show_n_shape_only = st.toggle("🔍 只顯示 🪃 N字突破 (今日/昨日剛破頂)")
             
             st.write("---")
             for r in st.session_state.dragon_results:
-                # 💡 一秒隱藏沒有 🪃 的股票，保留所有視覺狀態！
-                if show_n_shape_only and "🪃" not in r['Icons']:
-                    continue 
-                
+                if show_n_shape_only and "🪃" not in r['Icons']: continue 
                 border_color = "#FF4B4B" if r.get('IsDead') else "#00FFCC"
                 st.markdown(f"""
                 <div class='dragon-card' style='border-left: 5px solid {border_color};'>
@@ -366,9 +329,6 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
                 </div>
                 """, unsafe_allow_html=True)
 
-        # =========================================================
-        # 📈 X 光戰術圖 
-        # =========================================================
         chart_t = None
         if st.session_state.get('dragon_results'):
             st.write("---")
@@ -422,9 +382,8 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
                         st.plotly_chart(fig, use_container_width=True, theme=None)
                 except Exception as e: st.error(f"繪圖出錯: {e}")
 
-
 # ==========================================
-# 🔥 模式二：新研發 - 究極資產拔河龍虎榜 (加入 8 大情報說明書)
+# 🔥 模式二：新研發 - 究極資產拔河龍虎榜
 # ==========================================
 elif operation_mode == "📊 究極資產拔河龍虎榜":
     from core_logic import AssetRanker
@@ -433,9 +392,6 @@ elif operation_mode == "📊 究極資產拔河龍虎榜":
     st.markdown("<p style='text-align:center; color:#888;'>動態監控大戶資金移防，自動派發 8 大情報公仔 🚀🔋🎯⚡</p>", unsafe_allow_html=True)
     st.write("---")
 
-    # ==========================================
-    # 📖 爺爺新增：情報公仔說明書 UI 
-    # ==========================================
     with st.expander("📖 爺爺的 8 大情報密碼說明書 (按此展開睇秘笈)", expanded=False):
         st.markdown("""
         <div style='background-color:#111111; padding: 15px; border-radius: 5px; border-left: 5px solid #FFD700;'>
@@ -458,138 +414,73 @@ elif operation_mode == "📊 究極資產拔河龍虎榜":
             </ul>
         </div>
         """, unsafe_allow_html=True)
-    
     st.write("---")
 
     col1, col2 = st.columns([2, 1])
-    
     with col1:
-        target_category = st.selectbox(
-            "📍 選擇意向掃描戰區",
-            [
-                "📦 美股 ETF (~360隻)",
-                "📦 港股 ETF (139隻)",
-                "🇭🇰 港股個股 (659隻)",
-                "🇺🇸 美股精選 (576隻)",
-                "🇺🇸 美股大藍籌 (500隻)",
-                "🏭 美股選定行業 (1029隻)"
-            ]
-        )
-        
+        target_category = st.selectbox("📍 選擇意向掃描戰區", ["📦 美股 ETF (~360隻)", "📦 港股 ETF (139隻)", "🇭🇰 港股個股 (659隻)", "🇺🇸 美股精選 (576隻)", "🇺🇸 美股大藍籌 (500隻)", "🏭 美股選定行業 (1029隻)"])
     with col2:
-        lookback_str = st.selectbox(
-            "⏳ 設定戰術時間窗",
-            ["5天", "10天", "20天", "40天", "60天", "200天"]
-        )
+        lookback_str = st.selectbox("⏳ 設定戰術時間窗", ["5天", "10天", "20天", "40天", "60天", "200天"])
         lookback_days = int(lookback_str.replace("天", ""))
 
     if st.button("🚀 啟動熱力拔河掃描！", use_container_width=True):
         current_tickers = []
-        
-        # 根據選擇動態載入資產名單
         if target_category == "📦 美股 ETF (~360隻)":
-            for sub_list in US_ETF_MAP.values():
-                current_tickers.extend(sub_list)
+            for sub_list in US_ETF_MAP.values(): current_tickers.extend(sub_list)
             current_tickers = list(set(current_tickers)) 
-            
         elif target_category == "📦 港股 ETF (139隻)":
             df_etf_list = fetch_github_list(HK_ETF_CSV_URL)
-            if not df_etf_list.empty and 'Ticker' in df_etf_list.columns:
-                current_tickers = df_etf_list['Ticker'].dropna().unique().tolist()
-                
+            if not df_etf_list.empty and 'Ticker' in df_etf_list.columns: current_tickers = df_etf_list['Ticker'].dropna().unique().tolist()
         elif target_category == "🇭🇰 港股個股 (659隻)":
             df_hk_list = fetch_github_list(HK_STOCK_CSV_URL)
-            if not df_hk_list.empty and 'Ticker' in df_hk_list.columns:
-                current_tickers = df_hk_list['Ticker'].dropna().unique().tolist()
-                
+            if not df_hk_list.empty and 'Ticker' in df_hk_list.columns: current_tickers = df_hk_list['Ticker'].dropna().unique().tolist()
         elif target_category == "🇺🇸 美股精選 (576隻)":
             try:
                 df_csv = pd.read_csv("Market_Focus.csv")
                 col = [c for c in df_csv.columns if c.lower() in ['ticker', 'symbol', '代號']][0]
                 current_tickers = df_csv[col].dropna().unique().tolist()
             except: st.error("⚠️ 無法讀取 Market_Focus.csv")
-                
         elif target_category == "🇺🇸 美股大藍籌 (500隻)":
             try:
                 df_csv = pd.read_csv("SP500_Equities.csv")
                 col = [c for c in df_csv.columns if c.lower() in ['ticker', 'symbol', '代號']][0]
                 current_tickers = df_csv[col].dropna().unique().tolist()
             except: st.error("⚠️ 無法讀取 SP500_Equities.csv")
-                
         elif target_category == "🏭 美股選定行業 (1029隻)":
-            for sub_list in US_STOCK_MAP.values():
-                current_tickers.extend(sub_list)
+            for sub_list in US_STOCK_MAP.values(): current_tickers.extend(sub_list)
             current_tickers = list(set(current_tickers))
 
         if current_tickers:
             with st.spinner(f"正在與納斯達克/港交所衛星連線，深度計算 {target_category} 的資金矩陣..."):
                 df_result = AssetRanker.get_rank_and_acceleration(current_tickers, lookback_days, target_category)
-                
                 if df_result.empty:
                     st.error("⚠️ 運算失敗或回傳數據為空。請確保 Ticker 列表正確。")
                 else:
                     import plotly.express as px
-                    fig = px.bar(
-                        df_result, 
-                        x='Current_Return', 
-                        y='Display_Label', 
-                        orientation='h',
-                        color='Current_Return', 
-                        color_continuous_scale='YlOrRd', 
-                        # 🚀 右邊完美出百分比
-                        text=df_result.apply(lambda row: f"{row['Current_Return']:.1f}%" if row['Ticker'] != '...' else "", axis=1)
-                    )
-
-                    fig.update_layout(
-                        title=f"📊 {target_category} - {lookback_days}日 相對回報龍虎榜 (含 8 大情報密碼)",
-                        title_font=dict(size=18, color="white"),
-                        plot_bgcolor='#0e1117',
-                        paper_bgcolor='#0e1117',
-                        font=dict(color="white"),
-                        yaxis=dict(
-                            showgrid=False, title="", 
-                            tickfont=dict(size=11, color="white", family="Courier New"),
-                            fixedrange=True
-                        ),
-                        xaxis=dict(
-                            showgrid=False, zeroline=True, zerolinecolor='#444', 
-                            title="相對平均之超額回報 (Alpha %)",
-                            fixedrange=True 
-                        ),
-                        height=max(600, len(df_result) * 35), 
-                        coloraxis_showscale=False,
-                        # 🚀 鎖死左邊界 160 保留公仔，右邊界 80 保留百分比，完美避開螢幕切割
-                        margin=dict(l=160, r=80, t=60, b=20),
-                        hovermode=False 
-                    )
-
-                    # 🚀 cliponaxis=False 確保文字就算長過邊界都唔會消失
+                    fig = px.bar(df_result, x='Current_Return', y='Display_Label', orientation='h', color='Current_Return', color_continuous_scale='YlOrRd', text=df_result.apply(lambda row: f"{row['Current_Return']:.1f}%" if row['Ticker'] != '...' else "", axis=1))
+                    fig.update_layout(title=f"📊 {target_category} - {lookback_days}日 相對回報龍虎榜 (含 8 大情報密碼)", title_font=dict(size=18, color="white"), plot_bgcolor='#0e1117', paper_bgcolor='#0e1117', font=dict(color="white"), yaxis=dict(showgrid=False, title="", tickfont=dict(size=11, color="white", family="Courier New"), fixedrange=True), xaxis=dict(showgrid=False, zeroline=True, zerolinecolor='#444', title="相對平均之超額回報 (Alpha %)", fixedrange=True), height=max(600, len(df_result) * 35), coloraxis_showscale=False, margin=dict(l=160, r=80, t=60, b=20), hovermode=False)
                     fig.update_traces(textposition='outside', textfont=dict(color='white', size=12), cliponaxis=False)
-                    
-                    # 🛡️ 啟動「手機保險罩」：鎖死縮放，禁止手指誤觸
-                    st.plotly_chart(fig, use_container_width=True, config={
-                        'staticPlot': False, 'scrollZoom': False, 'doubleClick': False, 'displayModeBar': False, 'editable': False
-                    })
+                    st.plotly_chart(fig, use_container_width=True, config={'staticPlot': False, 'scrollZoom': False, 'doubleClick': False, 'displayModeBar': False, 'editable': False})
                     st.success("✅ 情報站部署完成！快去尋找集齊 🚀🔋🎯🔥 嘅終極大魔王啦！可以隨時撳開上面本『說明書』溫書！")
-        else:
-            st.warning("⚠️ 標的名單為空，無法執行掃描。")
+        else: st.warning("⚠️ 標的名單為空，無法執行掃描。")
 
 # =========================================================================
-# 💰 模式三：大戶資金流透視 (福德金字塔) - 黑底霓虹三線加料版
+# 💰 模式三：大戶資金流透視 (福德金字塔) - 爺爺黑底霓虹五大框版
 # =========================================================================
 elif operation_mode == "💰 大戶資金流透視 (福德金字塔)":
     from core_logic import scan_fude_logic
     
-    # 🌟 強制注入黑底 CSS，確保 5 大框清晰可見
+    # 🌟 強制注入全黑底色與霓虹表格 CSS
     st.markdown("""
         <style>
         .stApp { background-color: #000000 !important; }
-        .fude-box { background-color: #000 !important; border: 2px solid #333; border-radius: 15px; padding: 20px; margin-bottom: 20px; box-shadow: 0 0 15px rgba(255,255,255,0.05); }
-        .fude-header { font-size: 1.5rem; font-weight: 900; margin-bottom: 15px; display: flex; justify-content: space-between; }
-        .fude-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        .fude-table td { padding: 8px; border-bottom: 1px dashed #333; font-size: 1.1rem; color: #fff;}
-        .val-pos { color: #00FFCC; font-weight: bold; text-align: right; }
-        .val-neg { color: #FF4B4B; font-weight: bold; text-align: right; }
+        .fude-card { background-color: #050505 !important; border: 2px solid; border-radius: 12px; padding: 15px; margin-bottom: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.8); }
+        .fude-title { font-size: 1.3rem; font-weight: 900; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+        .fude-table { width: 100%; color: #ddd; font-size: 1.05rem; border-collapse: collapse; margin-bottom: 10px; }
+        .fude-table td { padding: 6px 0; border-bottom: 1px solid #222; }
+        .fude-table td:nth-child(2), .fude-table td:nth-child(3) { text-align: right; font-weight: bold; }
+        .val-pos { color: #00FFCC !important; }
+        .val-neg { color: #FF4B4B !important; }
         </style>
     """, unsafe_allow_html=True)
 
@@ -619,41 +510,27 @@ elif operation_mode == "💰 大戶資金流透視 (福德金字塔)":
                 if not fude_data:
                     st.error("⚠️ 數據不足 200 日，無法計算 200日線及重貨區！請轉換其他上市超過一年嘅股票。")
                 else:
-                    poc_price = fude_data["POC_Price"]
-                    curr_c = fude_data["Current_Price"]
-                    fude_col = fude_data["Fude_Color"]
-                    fude_lvl = fude_data["Fude_Level"]
-                    fude_desc = fude_data["Fude_Desc"]
-                    tags = fude_data["Tags"]
-                    plot_df = fude_data["Plot_Data"]
+                    poc_price = fude_data["POC_Price"]; curr_c = fude_data["Current_Price"]; fude_col = fude_data["Fude_Color"]; fude_lvl = fude_data["Fude_Level"]; fude_desc = fude_data["Fude_Desc"]; tags = fude_data["Tags"]; plot_df = fude_data["Plot_Data"]
                     
                     st.markdown(f"### {ticker} 資金命格解讀")
                     c1, c2, c3 = st.columns(3)
-                    
-                    with c1:
-                        st.markdown(f"<div class='dragon-card' style='border-color:{fude_col}; height:220px; display:flex; flex-direction:column; justify-content:center;'><div style='font-size:1.2rem;color:#ccc;'>⛩️ 福德等級 (200日)</div><div style='font-size:2rem; font-weight:bold; color:{fude_col}; margin-top:10px;'>{fude_lvl}</div><div style='font-size:1rem; color:#ccc; margin-top:10px;'>{fude_desc}</div></div>", unsafe_allow_html=True)
+                    with c1: st.markdown(f"<div class='dragon-card' style='border-color:{fude_col}; height:220px; display:flex; flex-direction:column; justify-content:center;'><div style='font-size:1.2rem;color:#ccc;'>⛩️ 福德等級 (200日)</div><div style='font-size:2rem; font-weight:bold; color:{fude_col}; margin-top:10px;'>{fude_lvl}</div><div style='font-size:1rem; color:#ccc; margin-top:10px;'>{fude_desc}</div></div>", unsafe_allow_html=True)
                     with c2:
                         poc_status = "✅ 股價已突圍大本營" if curr_c > poc_price else "⚠️ 處於天量套牢區之下"
                         poc_color = "#00FFCC" if curr_c > poc_price else "#FF4B4B"
                         st.markdown(f"<div class='dragon-card' style='border-color:#BC13FE; height:220px; display:flex; flex-direction:column; justify-content:center;'><div style='font-size:1.2rem;color:#ccc;'>🎯 過去200日成交大本營 (POC)</div><div style='font-size:3rem; font-weight:900; color:#BC13FE;'>${poc_price:.2f}</div><div style='font-size:1.1rem; font-weight:bold; color:{poc_color}; margin-top:5px;'>{poc_status}</div></div>", unsafe_allow_html=True)
-                    with c3:
-                        st.markdown(f"<div class='dragon-card' style='border-color:#00FFFF; height:220px; display:flex; flex-direction:column; justify-content:center;'><div style='font-size:1.2rem;color:#ccc;'>🔍 大戶底氣標籤</div><div style='display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin-top:15px; font-weight:bold;'>{' '.join(tags) if tags else '無明顯大戶特徵'}</div></div>", unsafe_allow_html=True)
+                    with c3: st.markdown(f"<div class='dragon-card' style='border-color:#00FFFF; height:220px; display:flex; flex-direction:column; justify-content:center;'><div style='font-size:1.2rem;color:#ccc;'>🔍 大戶底氣標籤</div><div style='display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin-top:15px; font-weight:bold;'>{' '.join(tags) if tags else '無明顯大戶特徵'}</div></div>", unsafe_allow_html=True)
                     
-                    # ===============================================
-                    # 🔥 爺爺加建：舊式黑底霓虹 5 大框 (20/60/200 三線表格版)
-                    # ===============================================
                     st.write("---")
                     st.markdown(f"### 🌊 獨家解密：主力資金池透視 (大戶目前：<span style='color:#FFD700;'>{fude_data['Mood']}</span>)", unsafe_allow_html=True)
 
                     def fmt(val): return f"{'+' if val>0 else ''}${val/1e8:.1f}億" if abs(val)>=1e8 else (f"{'+' if val>0 else ''}${val/1e6:.1f}M" if abs(val)>=1e6 else f"{'+' if val>0 else ''}${val:,.0f}")
                     def color_class(val): return "val-pos" if val >= 0 else "val-neg"
-                    
                     def get_pulse_fig(pulse_vals):
                         colors = ['#00FFCC' if v >= 0 else '#FF4B4B' for v in pulse_vals]
                         fig_p = go.Figure(go.Bar(x=list(range(len(pulse_vals))), y=pulse_vals, marker_color=colors, hoverinfo='skip'))
                         fig_p.update_layout(height=100, margin=dict(l=0,r=0,t=0,b=0), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', xaxis=dict(visible=False, fixedrange=True), yaxis=dict(visible=False, fixedrange=True), showlegend=False)
                         return fig_p
-
                     def draw_triad_bar(val, color):
                         lit = int((min(120, max(0, val))/120)*21)
                         html = "<div style='display:flex; gap:4px; margin-top: 10px;'>"
@@ -665,80 +542,94 @@ elif operation_mode == "💰 大戶資金流透視 (福德金字塔)":
                         html += "</div>"
                         return html
 
-                    # 排版開始：第一排 (資金總數 & OBV)
+                    # 1 & 2 排 (Flow & OBV)
                     r1_c1, r1_c2 = st.columns(2)
-                    
                     with r1_c1:
-                        f20, p20 = fude_data['Flow']['20D']
-                        f60, p60 = fude_data['Flow']['60D']
-                        f200, p200 = fude_data['Flow']['200D']
-                        flow_border = "#00FFCC" if f20 >= 0 else "#FF4B4B"
-                        
-                        st.markdown(f"""<div class='fude-box' style='border-color:{flow_border};'>
-                            <div class='fude-header' style='color:{flow_border};'>💰 資金總數 (Money Flow) <span class='{color_class(f20)}'>{fmt(f20)}</span></div>
+                        f20, p20 = fude_data['Flow']['20D']; f60, p60 = fude_data['Flow']['60D']; f200, p200 = fude_data['Flow']['200D']
+                        flow_color = "#00FFCC" if f20 >= 0 else "#FF4B4B"
+                        st.markdown(f"""
+                        <div class='fude-card' style='border-color:{flow_color};'>
+                            <div class='fude-title' style='color:{flow_color};'><span>💰 資金總數 (Money Flow)</span><span class='{color_class(f20)}'>{fmt(f20)}</span></div>
                             <table class='fude-table'>
                                 <tr><td>20日總量</td><td class='{color_class(f20)}'>{fmt(f20)}</td><td class='{color_class(p20)}'>{p20:+.1f}%</td></tr>
                                 <tr><td>60日總量</td><td class='{color_class(f60)}'>{fmt(f60)}</td><td class='{color_class(p60)}'>{p60:+.1f}%</td></tr>
                                 <tr><td>200日總量</td><td class='{color_class(f200)}'>{fmt(f200)}</td><td class='{color_class(p200)}'>{p200:+.1f}%</td></tr>
-                            </table></div>""", unsafe_allow_html=True)
-                        st.plotly_chart(get_pulse_fig(plot_df['Net_Flow_Val'].tail(20).values), use_container_width=True, config={'displayModeBar': False})
+                            </table>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        st.plotly_chart(get_pulse_fig(plot_df['Net_Flow'].tail(20).values), use_container_width=True, config={'displayModeBar': False})
 
                     with r1_c2:
-                        o20, _ = fude_data['OBV']['20D']
-                        o60, _ = fude_data['OBV']['60D']
-                        o200, _ = fude_data['OBV']['200D']
-                        obv_border = "#00FFCC" if o20 >= 0 else "#FF4B4B"
-                        trend_str = "📈 流入" if o20 >= 0 else "📉 流出"
-                        
-                        st.markdown(f"""<div class='fude-box' style='border-color:{obv_border};'>
-                            <div class='fude-header' style='color:{obv_border};'>📈 OBV 軌跡 <span>狀態: {trend_str}</span></div>
+                        o20, p20_o = fude_data['OBV']['20D']; o60, p60_o = fude_data['OBV']['60D']; o200, p200_o = fude_data['OBV']['200D']
+                        obv_color = "#00FFCC" if o20 >= 0 else "#FF4B4B"; trend_str = "📈 流入" if o20 >= 0 else "📉 流出"
+                        st.markdown(f"""
+                        <div class='fude-card' style='border-color:{obv_color};'>
+                            <div class='fude-title' style='color:{obv_color};'><span>📈 OBV 軌跡</span><span>{trend_str}</span></div>
                             <table class='fude-table'>
-                                <tr><td>20日變化量</td><td class='{color_class(o20)}'>{fmt(o20)}</td><td class='{color_class(o20)}'>---</td></tr>
-                                <tr><td>60日變化量</td><td class='{color_class(o60)}'>{fmt(o60)}</td><td class='{color_class(o60)}'>---</td></tr>
-                                <tr><td>200日變化量</td><td class='{color_class(o200)}'>{fmt(o200)}</td><td class='{color_class(o200)}'>---</td></tr>
-                            </table></div>""", unsafe_allow_html=True)
+                                <tr><td>20日累積量</td><td class='{color_class(o20)}'>{fmt(o20)}</td><td class='{color_class(p20_o)}'>{p20_o:+.1f}%</td></tr>
+                                <tr><td>60日累積量</td><td class='{color_class(o60)}'>{fmt(o60)}</td><td class='{color_class(p60_o)}'>{p60_o:+.1f}%</td></tr>
+                                <tr><td>200日累積量</td><td class='{color_class(o200)}'>{fmt(o200)}</td><td class='{color_class(p200_o)}'>{p200_o:+.1f}%</td></tr>
+                            </table>
+                        </div>
+                        """, unsafe_allow_html=True)
                         st.plotly_chart(get_pulse_fig(plot_df['OBV_Daily'].tail(20).values), use_container_width=True, config={'displayModeBar': False})
 
-                    # 排版：第二排 (EJ & SE)
+                    # 3 & 4 排 (EJ & SE)
+                    st.write("")
                     r2_c1, r2_c2 = st.columns(2)
-                    
                     with r2_c1:
-                        ej_20 = fude_data['EJ']['20D']; ej_60 = fude_data['EJ']['60D']; ej_200 = fude_data['EJ']['200D']
-                        st.markdown(f"""<div class='fude-box' style='border-color:#00FFFF;'>
-                            <div class='fude-header' style='color:#00FFFF;'>🔋 EJ 錢流底氣 <span class='val-pos'>{ej_20:.1f}%</span></div>
+                        ej20 = fude_data['EJ']['20D']; ej60 = fude_data['EJ']['60D']; ej200 = fude_data['EJ']['200D']
+                        st.markdown(f"""
+                        <div class='fude-card' style='border-color:#00FFFF;'>
+                            <div class='fude-title' style='color:#00FFFF;'><span>🔋 EJ 錢流底氣</span><span class='val-pos'>{ej20:.1f}%</span></div>
                             <table class='fude-table'>
-                                <tr><td>20日均值</td><td class='val-pos'>{ej_20:.1f}%</td></tr>
-                                <tr><td>60日均值</td><td class='val-pos'>{ej_60:.1f}%</td></tr>
-                                <tr><td>200日均值</td><td class='val-pos'>{ej_200:.1f}%</td></tr>
-                            </table><br>{draw_triad_bar(ej_20, "#00FFFF")}</div>""", unsafe_allow_html=True)
+                                <tr><td>20日均值</td><td class='val-pos'>{ej20:.1f}%</td><td></td></tr>
+                                <tr><td>60日均值</td><td class='val-pos'>{ej60:.1f}%</td><td></td></tr>
+                                <tr><td>200日均值</td><td class='val-pos'>{ej200:.1f}%</td><td></td></tr>
+                            </table>
+                            {draw_triad_bar(ej20, "#00FFFF")}
+                        </div>
+                        """, unsafe_allow_html=True)
+                        # EJ Pulse Chart 模擬
+                        avg_vol = df['Volume'].tail(252).mean() or 1
+                        vol_ratio = (plot_df['Volume'].tail(20) / avg_vol).values; direction = np.where(plot_df['Close'].tail(20) >= plot_df['Open'].tail(20), 1, -1); ej_pulse_vals = vol_ratio * direction * 50 
+                        st.plotly_chart(get_pulse_fig(ej_pulse_vals), use_container_width=True, config={'displayModeBar': False})
 
                     with r2_c2:
-                        se_20 = fude_data['SE']['20D']; se_60 = fude_data['SE']['60D']; se_200 = fude_data['SE']['200D']
-                        st.markdown(f"""<div class='fude-box' style='border-color:#FF00FF;'>
-                            <div class='fude-header' style='color:#FF00FF;'>⚡ 短期能量 BAR <span class='val-pos'>{se_20:.1f}%</span></div>
+                        se20 = fude_data['SE']['20D']; se60 = fude_data['SE']['60D']; se200 = fude_data['SE']['200D']
+                        st.markdown(f"""
+                        <div class='fude-card' style='border-color:#FF00FF;'>
+                            <div class='fude-title' style='color:#FF00FF;'><span>⚡ 短期能量 BAR</span><span class='val-pos'>{se20:.1f}%</span></div>
                             <table class='fude-table'>
-                                <tr><td>20日動能</td><td class='val-pos'>{se_20:.1f}%</td></tr>
-                                <tr><td>60日動能</td><td class='val-pos'>{se_60:.1f}%</td></tr>
-                                <tr><td>200日動能</td><td class='val-pos'>{se_200:.1f}%</td></tr>
-                            </table><br>{draw_triad_bar(se_20, "#FF00FF")}</div>""", unsafe_allow_html=True)
+                                <tr><td>20日動能</td><td class='val-pos'>{se20:.1f}%</td><td></td></tr>
+                                <tr><td>60日動能</td><td class='val-pos'>{se60:.1f}%</td><td></td></tr>
+                                <tr><td>200日動能</td><td class='val-pos'>{se200:.1f}%</td><td></td></tr>
+                            </table>
+                            {draw_triad_bar(se20, "#FF00FF")}
+                        </div>
+                        """, unsafe_allow_html=True)
+                        # SE Pulse Chart 模擬
+                        se_pulse_vals = plot_df['Close'].pct_change().tail(20).fillna(0).values * 200
+                        st.plotly_chart(get_pulse_fig(se_pulse_vals), use_container_width=True, config={'displayModeBar': False})
 
-                    # 排版：第三排 (集中度)
+                    # 第 5 排 (Concentration)
                     c20 = fude_data['Conc']['20D']; c60 = fude_data['Conc']['60D']; c200 = fude_data['Conc']['200D']
                     conc_color = "#FF4B4B" if c20 > 35 else ("#FFD700" if c20 > 15 else "#00FFCC")
                     conc_note = "（突發買入或掟貨）" if c20 > 35 else ("（公開正常進出）" if c20 > 15 else "（隱密吸籌/派發）")
-                    
-                    st.markdown(f"""<div class='fude-box' style='border-color:#BC13FE;'>
-                        <div class='fude-header' style='color:#BC13FE;'>🎯 資金部署集中度 <span style='color:{conc_color};'>{c20:.1f}% {conc_note}</span></div>
+                    st.markdown(f"""
+                    <div class='fude-card' style='border-color:#BC13FE; margin-top:15px;'>
+                        <div class='fude-title' style='color:#BC13FE;'><span>🎯 資金部署集中度</span><span style='color:{conc_color}; font-size:1.1rem;'>{conc_note}</span></div>
                         <table class='fude-table'>
-                            <tr><td style='width:30%;'>20日集中度</td><td style='color:{conc_color}; font-weight:bold;'>{c20:.1f}%</td></tr>
-                            <tr><td>60日集中度</td><td style='color:#FFF;'>{c60:.1f}%</td></tr>
-                            <tr><td>200日集中度</td><td style='color:#FFF;'>{c200:.1f}%</td></tr>
+                            <tr><td style='width:30%;'>20日極值佔比</td><td style='color:{conc_color};'>{c20:.1f}%</td><td></td></tr>
+                            <tr><td>60日極值佔比</td><td style='color:#FFF;'>{c60:.1f}%</td><td></td></tr>
+                            <tr><td>200日極值佔比</td><td style='color:#FFF;'>{c200:.1f}%</td><td></td></tr>
                         </table>
                         <div style='width:100%; background-color:#222; border-radius:10px; height:12px; margin-top:15px; border:1px solid #444;'>
                             <div style='width:{c20}%; background-color:{conc_color}; height:100%; box-shadow:0 0 10px {conc_color};'></div>
-                        </div></div>""", unsafe_allow_html=True)
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
 
-                    # --- 戰術圖表 ---
                     st.write("---")
                     st.markdown("### 📊 摩訶釋達・量價拆解戰術圖 (Force Index & VWAP)")
                     
