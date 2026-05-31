@@ -398,12 +398,12 @@ class AssetRanker:
         return df.iloc[::-1].reset_index(drop=True)
 
 # =======================================================
-# 💰 爺爺全新研發：大戶資金流透視 (福德金字塔) 掃描器 
+# 💰 爺爺全新研發：大戶資金流透視 (福德金字塔) 掃描器 (三線數據升級版)
 # =======================================================
 def scan_fude_logic(df, ticker):
     """
     此 Function 專門負責計算大戶底氣，完全不會干擾上面嘅掃股邏輯。
-    將傳入嘅 DataFrame (建議最少 2 年歷史數據) 轉化為福德金字塔及戰術指標。
+    將傳入嘅 DataFrame (建議最少 2 年歷史數據) 轉化為福德金字塔及 20/60/200 日戰術指標。
     """
     if df is None or len(df) < 200:
         return None  # 數據不足 200 日，無法計 POC 及 200日福德
@@ -414,31 +414,67 @@ def scan_fude_logic(df, ticker):
     d['TP'] = (d['High'] + d['Low'] + d['Close']) / 3
     d['MF'] = d['TP'] * d['Volume']
     
-    # 2. VWAP 模擬 (20日)
-    d['VWAP_20'] = d['MF'].rolling(20).sum() / np.maximum(d['Volume'].rolling(20).sum(), 1)
-    
-    # 3. Force Index (攻擊效率/推動力) & 20/60/200 累計 (Merit)
+    # 計算 Force Index 同資金流
     d['Force_Index'] = (d['Close'] - d['Close'].shift(1)) * d['Volume']
     d['Merit_20'] = d['Force_Index'].rolling(20).sum()
     d['Merit_60'] = d['Force_Index'].rolling(60).sum()
     d['Merit_200'] = d['Force_Index'].rolling(200).sum()
     
-    # 4. Chaikin Money Flow (CMF) - 20D & 60D
+    # 計算買賣淨資金流 (正負號)
+    d['Net_Flow_Val'] = d['MF'] * np.where(d['Close'] > d['Close'].shift(1).fillna(d['Close']), 1, -1)
+    
+    # 計算 OBV
+    d['OBV_Daily'] = (np.sign(d['Close'].diff()) * d['Volume']).fillna(0)
+    d['OBV_Cum'] = d['OBV_Daily'].cumsum()
+    
+    # 計算 CMF
     var3 = np.maximum(d['High'] - d['Low'], 0.001)
     clv = ((d['Close'] - d['Low']) - (d['High'] - d['Close'])) / var3
     d['AD'] = clv * d['Volume']
     d['CMF_20'] = d['AD'].rolling(20).sum() / np.maximum(d['Volume'].rolling(20).sum(), 1)
     d['CMF_60'] = d['AD'].rolling(60).sum() / np.maximum(d['Volume'].rolling(60).sum(), 1)
     
-    # 5. RVOL (200D 平均異常成交量)
+    # 2. VWAP 模擬 (20日)
+    d['VWAP_20'] = d['MF'].rolling(20).sum() / np.maximum(d['Volume'].rolling(20).sum(), 1)
+    
+    # 3. RVOL (200D 平均異常成交量)
     d['Vol_200MA'] = d['Volume'].rolling(200).mean()
     d['RVOL'] = d['Volume'] / np.maximum(d['Vol_200MA'], 1)
     
-    # 6. POC (200D 成交密集大本營)
+    # 4. POC (200D 成交密集大本營)
     recent_200 = d.tail(200)
     counts, bins = np.histogram(recent_200['Close'], bins=40, weights=recent_200['Volume'])
     poc_idx = np.argmax(counts)
     poc_price = (bins[poc_idx] + bins[poc_idx+1]) / 2
+    
+    # --- 提取各週期數據 (20D, 60D, 200D) 畀前端 UI ---
+    def get_stats(col_name, period):
+        current = d[col_name].tail(period).sum()
+        past = d[col_name].iloc[-(period*2):-period].sum() if len(d) > period*2 else current
+        pct_chg = (current - past) / max(abs(past), 1) * 100
+        return current, pct_chg
+
+    f20, p20 = get_stats('Net_Flow_Val', 20)
+    f60, p60 = get_stats('Net_Flow_Val', 60)
+    f200, p200 = get_stats('Net_Flow_Val', 200)
+    
+    o20 = d['OBV_Cum'].iloc[-1] - d['OBV_Cum'].iloc[-21] if len(d)>20 else 0
+    o60 = d['OBV_Cum'].iloc[-1] - d['OBV_Cum'].iloc[-61] if len(d)>60 else 0
+    o200 = d['OBV_Cum'].iloc[-1] - d['OBV_Cum'].iloc[-201] if len(d)>200 else 0
+    
+    avg_252 = max(d['Volume'].tail(252).mean(), 1)
+    ej20 = d['Volume'].tail(20).mean() / avg_252 * 100
+    ej60 = d['Volume'].tail(60).mean() / avg_252 * 100
+    ej200 = d['Volume'].tail(200).mean() / avg_252 * 100
+    
+    se20 = 50 + (d['Close'].iloc[-1] / d['Close'].iloc[-max(1, len(d)-20)] - 1) * 1200
+    se60 = 50 + (d['Close'].iloc[-1] / d['Close'].iloc[-max(1, len(d)-60)] - 1) * 800
+    se200 = 50 + (d['Close'].iloc[-1] / d['Close'].iloc[-max(1, len(d)-200)] - 1) * 400
+
+    def get_conc(p):
+        daily_abs = abs(d['Net_Flow_Val'].tail(p))
+        return (daily_abs.max() / max(daily_abs.sum(), 1)) * 100
+    c20, c60, c200 = get_conc(20), get_conc(60), get_conc(200)
     
     # 提取最後一日數值作 UI 顯示
     curr_c = d['Close'].iloc[-1]
@@ -458,6 +494,11 @@ def scan_fude_logic(df, ticker):
     else:
         fude_lvl, fude_col, fude_desc = "🥀 無主孤魂 (資金流失)", "#888888", "三線資金皆負，大戶徹底放棄，切勿胡亂撈底。"
     
+    # 大戶心態判定
+    def get_mood(flow, conc):
+        if flow > 0: return "💪 明目張膽買貨" if conc > 25 else "🤫 默默暗中吸籌"
+        return "😱 明目張膽掟貨" if conc > 25 else "📉 默默分批派發"
+    
     # 額外大戶底氣標籤
     tags = []
     if m200 > 0 and m60 > 0: tags.append("<span style='background:#111; border:1px solid #FFD700; color:#FFD700; padding:5px 10px; border-radius:5px;'>🌟 名門望族</span>")
@@ -467,7 +508,7 @@ def scan_fude_logic(df, ticker):
     
     # 準備回傳 Dictionary 畀 Streamlit UI 繪圖
     # 保留最後 120 日畫圖，避免前端過重
-    plot_data = d.tail(120)[['Open', 'High', 'Low', 'Close', 'Volume', 'VWAP_20', 'RVOL', 'Merit_20', 'Merit_60', 'Merit_200', 'CMF_20', 'CMF_60']]
+    plot_data = d.tail(120)[['Open', 'High', 'Low', 'Close', 'Volume', 'VWAP_20', 'RVOL', 'Merit_20', 'Merit_60', 'Merit_200', 'CMF_20', 'CMF_60', 'Net_Flow_Val', 'OBV_Daily']]
     
     return {
         "Ticker": ticker,
@@ -479,6 +520,12 @@ def scan_fude_logic(df, ticker):
         "Merit_200": m200,
         "CMF_20": d['CMF_20'].iloc[-1],
         "CMF_60": d['CMF_60'].iloc[-1],
+        "Flow": {"20D": [f20, p20], "60D": [f60, p60], "200D": [f200, p200]},
+        "OBV": {"20D": o20, "60D": o60, "200D": o200},
+        "EJ": {"20D": ej20, "60D": ej60, "200D": ej200},
+        "SE": {"20D": se20, "60D": se60, "200D": se200},
+        "Conc": {"20D": c20, "60D": c60, "200D": c200},
+        "Mood": get_mood(f20, c20),
         "Fude_Level": fude_lvl,
         "Fude_Color": fude_col,
         "Fude_Desc": fude_desc,
