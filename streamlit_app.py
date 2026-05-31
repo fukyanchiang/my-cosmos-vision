@@ -465,25 +465,24 @@ elif operation_mode == "📊 究極資產拔河龍虎榜":
         else: st.warning("⚠️ 標的名單為空，無法執行掃描。")
 
 # =========================================================================
-# 💰 模式三：大戶資金流透視 (福德金字塔) - 爺爺黑底霓虹五大獨立框版
+# 💰 模式三：大戶資金流透視 (福德金字塔) - 爺爺防彈雙行獨立框版
 # =========================================================================
 elif operation_mode == "💰 大戶資金流透視 (福德金字塔)":
     from core_logic import scan_fude_logic
     
-    # 🌟 強制注入全黑底色與霓虹獨立表格 CSS
     st.markdown("""
         <style>
         .stApp { background-color: #000000 !important; }
-        .fude-card-ind { background-color: #000000 !important; border: 2px solid; border-radius: 12px; padding: 25px; margin-bottom: 30px; box-shadow: 0 4px 20px rgba(0,0,0,1); }
-        .fude-title { font-size: 1.5rem; font-weight: 900; margin-bottom: 15px; border-bottom: 1px solid #333; padding-bottom: 10px; }
+        .fude-card-ind { background-color: #050505 !important; border: 2px solid; border-radius: 12px; padding: 25px; margin-bottom: 30px; box-shadow: 0 4px 20px rgba(0,0,0,1); }
+        .fude-title { font-size: 1.5rem; font-weight: 900; margin-bottom: 15px; border-bottom: 1px solid #333; padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
         .fude-table { width: 100%; color: #ddd; font-size: 1.1rem; border-collapse: collapse; margin-bottom: 20px; }
-        .fude-table th { text-align: left; padding: 10px 0; border-bottom: 2px solid #555; color: #aaa; }
+        .fude-table th { text-align: left; padding: 10px 0; border-bottom: 2px solid #555; color: #aaa; font-weight: normal; }
         .fude-table td { padding: 12px 0; border-bottom: 1px solid #222; }
         .fude-table th:nth-child(2), .fude-table th:nth-child(3), .fude-table th:nth-child(4) { text-align: right; }
         .fude-table td:nth-child(2), .fude-table td:nth-child(3), .fude-table td:nth-child(4) { text-align: right; font-weight: bold; }
         .val-pos { color: #00FFCC !important; }
         .val-neg { color: #FF4B4B !important; }
-        .pulse-label { font-size: 0.9rem; color: #888; text-align: right; margin-top: 5px; margin-bottom: 15px;}
+        .pulse-label { font-size: 0.95rem; color: #888; text-align: right; margin-top: 5px; margin-bottom: 20px; font-weight: bold; }
         </style>
     """, unsafe_allow_html=True)
 
@@ -496,13 +495,9 @@ elif operation_mode == "💰 大戶資金流透視 (福德金字塔)":
     </div>
     """, unsafe_allow_html=True)
 
-    st.markdown("<h3 style='color: white;'>🔍 個股大鱷探測：</h3>", unsafe_allow_html=True)
     col_input, col_btn = st.columns([3, 1])
-    with col_input:
-        ticker = st.text_input("輸入股票代號 (例: NVDA, 0700.HK, TSLA)", "NVDA").upper().strip()
-    with col_btn:
-        st.write("<br>", unsafe_allow_html=True)
-        run_scan = st.button("📡 透視資金底牌", use_container_width=True)
+    with col_input: ticker = st.text_input("輸入股票代號 (例: NVDA, 0700.HK, TSLA)", "NVDA").upper().strip()
+    with col_btn: st.write("<br>", unsafe_allow_html=True); run_scan = st.button("📡 透視資金底牌", use_container_width=True)
 
     if run_scan or ticker:
         with st.spinner(f"⏳ 爺爺正在為你潛入深網，計算 {ticker} 嘅福德家底..."):
@@ -524,66 +519,43 @@ elif operation_mode == "💰 大戶資金流透視 (福德金字塔)":
                         st.markdown(f"<div class='dragon-card' style='border-color:#BC13FE; height:220px; display:flex; flex-direction:column; justify-content:center;'><div style='font-size:1.2rem;color:#ccc;'>🎯 過去200日成交大本營 (POC)</div><div style='font-size:3rem; font-weight:900; color:#BC13FE;'>${poc_price:.2f}</div><div style='font-size:1.1rem; font-weight:bold; color:{poc_color}; margin-top:5px;'>{poc_status}</div></div>", unsafe_allow_html=True)
                     with c3: st.markdown(f"<div class='dragon-card' style='border-color:#00FFFF; height:220px; display:flex; flex-direction:column; justify-content:center;'><div style='font-size:1.2rem;color:#ccc;'>🔍 大戶底氣標籤</div><div style='display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin-top:15px; font-weight:bold;'>{' '.join(tags) if tags else '無明顯大戶特徵'}</div></div>", unsafe_allow_html=True)
                     
-                    # ===============================================
-                    # 🔥 爺爺加建：防彈保險罩 (確保所有變數存在)
-                    # ===============================================
+                    # 防彈層：如果大腦漏咗畀數，面層即刻自己補位計返
                     if 'Net_Flow' not in plot_df.columns:
                         plot_df['Net_Flow'] = plot_df['Volume'] * plot_df['Close'] * np.where(plot_df['Close'] > plot_df['Close'].shift(1).fillna(plot_df['Close']), 1, -1)
                     if 'OBV_Daily' not in plot_df.columns:
                         plot_df['OBV_Daily'] = np.sign(plot_df['Close'].diff()).fillna(0) * plot_df['Volume']
 
-                    def safe_pct(curr, prev):
-                        if prev == 0 or pd.isna(prev): return 0.0
-                        return ((curr - prev) / abs(prev)) * 100
+                    def get_fude_val(key, default=0.0): return fude_data.get(key, default)
+                    
+                    f20 = get_fude_val('Flow_20_val'); p20 = get_fude_val('Flow_20_pct')
+                    f60 = get_fude_val('Flow_60_val'); p60 = get_fude_val('Flow_60_pct')
+                    f200 = get_fude_val('Flow_200_val'); p200 = get_fude_val('Flow_200_pct')
+                    
+                    o20 = get_fude_val('OBV_20_val'); p20_o = get_fude_val('OBV_20_pct')
+                    o60 = get_fude_val('OBV_60_val'); p60_o = get_fude_val('OBV_60_pct')
+                    o200 = get_fude_val('OBV_200_val'); p200_o = get_fude_val('OBV_200_pct')
+                    
+                    ej20 = get_fude_val('EJ_20', 50.0); ej20_p = get_fude_val('EJ_20_pct')
+                    ej60 = get_fude_val('EJ_60', 50.0); ej60_p = get_fude_val('EJ_60_pct')
+                    ej200 = get_fude_val('EJ_200', 50.0); ej200_p = get_fude_val('EJ_200_pct')
+                    
+                    se20 = get_fude_val('SE_20', 50.0); se20_p = get_fude_val('SE_20_pct')
+                    se60 = get_fude_val('SE_60', 50.0); se60_p = get_fude_val('SE_60_pct')
+                    se200 = get_fude_val('SE_200', 50.0); se200_p = get_fude_val('SE_200_pct')
+                    
+                    c20 = get_fude_val('Conc_20'); c20_p = get_fude_val('Conc_20_pct')
+                    c60 = get_fude_val('Conc_60'); c60_p = get_fude_val('Conc_60_pct')
+                    c200 = get_fude_val('Conc_200'); c200_p = get_fude_val('Conc_200_pct')
+                    
+                    s20 = get_fude_val('Shares_20'); s60 = get_fude_val('Shares_60'); s200 = get_fude_val('Shares_200')
 
-                    def safe_calc_shares(flow, period):
-                        try:
-                            if flow is None or pd.isna(flow): return 0
-                            avg_p = plot_df['Close'].tail(period).mean()
-                            if pd.isna(avg_p) or avg_p == 0: return 0
-                            return int(np.round((flow / avg_p) / 1000) * 1000)
-                        except: return 0
-
-                    f20 = fude_data.get('Flow_20_val', plot_df['Net_Flow'].tail(20).sum())
-                    f60 = fude_data.get('Flow_60_val', plot_df['Net_Flow'].tail(60).sum())
-                    f200 = fude_data.get('Flow_200_val', plot_df['Net_Flow'].tail(200).sum() if len(plot_df)>=200 else plot_df['Net_Flow'].sum())
-                    p20 = fude_data.get('Flow_20_pct', safe_pct(f20, plot_df['Net_Flow'].iloc[-40:-20].sum() if len(plot_df)>=40 else f20))
-                    p60 = fude_data.get('Flow_60_pct', safe_pct(f60, plot_df['Net_Flow'].iloc[-120:-60].sum() if len(plot_df)>=120 else f60))
-                    p200 = fude_data.get('Flow_200_pct', 0.0)
-
-                    o20 = fude_data.get('OBV_20_val', plot_df['OBV_Daily'].tail(20).sum())
-                    o60 = fude_data.get('OBV_60_val', plot_df['OBV_Daily'].tail(60).sum())
-                    o200 = fude_data.get('OBV_200_val', plot_df['OBV_Daily'].sum())
-                    p20_o = fude_data.get('OBV_20_pct', safe_pct(o20, plot_df['OBV_Daily'].iloc[-40:-20].sum() if len(plot_df)>=40 else o20))
-                    p60_o = fude_data.get('OBV_60_pct', safe_pct(o60, plot_df['OBV_Daily'].iloc[-120:-60].sum() if len(plot_df)>=120 else o60))
-                    p200_o = fude_data.get('OBV_200_pct', 0.0)
-
-                    ej20 = fude_data.get('EJ_20', 50.0); ej20_p = fude_data.get('EJ_20_pct', 0.0)
-                    ej60 = fude_data.get('EJ_60', 50.0); ej60_p = fude_data.get('EJ_60_pct', 0.0)
-                    ej200 = fude_data.get('EJ_200', 50.0); ej200_p = fude_data.get('EJ_200_pct', 0.0)
-
-                    se20 = fude_data.get('SE_20', 50.0); se20_p = fude_data.get('SE_20_pct', 0.0)
-                    se60 = fude_data.get('SE_60', 50.0); se60_p = fude_data.get('SE_60_pct', 0.0)
-                    se200 = fude_data.get('SE_200', 50.0); se200_p = fude_data.get('SE_200_pct', 0.0)
-
-                    c20 = fude_data.get('Conc_20', 0.0); c20_p = fude_data.get('Conc_20_pct', 0.0)
-                    c60 = fude_data.get('Conc_60', 0.0); c60_p = fude_data.get('Conc_60_pct', 0.0)
-                    c200 = fude_data.get('Conc_200', 0.0); c200_p = fude_data.get('Conc_200_pct', 0.0)
-
-                    s20 = fude_data.get('Shares_20') if fude_data.get('Shares_20') is not None else safe_calc_shares(f20, 20)
-                    s60 = fude_data.get('Shares_60') if fude_data.get('Shares_60') is not None else safe_calc_shares(f60, 60)
-                    s200 = fude_data.get('Shares_200') if fude_data.get('Shares_200') is not None else safe_calc_shares(f200, 200)
-
-                    # ===============================================
-                    # 🔥 五大獨立顯示框 (從上至下排隊)
-                    # ===============================================
                     st.write("---")
                     st.markdown(f"### 🌊 獨家解密：主力資金池透視 (5大獨立指標)", unsafe_allow_html=True)
 
                     def fmt(val): return f"{'+' if val>0 else ''}${val/1e8:.1f}億" if abs(val)>=1e8 else (f"{'+' if val>0 else ''}${val/1e6:.1f}M" if abs(val)>=1e6 else f"{'+' if val>0 else ''}${val:,.0f}")
                     def color_class(val): return "val-pos" if val >= 0 else "val-neg"
                     
-                    def get_pulse_fig(pulse_vals, height=80):
+                    def get_pulse_fig(pulse_vals, height=90):
                         if len(pulse_vals) == 0: pulse_vals = [0]
                         colors = ['#00FFCC' if v >= 0 else '#FF4B4B' for v in pulse_vals]
                         fig_p = go.Figure(go.Bar(x=list(range(len(pulse_vals))), y=pulse_vals, marker_color=colors, hoverinfo='skip'))
@@ -601,7 +573,7 @@ elif operation_mode == "💰 大戶資金流透視 (福德金字塔)":
                         html += "</div>"
                         return html
 
-                    # 獨立框 1: EJ 錢流底氣 (雙層柱)
+                    # 1. EJ 錢流底氣 (雙層柱)
                     ej_c = "#00FFFF"
                     st.markdown(f"""
                     <div class='fude-card-ind' style='border-color:{ej_c};'>
@@ -620,7 +592,7 @@ elif operation_mode == "💰 大戶資金流透視 (福德金字塔)":
                     st.plotly_chart(get_pulse_fig(plot_df['Net_Flow'].tail(60).values), use_container_width=True, config={'displayModeBar': False})
                     st.markdown(f"<div class='pulse-label' style='color:{ej_c};'>▲ 最近 60 天中線建倉軌跡</div><br>", unsafe_allow_html=True)
 
-                    # 獨立框 2: 短期能量 BAR (雙層柱)
+                    # 2. 短期能量 BAR (雙層柱)
                     se_c = "#FF00FF"
                     st.markdown(f"""
                     <div class='fude-card-ind' style='border-color:{se_c};'>
@@ -641,7 +613,7 @@ elif operation_mode == "💰 大戶資金流透視 (福德金字塔)":
                     st.plotly_chart(get_pulse_fig(se_pulse_60), use_container_width=True, config={'displayModeBar': False})
                     st.markdown(f"<div class='pulse-label' style='color:{se_c};'>▲ 最近 60 天動能波幅</div><br>", unsafe_allow_html=True)
 
-                    # 獨立框 3: 資金總數 (Money Flow) (單層 20D)
+                    # 3. 資金總數 (Money Flow) (雙層柱)
                     flow_color = "#00FFCC" if f20 >= 0 else "#FF4B4B"
                     st.markdown(f"""
                     <div class='fude-card-ind' style='border-color:{flow_color};'>
@@ -654,10 +626,12 @@ elif operation_mode == "💰 大戶資金流透視 (福德金字塔)":
                         </table>
                     </div>
                     """, unsafe_allow_html=True)
-                    st.plotly_chart(get_pulse_fig(plot_df['Net_Flow'].tail(20).values, height=100), use_container_width=True, config={'displayModeBar': False})
-                    st.markdown(f"<div class='pulse-label' style='color:{flow_color};'>▲ 最近 20 天資金流向</div><br>", unsafe_allow_html=True)
+                    st.plotly_chart(get_pulse_fig(plot_df['Net_Flow'].tail(20).values), use_container_width=True, config={'displayModeBar': False})
+                    st.markdown(f"<div class='pulse-label' style='color:{flow_color};'>▲ 最近 20 天資金流向</div>", unsafe_allow_html=True)
+                    st.plotly_chart(get_pulse_fig(plot_df['Net_Flow'].tail(60).values), use_container_width=True, config={'displayModeBar': False})
+                    st.markdown(f"<div class='pulse-label' style='color:{flow_color};'>▲ 最近 60 天資金流向</div><br>", unsafe_allow_html=True)
 
-                    # 獨立框 4: OBV 軌跡 (雙層柱)
+                    # 4. OBV 軌跡 (雙層柱)
                     obv_color = "#00FFCC" if o20 >= 0 else "#FF4B4B"; trend_str = "📈 流入" if o20 >= 0 else "📉 流出"
                     st.markdown(f"""
                     <div class='fude-card-ind' style='border-color:{obv_color};'>
@@ -675,27 +649,28 @@ elif operation_mode == "💰 大戶資金流透視 (福德金字塔)":
                     st.plotly_chart(get_pulse_fig(plot_df['OBV_Daily'].tail(60).values), use_container_width=True, config={'displayModeBar': False})
                     st.markdown(f"<div class='pulse-label' style='color:{obv_color};'>▲ 最近 60 天 OBV 變動</div><br>", unsafe_allow_html=True)
 
-                    # 獨立框 5: 資金部署集中度 (加股數 + 雙層柱)
+                    # 5. 資金部署集中度 (加股數 + 雙層有紅綠柱)
                     conc_color = "#FF4B4B" if c20 > 35 else ("#FFD700" if c20 > 15 else "#00FFCC")
                     conc_note = "（突發買入或掟貨）" if c20 > 35 else ("（公開正常進出）" if c20 > 15 else "（隱密吸籌/派發）")
                     st.markdown(f"""
                     <div class='fude-card-ind' style='border-color:#BC13FE;'>
-                        <div class='fude-title' style='color:#BC13FE;'><span>🎯 資金部署集中度</span><span style='color:{conc_color}; font-size:1.1rem;'>{conc_note}</span></div>
+                        <div class='fude-title' style='color:#BC13FE;'><span>🎯 資金部署集中度</span><span style='color:{conc_color}; font-size:1.2rem;'>{conc_note}</span></div>
                         <table class='fude-table'>
                             <tr><th>週期</th><th>極值佔比</th><th>變化 %</th><th>估算股數</th></tr>
-                            <tr><td>20日</td><td style='color:{conc_color};'>{c20:.1f}%</td><td class='{color_class(c20_p)}'>{c20_p:+.1f}%</td><td class='{color_class(s20)}'>{s20:,} 股</td></tr>
-                            <tr><td>60日</td><td style='color:#FFF;'>{c60:.1f}%</td><td class='{color_class(c60_p)}'>{c60_p:+.1f}%</td><td class='{color_class(s60)}'>{s60:,} 股</td></tr>
-                            <tr><td>200日</td><td style='color:#FFF;'>{c200:.1f}%</td><td class='{color_class(c200_p)}'>{c200_p:+.1f}%</td><td class='{color_class(s200)}'>{s200:,} 股</td></tr>
+                            <tr><td>20日</td><td style='color:{conc_color};'>{c20:.1f}%</td><td class='{color_class(c20_p)}'>{c20_p:+.1f}%</td><td class='{color_class(s20)}'>{'+' if s20>0 else ''}{s20:,} 股</td></tr>
+                            <tr><td>60日</td><td style='color:#FFF;'>{c60:.1f}%</td><td class='{color_class(c60_p)}'>{c60_p:+.1f}%</td><td class='{color_class(s60)}'>{'+' if s60>0 else ''}{s60:,} 股</td></tr>
+                            <tr><td>200日</td><td style='color:#FFF;'>{c200:.1f}%</td><td class='{color_class(c200_p)}'>{c200_p:+.1f}%</td><td class='{color_class(s200)}'>{'+' if s200>0 else ''}{s200:,} 股</td></tr>
                         </table>
-                        <div style='width:100%; background-color:#222; border-radius:10px; height:18px; margin-top:25px; margin-bottom:25px; border:1px solid #444;'>
-                            <div style='width:{min(100, c20)}%; background-color:{conc_color}; height:100%; box-shadow:0 0 12px {conc_color}; border-radius:10px;'></div>
+                        <div style='width:100%; background-color:#222; border-radius:10px; height:20px; margin-top:30px; margin-bottom:30px; border:1px solid #444;'>
+                            <div style='width:{min(100, c20)}%; background-color:{conc_color}; height:100%; box-shadow:0 0 15px {conc_color}; border-radius:10px;'></div>
                         </div>
                     </div>
                     """, unsafe_allow_html=True)
-                    st.plotly_chart(get_pulse_fig(np.abs(plot_df['Net_Flow'].tail(20).values)), use_container_width=True, config={'displayModeBar': False})
-                    st.markdown("<div class='pulse-label' style='color:#BC13FE;'>▲ 最近 20 天集中度分布</div>", unsafe_allow_html=True)
-                    st.plotly_chart(get_pulse_fig(np.abs(plot_df['Net_Flow'].tail(60).values)), use_container_width=True, config={'displayModeBar': False})
-                    st.markdown("<div class='pulse-label' style='color:#BC13FE;'>▲ 最近 60 天集中度分布</div><br>", unsafe_allow_html=True)
+                    # 抽走 abs()，還原紅綠買賣方向
+                    st.plotly_chart(get_pulse_fig(plot_df['Net_Flow'].tail(20).values), use_container_width=True, config={'displayModeBar': False})
+                    st.markdown("<div class='pulse-label' style='color:#BC13FE;'>▲ 最近 20 天集中度分布 (綠=買, 紅=賣)</div>", unsafe_allow_html=True)
+                    st.plotly_chart(get_pulse_fig(plot_df['Net_Flow'].tail(60).values), use_container_width=True, config={'displayModeBar': False})
+                    st.markdown("<div class='pulse-label' style='color:#BC13FE;'>▲ 最近 60 天集中度分布 (綠=買, 紅=賣)</div><br>", unsafe_allow_html=True)
 
                     # --- 原裝戰術圖表保留區 ---
                     st.write("---")
