@@ -167,7 +167,7 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
     if not is_dead and vcp_52w and (pct_from_52w_high > 25.0):
         is_dead = True; death_reason = f"距離52週高位太遠({pct_from_52w_high:.1f}%)"
     if not is_dead and vcp_ath and (curr_p < h.max() * 0.98):
-        is_dead = True; death_reason = "未達歷史新高(ATH)极致區"
+        is_dead = True; death_reason = "未達歷史新高(ATH)極致區"
         
     if is_dead and not force_return: return None
 
@@ -398,17 +398,17 @@ class AssetRanker:
         return df.iloc[::-1].reset_index(drop=True)
 
 # =======================================================
-# 💰 爺爺全新研發：大戶資金流透視 (福德金字塔) 掃描器 (三線數據升級版)
+# 💰 爺爺全新研發：大戶資金流透視 (福德金字塔) 掃描器 (三線數據獨立輸出版)
 # =======================================================
 def scan_fude_logic(df, ticker):
     """
     此 Function 專門負責計算大戶底氣，完全不會干擾上面嘅掃股邏輯。
-    將傳入嘅 DataFrame (建議最少 2 年歷史數據) 轉化為福德金字塔及 20/60/200 日戰術指標。
+    將傳入嘅 DataFrame 轉化為 5 大獨立三線數據，供 UI 使用。
     """
     if df is None or len(df) < 200:
-        return None  
+        return None 
         
-    d = df.copy()  
+    d = df.copy() 
     
     # 1. 典型價格 (TP) & 資金流 (MF)
     d['TP'] = (d['High'] + d['Low'] + d['Close']) / 3
@@ -418,13 +418,13 @@ def scan_fude_logic(df, ticker):
     # 2. VWAP 模擬 (20日)
     d['VWAP_20'] = d['MF'].rolling(20).sum() / np.maximum(d['Volume'].rolling(20).sum(), 1)
     
-    # 3. Force Index (攻擊效率/推動力) & 20/60/200 累計 (Merit)
+    # 3. Force Index (攻擊效率/推動力) 
     d['Force_Index'] = (d['Close'] - d['Close'].shift(1)) * d['Volume']
     d['Merit_20'] = d['Force_Index'].rolling(20).sum()
     d['Merit_60'] = d['Force_Index'].rolling(60).sum()
     d['Merit_200'] = d['Force_Index'].rolling(200).sum()
     
-    # 4. Chaikin Money Flow (CMF) - 20D & 60D
+    # 4. Chaikin Money Flow (CMF)
     var3 = np.maximum(d['High'] - d['Low'], 0.001)
     clv = ((d['Close'] - d['Low']) - (d['High'] - d['Close'])) / var3
     d['AD'] = clv * d['Volume']
@@ -444,7 +444,9 @@ def scan_fude_logic(df, ticker):
     poc_idx = np.argmax(counts)
     poc_price = (bins[poc_idx] + bins[poc_idx+1]) / 2
 
-    # --- 爺爺加建：計算 20D, 60D, 200D 的變化數據 ---
+    # ==========================================
+    # 爺爺加建：計算 20D, 60D, 200D 獨立數據
+    # ==========================================
     def get_flow_stats(period):
         if len(d) < period: return 0.0, 0.0
         c_flow = d['Net_Flow'].tail(period).sum()
@@ -455,6 +457,17 @@ def scan_fude_logic(df, ticker):
     f20_v, f20_p = get_flow_stats(20)
     f60_v, f60_p = get_flow_stats(60)
     f200_v, f200_p = get_flow_stats(200)
+
+    # 股數計算 (千位取整)
+    def calc_shares(flow_val, period):
+        avg_p = d['Close'].tail(period).mean()
+        if avg_p == 0 or np.isnan(avg_p): return 0
+        raw_shares = flow_val / avg_p
+        return int(np.round(raw_shares / 1000) * 1000)
+
+    s20 = calc_shares(f20_v, 20)
+    s60 = calc_shares(f60_v, 60)
+    s200 = calc_shares(f200_v, 200)
 
     def get_obv_stats(period):
         if len(d) < period + 1: return 0.0, 0.0
@@ -468,20 +481,43 @@ def scan_fude_logic(df, ticker):
     o200_v, o200_p = get_obv_stats(200)
 
     avg_252 = max(d['Volume'].tail(252).mean(), 1)
-    ej20 = min(999, max(0, (d['Volume'].tail(20).mean() / avg_252) * 100)) if len(d)>=20 else 50
-    ej60 = min(999, max(0, (d['Volume'].tail(60).mean() / avg_252) * 100)) if len(d)>=60 else 50
-    ej200 = min(999, max(0, (d['Volume'].tail(200).mean() / avg_252) * 100)) if len(d)>=200 else 50
+    def get_ej_stats(period):
+        curr_ej = (d['Volume'].tail(period).mean() / avg_252) * 100 if len(d)>=period else 50.0
+        prev_ej = (d['Volume'].iloc[-(period*2):-period].mean() / avg_252) * 100 if len(d)>=period*2 else curr_ej
+        pct = ((curr_ej - prev_ej) / max(prev_ej, 1)) * 100
+        return min(999.0, max(0.0, curr_ej)), pct
 
-    def get_se(p):
-        if len(d) < p + 1: return 50.0
-        return min(999.0, max(0.0, 50.0 + (((d['Close'].iloc[-1] / d['Close'].iloc[-(p+1)]) - 1) * 1200)))
-    se20 = get_se(20); se60 = get_se(60); se200 = get_se(200)
+    ej20, ej20_p = get_ej_stats(20)
+    ej60, ej60_p = get_ej_stats(60)
+    ej200, ej200_p = get_ej_stats(200)
 
-    def get_conc(p):
-        if len(d) < p: return 0.0
+    def get_se_stats(p):
+        if len(d) < p + 1: return 50.0, 0.0
+        curr_se = 50.0 + (((d['Close'].iloc[-1] / d['Close'].iloc[-(p+1)]) - 1) * 1200)
+        curr_se = min(999.0, max(0.0, curr_se))
+        if len(d) < p*2 + 1: return curr_se, 0.0
+        prev_se = 50.0 + (((d['Close'].iloc[-(p+1)] / d['Close'].iloc[-(p*2+1)]) - 1) * 1200)
+        prev_se = min(999.0, max(0.0, prev_se))
+        pct = ((curr_se - prev_se) / max(abs(prev_se), 1)) * 100
+        return curr_se, pct
+
+    se20, se20_p = get_se_stats(20)
+    se60, se60_p = get_se_stats(60)
+    se200, se200_p = get_se_stats(200)
+
+    def get_conc_stats(p):
+        if len(d) < p: return 0.0, 0.0
         da = abs(d['Net_Flow'].tail(p))
-        return (da.max() / max(da.sum(), 1)) * 100
-    c20 = get_conc(20); c60 = get_conc(60); c200 = get_conc(200)
+        curr_c = (da.max() / max(da.sum(), 1)) * 100
+        if len(d) < p*2: return curr_c, 0.0
+        da_prev = abs(d['Net_Flow'].iloc[-(p*2):-p])
+        prev_c = (da_prev.max() / max(da_prev.sum(), 1)) * 100
+        pct = ((curr_c - prev_c) / max(prev_c, 1)) * 100
+        return curr_c, pct
+
+    c20, c20_p = get_conc_stats(20)
+    c60, c60_p = get_conc_stats(60)
+    c200, c200_p = get_conc_stats(200)
 
     if f20_v > 0: mood = "💪 明目張膽買貨" if c20 > 25 else "🤫 默默暗中吸籌"
     else: mood = "😱 明目張膽掟貨" if c20 > 25 else "📉 默默分批派發"
@@ -509,6 +545,7 @@ def scan_fude_logic(df, ticker):
     
     plot_data = d.tail(120)[['Open', 'High', 'Low', 'Close', 'Volume', 'VWAP_20', 'RVOL', 'Merit_20', 'Merit_60', 'Merit_200', 'CMF_20', 'CMF_60', 'Net_Flow', 'OBV_Daily']]
     
+    # 將所有計算結果包裝傳送畀 UI
     return {
         "Ticker": ticker,
         "Current_Price": curr_c,
@@ -523,11 +560,32 @@ def scan_fude_logic(df, ticker):
         "Fude_Color": fude_col,
         "Fude_Desc": fude_desc,
         "Tags": tags,
-        "Flow_20_val": f20_v, "Flow_20_pct": f20_p, "Flow_60_val": f60_v, "Flow_60_pct": f60_p, "Flow_200_val": f200_v, "Flow_200_pct": f200_p,
-        "OBV_20_val": o20_v, "OBV_20_pct": o20_p, "OBV_60_val": o60_v, "OBV_60_pct": o60_p, "OBV_200_val": o200_v, "OBV_200_pct": o200_p,
-        "EJ_20": ej20, "EJ_60": ej60, "EJ_200": ej200,
-        "SE_20": se20, "SE_60": se60, "SE_200": se200,
-        "Conc_20": c20, "Conc_60": c60, "Conc_200": c200,
+        
+        # --- 爺爺加建：傳送 5大指標三線數據畀 UI ---
+        "Flow_20_val": f20_v, "Flow_20_pct": f20_p, 
+        "Flow_60_val": f60_v, "Flow_60_pct": f60_p, 
+        "Flow_200_val": f200_v, "Flow_200_pct": f200_p,
+        
+        "OBV_20_val": o20_v, "OBV_20_pct": o20_p, 
+        "OBV_60_val": o60_v, "OBV_60_pct": o60_p, 
+        "OBV_200_val": o200_v, "OBV_200_pct": o200_p,
+        
+        "EJ_20": ej20, "EJ_20_pct": ej20_p,
+        "EJ_60": ej60, "EJ_60_pct": ej60_p,
+        "EJ_200": ej200, "EJ_200_pct": ej200_p,
+        
+        "SE_20": se20, "SE_20_pct": se20_p,
+        "SE_60": se60, "SE_60_pct": se60_p,
+        "SE_200": se200, "SE_200_pct": se200_p,
+        
+        "Conc_20": c20, "Conc_20_pct": c20_p,
+        "Conc_60": c60, "Conc_60_pct": c60_p,
+        "Conc_200": c200, "Conc_200_pct": c200_p,
+        
+        "Shares_20": s20,
+        "Shares_60": s60,
+        "Shares_200": s200,
+        
         "Mood": mood,
         "Plot_Data": plot_data
     }
