@@ -565,7 +565,7 @@ elif operation_mode == "📊 究極資產拔河龍虎榜":
             st.warning("⚠️ 標的名單為空，無法執行掃描。")
 
 # =========================================================================
-# 💰 模式三：大戶資金流透視 (福德金字塔) - 爺爺無米煮飯終極版
+# 💰 模式三：大戶資金流透視 (福德金字塔) - 爺爺無米煮飯終極版 + 獨家解密
 # =========================================================================
 elif operation_mode == "💰 大戶資金流透視 (福德金字塔)":
     from core_logic import scan_fude_logic
@@ -658,6 +658,88 @@ elif operation_mode == "💰 大戶資金流透視 (福德金字塔)":
                                       legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, font=dict(color="white", size=13)))
                     
                     st.plotly_chart(fig, use_container_width=True)
-                    
+
+                    # ===============================================
+                    # 🔥 爺爺加建：舊版柱狀圖與 % 數面板 (獨家解密)
+                    # ===============================================
+                    def cap_pct(val):
+                        try:
+                            v = float(val)
+                            return max(-999.0, min(999.0, v)) if not np.isnan(v) and not np.isinf(v) else 0.0
+                        except: return 0.0
+                        
+                    def get_pulse_fig(pulse_vals):
+                        try:
+                            colors = ['#00FFCC' if v >= 0 else '#FF4B4B' for v in pulse_vals]
+                            fig_p = go.Figure(go.Bar(x=list(range(len(pulse_vals))), y=pulse_vals, marker_color=colors, hoverinfo='skip'))
+                            fig_p.update_layout(height=130, margin=dict(l=0,r=0,t=5,b=0), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', xaxis=dict(visible=False, fixedrange=True), yaxis=dict(visible=False, fixedrange=True), showlegend=False)
+                            return fig_p
+                        except: return go.Figure().update_layout(height=130, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', xaxis=dict(visible=False), yaxis=dict(visible=False))
+
+                    try:
+                        mf_df = df.copy()
+                        mf_df['Typical_Price'] = (mf_df['High'] + mf_df['Low'] + mf_df['Close']) / 3
+                        mf_df['Net_Flow'] = mf_df['Typical_Price'] * mf_df['Volume'] * np.where(mf_df['Close'] > mf_df['Close'].shift(1).fillna(mf_df['Close']), 1, -1)
+                        mf_df['OBV_Daily'] = (np.sign(mf_df['Close'].diff()) * mf_df['Volume']).fillna(0)
+                        mf_df['OBV'] = mf_df['OBV_Daily'].cumsum()
+                        
+                        curr_20d_flow = mf_df['Net_Flow'].tail(20).sum()
+                        prev_20d_flow = mf_df['Net_Flow'].iloc[-40:-20].sum() if len(mf_df) > 20 else 0
+                        
+                        if abs(curr_20d_flow) >= 1e8: flow_str = f"{'+' if curr_20d_flow>0 else ''}${curr_20d_flow/1e8:.1f} 億"
+                        elif abs(curr_20d_flow) >= 1e6: flow_str = f"{'+' if curr_20d_flow>0 else ''}${curr_20d_flow/1e6:.1f} M (百萬)"
+                        else: flow_str = f"{'+' if curr_20d_flow>0 else ''}${curr_20d_flow:,.0f}"
+                        
+                        flow_color = "#00FF00" if curr_20d_flow > 0 else "#FF4B4B"
+                        mf_pct = cap_pct((curr_20d_flow - prev_20d_flow) / abs(prev_20d_flow + 1) * 100)
+                        
+                        compare_idx = max(1, min(20, len(mf_df)-1))
+                        obv_curr_val = mf_df['OBV'].iloc[-1] - mf_df['OBV'].iloc[-compare_idx]
+                        obv_prev_val = mf_df['OBV'].iloc[-compare_idx] - mf_df['OBV'].iloc[0] if len(mf_df) > compare_idx else 1
+                        obv_pct = cap_pct((obv_curr_val - obv_prev_val) / abs(obv_prev_val + 1) * 100)
+                        price_trend = mf_df['Close'].iloc[-1] - mf_df['Close'].iloc[-compare_idx]
+                        obv_total_vol = mf_df['Volume'].tail(20).sum() or 1
+                        
+                        if abs(obv_curr_val) / obv_total_vol < 0.02: 
+                            trend_str, trend_color, obv_state = "9. 🧊 資金膠著盤整 (觀望)", "#888888", 9
+                        else:
+                            if price_trend >= 0:
+                                if obv_curr_val > 0: 
+                                    if obv_pct > 20: trend_str, trend_color, obv_state = "1. 👑 強烈流入", "#00FF00", 1
+                                    else: trend_str, trend_color, obv_state = "2. 📈 流入", "#00FF00", 2
+                                else:
+                                    if obv_pct < -20: trend_str, trend_color, obv_state = "5. 💣 資金高位撤離 (大兇兆)", "#FF4B4B", 5
+                                    else: trend_str, trend_color, obv_state = "6. ⚠️ 資金高位撤離 (兇兆)", "#FF4B4B", 6
+                            else:
+                                if obv_curr_val < 0:
+                                    if obv_pct < -20: trend_str, trend_color, obv_state = "3. 💀 大戶持續派發 (強烈流出)", "#FF4B4B", 3
+                                    else: trend_str, trend_color, obv_state = "4. 📉 大戶持續派發 (流出)", "#FF4B4B", 4
+                                else:
+                                    if obv_pct > 20: trend_str, trend_color, obv_state = "7. 🐉 底部分歧掃貨 (大吉兆)", "#00FFCC", 7
+                                    else: trend_str, trend_color, obv_state = "8. 🐲 底部分歧掃貨 (吉兆)", "#00FFCC", 8
+                                    
+                        daily_abs_flow = abs(mf_df['Net_Flow'].tail(20))
+                        total_abs_flow = daily_abs_flow.sum() or 1
+                        conc_pct = (daily_abs_flow.max() / total_abs_flow) * 100
+                        
+                        if conc_pct > 35: conc_level, conc_color, conc_note = "⚡ 高度集中", "#FF4B4B", "（突發買入或掟貨）"
+                        elif conc_pct > 15: conc_level, conc_color, conc_note = "🌿 正常分佈", "#FFD700", "（公開正常進出）"
+                        else: conc_level, conc_color, conc_note = "💎 穩定分散", "#00FFCC", "（隱密吸籌/派發）"
+                        
+                        st.write("")
+                        st.markdown("<h3 style='color:#FFF; margin-bottom:10px;'>🌊 獨家解密：20日主力資金池淨額 (Money Flow & OBV)</h3>", unsafe_allow_html=True)
+                        st.markdown("<div style='background-color:#000; border-radius:15px; padding:20px; border: 2px solid #333;'>", unsafe_allow_html=True)
+                        mc1, mc2 = st.columns(2)
+                        with mc1:
+                            st.markdown(f"<div class='dragon-card' style='border-color:{flow_color}; padding:15px; height:120px; display:flex; flex-direction:column; justify-content:center;'><div style='display:flex; justify-content:space-between;'><span style='color:{flow_color}; font-size:1.4rem; font-weight:bold;'>資金總數: {flow_str}</span><span style='color:{'#00FF00' if mf_pct>=0 else '#FF4B4B'}; font-size:1.2rem; font-weight:bold;'>20日變化: {mf_pct:.1f}%</span></div></div>", unsafe_allow_html=True)
+                            st.plotly_chart(get_pulse_fig(mf_df['Net_Flow'].tail(20).values), use_container_width=True, theme=None, config={'displayModeBar': False}, key=f"flow_chart_{ticker}")
+                        with mc2:
+                            st.markdown(f"<div class='dragon-card' style='border-color:{trend_color}; padding:15px; height:120px; display:flex; flex-direction:column; justify-content:center;'><div style='display:flex; justify-content:space-between;'><span style='color:{trend_color}; font-size:1.4rem; font-weight:bold;'>OBV軌跡: {trend_str}</span><span style='color:{'#00FF00' if obv_pct>=0 else '#FF4B4B'}; font-size:1.2rem; font-weight:bold;'>20日變化: {obv_pct:.1f}%</span></div></div>", unsafe_allow_html=True)
+                            st.plotly_chart(get_pulse_fig(mf_df['OBV_Daily'].tail(20).values), use_container_width=True, theme=None, config={'displayModeBar': False}, key=f"obv_chart_{ticker}")
+                        st.markdown(f"<div style='margin-top:20px; border-top:1px dashed #444; padding-top:15px;'><div style='display:flex; justify-content:space-between;'><span style='font-weight:bold;'>🎯 資金部署集中度：<span style='color:{conc_color};'>{conc_level}</span></span><span>極值佔比: {conc_pct:.1f}% <span style='color:{conc_color}; font-weight:bold;'>{conc_note}</span></span></div><div style='width:100%; background-color:#222; border-radius:10px; height:12px; margin-top:8px; border:1px solid #444;'><div style='width:{conc_pct}%; background-color:{conc_color}; height:100%; box-shadow:0 0 10px {conc_color};'></div></div></div>", unsafe_allow_html=True)
+                        st.markdown("</div>", unsafe_allow_html=True)
+                    except Exception as e:
+                        st.warning(f"加載舊版資金圖表時出錯: {e}")
+                        
             except Exception as e:
                 st.error(f"⚠️ 計算過程發生錯誤: {e}")
