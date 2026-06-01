@@ -398,7 +398,7 @@ class AssetRanker:
         return df.iloc[::-1].reset_index(drop=True)
 
 # =======================================================
-# 💰 爺爺全新研發：大戶資金流透視 (福德金字塔) 掃描器 (三線數據獨立輸出版)
+# 💰 爺爺全新研發：大戶資金流透視 (福德金字塔) 掃描器 (三線數據滿血修復版)
 # =======================================================
 def scan_fude_logic(df, ticker):
     """
@@ -432,7 +432,7 @@ def scan_fude_logic(df, ticker):
     d['CMF_60'] = d['AD'].rolling(60).sum() / np.maximum(d['Volume'].rolling(60).sum(), 1)
     
     # 5. OBV
-    d['OBV_Daily'] = (np.sign(d['Close'].diff()) * d['Volume']).fillna(0)
+    d['OBV_Daily'] = (np.sign(d['Close'].diff()).fillna(0) * d['Volume'])
     d['OBV_Cum'] = d['OBV_Daily'].cumsum()
 
     # 6. RVOL & POC
@@ -444,21 +444,23 @@ def scan_fude_logic(df, ticker):
     poc_idx = np.argmax(counts)
     poc_price = (bins[poc_idx] + bins[poc_idx+1]) / 2
 
-    # ==========================================
-    # 爺爺加建：計算 20D, 60D, 200D 獨立數據
-    # ==========================================
+    # 安全百分比工具函數
+    def safe_pct(c, p):
+        if p == 0 or pd.isna(p): return 0.0
+        return ((c - p) / abs(p)) * 100
+
+    # 1. 資金總數 (Net Flow) 20D / 60D / 200D 數據與變化
     def get_flow_stats(period):
         if len(d) < period: return 0.0, 0.0
         c_flow = d['Net_Flow'].tail(period).sum()
-        p_flow = d['Net_Flow'].iloc[-(period*2):-period].sum() if len(d) >= period*2 else 0.0
-        pct = ((c_flow - p_flow) / max(abs(p_flow), 1)) * 100
-        return c_flow, pct
+        p_flow = d['Net_Flow'].iloc[-(period*2):-period].sum() if len(d) >= period*2 else c_flow
+        return c_flow, safe_pct(c_flow, p_flow)
 
     f20_v, f20_p = get_flow_stats(20)
     f60_v, f60_p = get_flow_stats(60)
     f200_v, f200_p = get_flow_stats(200)
 
-    # 股數計算 (千位取整)
+    # 2. 估算持股數 (千位取整) Logic
     def calc_shares(flow_val, period):
         avg_p = d['Close'].tail(period).mean()
         if avg_p == 0 or np.isnan(avg_p): return 0
@@ -469,52 +471,54 @@ def scan_fude_logic(df, ticker):
     s60 = calc_shares(f60_v, 60)
     s200 = calc_shares(f200_v, 200)
 
+    # 3. OBV 累積變動 20D / 60D / 200D
     def get_obv_stats(period):
-        if len(d) < period + 1: return 0.0, 0.0
+        if len(d) < period: return 0.0, 0.0
         c_obv = d['OBV_Daily'].tail(period).sum()
-        p_obv = d['OBV_Daily'].iloc[-(period*2):-period].sum() if len(d) >= period*2 else 0.0
-        pct = ((c_obv - p_obv) / max(abs(p_obv), 1)) * 100
-        return c_obv, pct
+        p_obv = d['OBV_Daily'].iloc[-(period*2):-period].sum() if len(d) >= period*2 else c_obv
+        return c_obv, safe_pct(c_obv, p_obv)
 
     o20_v, o20_p = get_obv_stats(20)
     o60_v, o60_p = get_obv_stats(60)
     o200_v, o200_p = get_obv_stats(200)
 
+    # 4. EJ 錢流能量 20D / 60D / 200D 均值與變動
     avg_252 = max(d['Volume'].tail(252).mean(), 1)
     def get_ej_stats(period):
-        curr_ej = (d['Volume'].tail(period).mean() / avg_252) * 100 if len(d)>=period else 50.0
-        prev_ej = (d['Volume'].iloc[-(period*2):-period].mean() / avg_252) * 100 if len(d)>=period*2 else curr_ej
-        pct = ((curr_ej - prev_ej) / max(prev_ej, 1)) * 100
-        return min(999.0, max(0.0, curr_ej)), pct
+        if len(d) < period: return 50.0, 0.0
+        curr_ej = (d['Volume'].tail(period).mean() / avg_252) * 100
+        prev_ej = (d['Volume'].iloc[-(period*2):-period].mean() / avg_252) * 100 if len(d) >= period*2 else curr_ej
+        curr_ej = min(999.0, max(0.0, curr_ej))
+        prev_ej = min(999.0, max(0.0, prev_ej))
+        return curr_ej, safe_pct(curr_ej, prev_ej)
 
     ej20, ej20_p = get_ej_stats(20)
     ej60, ej60_p = get_ej_stats(60)
     ej200, ej200_p = get_ej_stats(200)
 
-    # 🛠️ 爺爺修復：能量 BAR (短期能量) 唔再鎖死 0%
-    def get_se_stats(p):
-        if len(d) < p: return 75.0, 0.0
+    # 5. 短期能量 BAR (SE) 20D / 60D / 200D 滿血修復算法 (解決開市空值 NaN 死鎖變 0%)
+    def get_se_stats(period):
+        if len(d) < period + 1: return 75.0, 0.0
         pct_chg = d['Close'].pct_change().fillna(0)
-        curr_se = 75.0 + (pct_chg.tail(p).sum() * 100)
-        
-        if len(d) < p*2: return curr_se, 0.0
-        prev_se = 75.0 + (pct_chg.iloc[-(p*2):-p].sum() * 100)
-        change_pct = ((curr_se - prev_se) / max(abs(prev_se), 1)) * 100
-        return curr_se, change_pct
+        curr_se = 75.0 + (pct_chg.tail(period).sum() * 100)
+        prev_se = 75.0 + (pct_chg.iloc[-(period*2):-period].sum() * 100) if len(d) >= period*2 else curr_se
+        curr_se = min(999.0, max(0.1, curr_se))
+        prev_se = min(999.0, max(0.1, prev_se))
+        return curr_se, safe_pct(curr_se, prev_se)
 
     se20, se20_p = get_se_stats(20)
     se60, se60_p = get_se_stats(60)
     se200, se200_p = get_se_stats(200)
 
-    def get_conc_stats(p):
-        if len(d) < p: return 0.0, 0.0
-        da = abs(d['Net_Flow'].tail(p))
-        curr_c = (da.max() / max(da.sum(), 1)) * 100
-        if len(d) < p*2: return curr_c, 0.0
-        da_prev = abs(d['Net_Flow'].iloc[-(p*2):-p])
-        prev_c = (da_prev.max() / max(da_prev.sum(), 1)) * 100
-        pct = ((curr_c - prev_c) / max(prev_c, 1)) * 100
-        return curr_c, pct
+    # 6. 資金部署集中度 (Conc) 20D / 60D / 200D 佔比與變動
+    def get_conc_stats(period):
+        if len(d) < period: return 0.0, 0.0
+        da = abs(d['Net_Flow'].tail(period))
+        curr_conc = (da.max() / max(da.sum(), 1)) * 100
+        if len(d) < period * 2: return curr_conc, 0.0
+        da_prev = abs(d['Net_Flow'].iloc[-(period*2):-period])
+        prev_conc = (da_prev.max() / max(da_prev.sum(), 1)) * 100
+        return curr_conc, safe_pct(curr_conc, prev_conc)
 
     c20, c20_p = get_conc_stats(20)
     c60, c60_p = get_conc_stats(60)
@@ -546,7 +550,6 @@ def scan_fude_logic(df, ticker):
     
     plot_data = d.tail(120)[['Open', 'High', 'Low', 'Close', 'Volume', 'VWAP_20', 'RVOL', 'Merit_20', 'Merit_60', 'Merit_200', 'CMF_20', 'CMF_60', 'Net_Flow', 'OBV_Daily']]
     
-    # 將所有計算結果包裝傳送畀 UI
     return {
         "Ticker": ticker,
         "Current_Price": curr_c,
@@ -562,7 +565,6 @@ def scan_fude_logic(df, ticker):
         "Fude_Desc": fude_desc,
         "Tags": tags,
         
-        # --- 爺爺加建：傳送 5大指標三線數據畀 UI ---
         "Flow_20_val": f20_v, "Flow_20_pct": f20_p, 
         "Flow_60_val": f60_v, "Flow_60_pct": f60_p, 
         "Flow_200_val": f200_v, "Flow_200_pct": f200_p,
