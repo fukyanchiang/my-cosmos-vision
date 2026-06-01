@@ -375,11 +375,14 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
                         fig.update_layout(
                             template="plotly_dark", paper_bgcolor='#0e1117', plot_bgcolor='#111111', height=950, barmode='overlay', 
                             showlegend=False, hovermode='x unified',
+                            # 爺爺加裝：禁止手機用單指滑動時錯誤放大 (dragmode=False)
+                            dragmode=False,
                             xaxis_rangeslider_visible=False,
                             xaxis6=dict(overlaying='x1', anchor='y1', side='top', range=[0, max_c*1.1], showgrid=False, showticklabels=False), 
                             xaxis=dict(type='category', showticklabels=False), xaxis5=dict(type='category', title="日期")
                         )
-                        st.plotly_chart(fig, use_container_width=True, theme=None)
+                        # 爺爺加裝：強制浮現工具欄 (displayModeBar=True)，畀你可以撳放大鏡、縮小、還原掣
+                        st.plotly_chart(fig, use_container_width=True, theme=None, config={'displayModeBar': True})
                 except Exception as e: st.error(f"繪圖出錯: {e}")
 
 # ==========================================
@@ -458,7 +461,7 @@ elif operation_mode == "📊 究極資產拔河龍虎榜":
                 else:
                     import plotly.express as px
                     fig = px.bar(df_result, x='Current_Return', y='Display_Label', orientation='h', color='Current_Return', color_continuous_scale='YlOrRd', text=df_result.apply(lambda row: f"{row['Current_Return']:.1f}%" if row['Ticker'] != '...' else "", axis=1))
-                    fig.update_layout(title=f"📊 {target_category} - {lookback_days}日 相回報龍虎榜 (含 8 大情報密碼)", title_font=dict(size=18, color="white"), plot_bgcolor='#0e1117', paper_bgcolor='#0e1117', font=dict(color="white"), yaxis=dict(showgrid=False, title="", tickfont=dict(size=11, color="white", family="Courier New"), fixedrange=True), xaxis=dict(showgrid=False, zeroline=True, zerolinecolor='#444', title="相對平均之超額回報 (Alpha %)", fixedrange=True), height=max(600, len(df_result) * 35), coloraxis_showscale=False, margin=dict(l=160, r=80, t=60, b=20), hovermode=False)
+                    fig.update_layout(title=f"📊 {target_category} - {lookback_days}日 相對回報龍虎榜 (含 8 大情報密碼)", title_font=dict(size=18, color="white"), plot_bgcolor='#0e1117', paper_bgcolor='#0e1117', font=dict(color="white"), yaxis=dict(showgrid=False, title="", tickfont=dict(size=11, color="white", family="Courier New"), fixedrange=True), xaxis=dict(showgrid=False, zeroline=True, zerolinecolor='#444', title="相對平均之超額回報 (Alpha %)", fixedrange=True), height=max(600, len(df_result) * 35), coloraxis_showscale=False, margin=dict(l=160, r=80, t=60, b=20), hovermode=False)
                     fig.update_traces(textposition='outside', textfont=dict(color='white', size=12), cliponaxis=False)
                     st.plotly_chart(fig, use_container_width=True, config={'staticPlot': False, 'scrollZoom': False, 'doubleClick': False, 'displayModeBar': False, 'editable': False})
                     st.success("✅ 情報站部署完成！快去尋找集齊 🚀🔋🎯🔥 嘅終極大魔王啦！可以隨時撳開上面本『說明書』溫書！")
@@ -555,11 +558,12 @@ elif operation_mode == "💰 大戶資金流透視 (福德金字塔)":
                     def fmt(val): return f"{'+' if val>0 else ''}${val/1e8:.1f}億" if abs(val)>=1e8 else (f"{'+' if val>0 else ''}${val/1e6:.1f}M" if abs(val)>=1e6 else f"{'+' if val>0 else ''}${val:,.0f}")
                     def color_class(val): return "val-pos" if val >= 0 else "val-neg"
                     
+                    # 爺爺加裝：禁止脈搏圖喺手機被手指誤放大 (dragmode=False)，並顯示回復按鈕 (displayModeBar=True)
                     def get_pulse_fig(pulse_vals, height=100):
                         if len(pulse_vals) == 0: pulse_vals = [0]
                         colors = ['#00FFCC' if v >= 0 else '#FF4B4B' for v in pulse_vals]
                         fig_p = go.Figure(go.Bar(x=list(range(len(pulse_vals))), y=pulse_vals, marker_color=colors, hoverinfo='skip'))
-                        fig_p.update_layout(height=height, margin=dict(l=0,r=0,t=0,b=0), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', xaxis=dict(visible=False, fixedrange=True), yaxis=dict(visible=False, fixedrange=True), showlegend=False)
+                        fig_p.update_layout(height=height, margin=dict(l=0,r=0,t=0,b=0), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', xaxis=dict(visible=False, fixedrange=True), yaxis=dict(visible=False, fixedrange=True), showlegend=False, dragmode=False)
                         return fig_p
 
                     def draw_triad_bar(val, color):
@@ -587,9 +591,9 @@ elif operation_mode == "💰 大戶資金流透視 (福德金字塔)":
                         {draw_triad_bar(ej20, ej_c)}
                     </div>
                     """, unsafe_allow_html=True)
-                    st.plotly_chart(get_pulse_fig(plot_df['Net_Flow'].tail(20).values), use_container_width=True, key="ej_pulse_20", config={'displayModeBar': False})
+                    st.plotly_chart(get_pulse_fig(plot_df['Net_Flow'].tail(20).values), use_container_width=True, key="ej_pulse_20", config={'displayModeBar': True})
                     st.markdown(f"<div class='pulse-label' style='color:{ej_c};'>▲ 最近 20 天微觀錢流爆發</div>", unsafe_allow_html=True)
-                    st.plotly_chart(get_pulse_fig(plot_df['Net_Flow'].tail(60).values), use_container_width=True, key="ej_pulse_60", config={'displayModeBar': False})
+                    st.plotly_chart(get_pulse_fig(plot_df['Net_Flow'].tail(60).values), use_container_width=True, key="ej_pulse_60", config={'displayModeBar': True})
                     st.markdown(f"<div class='pulse-label' style='color:{ej_c};'>▲ 最近 60 天中線建倉軌跡</div><br>", unsafe_allow_html=True)
 
                     # 2. 短期能量 BAR (雙層柱)
@@ -608,9 +612,9 @@ elif operation_mode == "💰 大戶資金流透視 (福德金字塔)":
                     """, unsafe_allow_html=True)
                     se_pulse_20 = plot_df['Close'].pct_change().tail(20).fillna(0).values * 100
                     se_pulse_60 = plot_df['Close'].pct_change().tail(60).fillna(0).values * 100
-                    st.plotly_chart(get_pulse_fig(se_pulse_20), use_container_width=True, key="se_pulse_20", config={'displayModeBar': False})
+                    st.plotly_chart(get_pulse_fig(se_pulse_20), use_container_width=True, key="se_pulse_20", config={'displayModeBar': True})
                     st.markdown(f"<div class='pulse-label' style='color:{se_c};'>▲ 最近 20 天動能波幅</div>", unsafe_allow_html=True)
-                    st.plotly_chart(get_pulse_fig(se_pulse_60), use_container_width=True, key="se_pulse_60", config={'displayModeBar': False})
+                    st.plotly_chart(get_pulse_fig(se_pulse_60), use_container_width=True, key="se_pulse_60", config={'displayModeBar': True})
                     st.markdown(f"<div class='pulse-label' style='color:{se_c};'>▲ 最近 60 天動能波幅</div><br>", unsafe_allow_html=True)
 
                     # 3. 資金總數 (Money Flow) (雙層柱)
@@ -626,9 +630,9 @@ elif operation_mode == "💰 大戶資金流透視 (福德金字塔)":
                         </table>
                     </div>
                     """, unsafe_allow_html=True)
-                    st.plotly_chart(get_pulse_fig(plot_df['Net_Flow'].tail(20).values), use_container_width=True, key="mf_pulse_20", config={'displayModeBar': False})
+                    st.plotly_chart(get_pulse_fig(plot_df['Net_Flow'].tail(20).values), use_container_width=True, key="mf_pulse_20", config={'displayModeBar': True})
                     st.markdown(f"<div class='pulse-label' style='color:{flow_color};'>▲ 最近 20 天資金流向</div>", unsafe_allow_html=True)
-                    st.plotly_chart(get_pulse_fig(plot_df['Net_Flow'].tail(60).values), use_container_width=True, key="mf_pulse_60", config={'displayModeBar': False})
+                    st.plotly_chart(get_pulse_fig(plot_df['Net_Flow'].tail(60).values), use_container_width=True, key="mf_pulse_60", config={'displayModeBar': True})
                     st.markdown(f"<div class='pulse-label' style='color:{flow_color};'>▲ 最近 60 天資金流向</div><br>", unsafe_allow_html=True)
 
                     # 4. OBV 軌跡 (雙層柱)
@@ -644,9 +648,9 @@ elif operation_mode == "💰 大戶資金流透視 (福德金字塔)":
                         </table>
                     </div>
                     """, unsafe_allow_html=True)
-                    st.plotly_chart(get_pulse_fig(plot_df['OBV_Daily'].tail(20).values), use_container_width=True, key="obv_pulse_20", config={'displayModeBar': False})
+                    st.plotly_chart(get_pulse_fig(plot_df['OBV_Daily'].tail(20).values), use_container_width=True, key="obv_pulse_20", config={'displayModeBar': True})
                     st.markdown(f"<div class='pulse-label' style='color:{obv_color};'>▲ 最近 20 天 OBV 變動</div>", unsafe_allow_html=True)
-                    st.plotly_chart(get_pulse_fig(plot_df['OBV_Daily'].tail(60).values), use_container_width=True, key="obv_pulse_60", config={'displayModeBar': False})
+                    st.plotly_chart(get_pulse_fig(plot_df['OBV_Daily'].tail(60).values), use_container_width=True, key="obv_pulse_60", config={'displayModeBar': True})
                     st.markdown(f"<div class='pulse-label' style='color:{obv_color};'>▲ 最近 60 天 OBV 變動</div><br>", unsafe_allow_html=True)
 
                     # 5. 資金部署集中度 (加股數 + 雙層有紅綠柱)
@@ -667,9 +671,9 @@ elif operation_mode == "💰 大戶資金流透視 (福德金字塔)":
                     </div>
                     """, unsafe_allow_html=True)
                     # 抽走 abs()，還原紅綠買賣方向
-                    st.plotly_chart(get_pulse_fig(plot_df['Net_Flow'].tail(20).values), use_container_width=True, key="conc_pulse_20", config={'displayModeBar': False})
+                    st.plotly_chart(get_pulse_fig(plot_df['Net_Flow'].tail(20).values), use_container_width=True, key="conc_pulse_20", config={'displayModeBar': True})
                     st.markdown("<div class='pulse-label' style='color:#BC13FE;'>▲ 最近 20 天集中度分布 (綠=買, 紅=賣)</div>", unsafe_allow_html=True)
-                    st.plotly_chart(get_pulse_fig(plot_df['Net_Flow'].tail(60).values), use_container_width=True, key="conc_pulse_60", config={'displayModeBar': False})
+                    st.plotly_chart(get_pulse_fig(plot_df['Net_Flow'].tail(60).values), use_container_width=True, key="conc_pulse_60", config={'displayModeBar': True})
                     st.markdown("<div class='pulse-label' style='color:#BC13FE;'>▲ 最近 60 天集中度分布 (綠=買, 紅=賣)</div><br>", unsafe_allow_html=True)
 
                     # --- 原裝戰術圖表保留區 ---
@@ -704,13 +708,17 @@ elif operation_mode == "💰 大戶資金流透視 (福德金字塔)":
                     fig.add_hline(y=0, line_dash="dash", line_color="rgba(255,255,255,0.3)", row=3, col=1)
                     
                     fig.update_layout(template="plotly_dark", paper_bgcolor='#0e1117', plot_bgcolor='#0e1117', height=950,
-                                      hovermode='x unified', xaxis_rangeslider_visible=False,
+                                      hovermode='x unified', 
+                                      # 爺爺加裝：禁止手機用單指滑動時錯誤放大 (dragmode=False)
+                                      dragmode=False,
+                                      xaxis_rangeslider_visible=False,
                                       xaxis=dict(type='category', showticklabels=False),
                                       xaxis2=dict(type='category', showticklabels=False),
                                       xaxis3=dict(type='category', showspikes=True, spikemode='across', spikecolor="white", spikethickness=1),
                                       legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, font=dict(color="white", size=13)))
                     
-                    st.plotly_chart(fig, use_container_width=True)
+                    # 爺爺加裝：強制浮現工具欄 (displayModeBar=True)，畀你可以撳放大鏡、縮小、還原掣
+                    st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': True})
                     
             except Exception as e:
                 st.error(f"⚠️ 計算過程發生錯誤: {e}")
