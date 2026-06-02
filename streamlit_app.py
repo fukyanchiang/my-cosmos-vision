@@ -218,7 +218,7 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
             st.write("### 🇭🇰 港股板塊掃描 (雲端 600 隻實時同步)：")
             df_hk = fetch_github_list(HK_STOCK_CSV_URL)
             hk_sectors = sorted(df_hk['Sector'].dropna().unique().tolist()) if not df_hk.empty else []
-            s_choice = st.selectbox("選擇範圍", ["🌐 啟 টান大規模搜索"] + hk_sectors)
+            s_choice = st.selectbox("選擇範圍", ["🌐 啟動全星系大規模搜索"] + hk_sectors)
             with c_btn: btn_radar = st.button("📡 啟動 5.0 雙線雷達", use_container_width=True)
 
         elif st.session_state.target == 'ETF':
@@ -390,10 +390,10 @@ elif operation_mode == "📊 究極資產拔河龍虎榜":
     from core_logic import AssetRanker
     
     st.markdown("<h1 style='text-align:center; color:#FFD700;'>🔥 全宇宙資金流相對強度矩陣</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align:center; color:#888;'>動態監控大戶資金移防，自動派發 8 大情報公仔 🚀🔋🎯⚡</p>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align:center; color:#888;'>動態監控大戶資金移防，自動派發 19+2 大情報公仔 🦅🔋⚔️⚡</p>", unsafe_allow_html=True)
     st.write("---")
 
-    # 👑 爺爺完美更新：全新大滿貫 19+1 家傳秘笈說明書表格（完全不重複，包含港美分流解釋）
+    # 👑 爺爺完美更新：全新大滿貫 19+2 家傳秘笈說明書表格
     with st.expander("📖 爺爺的全公仔情報大滿貫說明書 (按此展開睇秘笈)", expanded=False):
         st.markdown("""
         <div style='background-color:#111111; padding: 20px; border-radius: 12px; border: 1px solid #333; line-height:1.8;'>
@@ -411,8 +411,9 @@ elif operation_mode == "📊 究極資產拔河龍虎榜":
                 <li><b>🔥 [連續強勢] :</b> 排名比前兩日持續進步，資金熱度爆燈！</li>
                 <li><b>⚡ [GAP +X.X%] :</b> 今日開市跳空超過 +1.5%，有突發利好消息或利空！</li>
             </ul>
-            <h3 style='color:#FF9900;'>🚨 爆升獵龍・三大核心加強指標（New Badges）</h3>
+            <h3 style='color:#FF9900;'>🚨 爆升獵龍・四大核心加強指標（New Badges）</h3>
             <ul style='color:#ccc; list-style-type: none; padding-left: 0;'>
+                <li><b>✨🆕 [黃金新星] :</b> 重磅新星！此股在過去 3 日內首度強力衝進異動榜，資金初次點火，黃金爆發力極強，頭 3 日高亮護航！</li>
                 <li><b>🦁 [雄獅收高] :</b> 陽燭收高，且收市價貼近全日最高位 30% 內，主力護盤由頭買到尾！</li>
                 <li><b>💣 [引爆在即] :</b> 過去 20 日波幅極度橫盤壓縮（Squeeze），平地一聲雷爆量啟動！</li>
                 <li><b>🥇 [金牌認證] :</b> 5 天絕對回報實質超過 +5%，剔除坑底死魚，具備超高含金量！</li>
@@ -489,29 +490,30 @@ elif operation_mode == "📊 究極資產拔河龍虎榜":
                     
                     # 👑 爺爺核心智慧：如果是點擊新按鈕「爆升獵龍特搜」，執行極速港美動態門檻過濾
                     if run_hunt:
-                        is_hk_target = target_category in ["📦 港股 ETF (139隻)", "🇭🇰 港股個股 (659隻)"]
+                        is_hk_target = "港股" in target_category
                         rank_threshold = 30 if is_hk_target else 50
                         
                         # 必需條件：🔋 最少 1 粒電池 (RVOL >= 1.5) + 排名升幅符合港美適應線
                         df_result = df_result[(df_result['RVOL'] >= 1.5) & (df_result['Rank_Change'] >= rank_threshold)]
                         
                     if df_result.empty:
-                        st.warning("⚠️ 依據「爆升獵龍」條件過濾後，目前戰區內無符合條件（🔋爆量 + 🟢排名大翻身）之異動股，大戶正在潛伏。")
+                        st.warning("⚠️ 依據過濾條件，目前戰區內無符合條件之異動股，大戶正在潛伏。")
                     else:
-                        # 👑 確保排名與原先一致：回報最高（跑贏大市最勁）嘅排在最頭
+                        # 👑 確保排名與原先一致：回報最高（跑贏大市最勁）嘅排在最頭 (plotly horizontal bars plot bottom to top)
                         df_result = df_result.sort_values(by='Current_Return', ascending=True).reset_index(drop=True)
                         
                         import plotly.express as px
                         fig = px.bar(df_result, x='Current_Return', y='Display_Label', orientation='h', color='Current_Return', color_continuous_scale='YlOrRd', text=df_result.apply(lambda row: f"{row['Current_Return']:.1f}%" if row['Ticker'] != '...' else "", axis=1))
                         
-                        title_text = f"📊 {target_category} - {lookback_days}日 相對回報龍虎榜 (含大滿貫情報密碼)" if run_normal else f"🦅 「爆升獵龍」極速特搜榜 - {target_category} (港股≥30位/美股≥50位 + 🔋爆量)"
+                        is_hk_target_str = "港股" in target_category
+                        title_text = f"📊 {target_category} - {lookback_days}日 相對回報龍虎榜 (含大滿貫情報密碼)" if not run_hunt else f"🦅 「爆升獵龍」極速特搜榜 - {target_category} (港股≥30位/美股≥50位 + 🔋爆量)"
                         fig.update_layout(title=title_text, title_font=dict(size=18, color="white"), plot_bgcolor='#0e1117', paper_bgcolor='#0e1117', font=dict(color="white"), yaxis=dict(showgrid=False, title="", tickfont=dict(size=11, color="white", family="Courier New"), fixedrange=True), xaxis=dict(showgrid=False, zeroline=True, zerolinecolor='#444', title="相對平均之超額回報 (Alpha %)", fixedrange=True), height=max(600, len(df_result) * 35), coloraxis_showscale=False, margin=dict(l=160, r=80, t=60, b=20), hovermode=False)
                         fig.update_traces(textposition='outside', textfont=dict(color='white', size=12), cliponaxis=False)
                         
                         st.plotly_chart(fig, use_container_width=True, config={'staticPlot': False, 'scrollZoom': False, 'doubleClick': False, 'displayModeBar': False, 'editable': False})
                         
                         if run_hunt:
-                            desc_text = "港股區 (門檻: 🟢急升≥30名 + 🔋爆量)" if is_hk_target else "美股區 (門檻: 🟢急升≥50名 + 🔋爆量)"
+                            desc_text = "港股區 (門檻: 🟢急升≥30名 + 🔋爆量)" if is_hk_target_str else "美股區 (門檻: 🟢急升≥50名 + 🔋爆量)"
                             st.success(f"✅ 【爆升獵龍特搜完成】成功為你定位出當前 {desc_text} 剛剛突然發動嘅核心資產！")
                         else:
                             st.success("✅ 全局相對強度矩陣部署完成！快去尋找大魔王吧！")
