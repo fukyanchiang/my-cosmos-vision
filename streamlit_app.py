@@ -508,8 +508,8 @@ elif operation_mode == "📊 究極資產拔河龍虎榜":
                         is_hk_target_str = "港股" in target_category
                         title_text = f"📊 {target_category} - {lookback_days}日 相對回報龍虎榜 (含大滿貫情報密碼)" if not run_hunt else f"🦅 「爆升獵龍」極速特搜榜 - {target_category} (港股≥30位/美股≥50位 + 🔋爆量)"
                         
-                        # 👑 爺爺防重疊絕招：將每行高度擴大到 55，完美容納三行字！
-                        fig.update_layout(title=title_text, title_font=dict(size=18, color="white"), plot_bgcolor='#0e1117', paper_bgcolor='#0e1117', font=dict(color="white"), yaxis=dict(showgrid=False, title="", tickfont=dict(size=11, color="white", family="Courier New"), fixedrange=True), xaxis=dict(showgrid=False, zeroline=True, zerolinecolor='#444', title="相對平均之超額回報 (Alpha %)", fixedrange=True), height=max(600, len(df_result) * 55), coloraxis_showscale=False, margin=dict(l=160, r=80, t=60, b=20), hovermode=False)
+                        # 👑 爺爺防重疊終極絕招：將每行高度擴大到 80，完美容納 4 行超大字！
+                        fig.update_layout(title=title_text, title_font=dict(size=18, color="white"), plot_bgcolor='#0e1117', paper_bgcolor='#0e1117', font=dict(color="white"), yaxis=dict(showgrid=False, title="", tickfont=dict(size=11, color="white", family="Courier New"), fixedrange=True), xaxis=dict(showgrid=False, zeroline=True, zerolinecolor='#444', title="相對平均之超額回報 (Alpha %)", fixedrange=True), height=max(600, len(df_result) * 80), coloraxis_showscale=False, margin=dict(l=160, r=80, t=60, b=20), hovermode=False)
                         fig.update_traces(textposition='outside', textfont=dict(color='white', size=12), cliponaxis=False)
                         
                         st.plotly_chart(fig, use_container_width=True, config={'staticPlot': False, 'scrollZoom': False, 'doubleClick': False, 'displayModeBar': False, 'editable': False})
