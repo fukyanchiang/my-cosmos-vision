@@ -1,9 +1,9 @@
-import streamlit as st 
-import yfinance as yf 
-import pandas as pd 
-import numpy as np 
-import plotly.graph_objects as go 
-from plotly.subplots import make_subplots 
+import streamlit as st
+import yfinance as yf
+import pandas as pd
+import numpy as np
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 from core_logic import scan_dragon_logic, smart_fetch, check_stop_loss
 import time
 import os
@@ -18,7 +18,7 @@ st.set_page_config(page_title="龍魂神殿 5.0", layout="wide")
 HK_STOCK_CSV_URL = "https://raw.githubusercontent.com/fukyanchiang/my-cosmos-vision/refs/heads/main/hk_stock.csv"
 HK_ETF_CSV_URL = "https://raw.githubusercontent.com/fukyanchiang/my-cosmos-vision/refs/heads/main/hk_etf.csv"
 
-@st.cache_data(ttl=3600) 
+@st.cache_data(ttl=3600)
 def fetch_github_list(url):
     try:
         df = pd.read_csv(url)
