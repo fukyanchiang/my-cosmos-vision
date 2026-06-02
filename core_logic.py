@@ -288,7 +288,7 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
     }
 
 # =======================================================
-# 🔥 爺爺滿血升級：究極資產拔河龍虎榜核心 (全公仔極速向量化 + 新星追蹤)
+# 🔥 爺爺滿血升級：究極資產拔河龍虎榜核心 (4行大字防斷版)
 # =======================================================
 class AssetRanker:
     @staticmethod
@@ -450,12 +450,12 @@ class AssetRanker:
                 is_new_star.append(False)
         df['NewStar'] = is_new_star
 
-        # 🚀 爺爺字串工廠：優化三行排版，防手機截斷！
+        # 🚀 爺爺字串工廠：4 行超闊大字版，防手機截斷！
         def generate_label(row):
             chg = int(row['Rank_Change'])
             ticker = row['Ticker']
             
-            # 1 & 2. 綠波/藍波 (第一行)
+            # --- Line 1: 綠波/藍波 + 排名 + Ticker ---
             if chg >= 30: icon = f"🟢 ▲ {chg}"
             elif chg <= -30: icon = f"🔵 ▼ {abs(chg)}"
             elif chg > 0: icon = f"▲ {chg}"
@@ -465,7 +465,7 @@ class AssetRanker:
             is_rocket = (row['Rank_200d'] <= top_10_threshold) and (chg > 0)
             rocket = "🦅 " if is_rocket else ""
             
-            # --- 分行處理 (Line 2) 基礎動力與異動 ---
+            # --- Line 2: 基礎動力與異動 ---
             line2_tags = []
             if row['RVOL'] >= 3.0: line2_tags.append(f"[{row['RVOL']:.1f}x 🔋🔋]")
             elif row['RVOL'] >= 1.5: line2_tags.append(f"[{row['RVOL']:.1f}x 🔋]")
@@ -473,31 +473,35 @@ class AssetRanker:
             if row['Dist_52W'] <= 3.0: line2_tags.append("[⚔️ 準破頂]")
             if row['Streak']: line2_tags.append("[🔥 連續強勢]")
             if abs(row['Gap']) >= 1.5: line2_tags.append(f"[⚡ GAP {row['Gap']:+.1f}%]")
-            if row['NewStar']: line2_tags.append("[✨🆕 黃金新星]")
 
-            # --- 分行處理 (Line 3) 獵龍加強指標 + 隱藏籌碼 ---
+            # --- Line 3: 獵龍核心徽章 ---
             line3_tags = []
+            if row['NewStar']: line3_tags.append("[✨🆕 黃金新星]")
             if row['Lion']: line3_tags.append("[🦁 雄獅收高]")
             if row['Bomb']: line3_tags.append("[💣 引爆在即]")
             if row['Abs_Return'] > 5.0: line3_tags.append("[🥇 金牌認證]")
-            
-            if row['I_Breakout']: line3_tags.append("[🪃]")
-            if row['I_Squeeze']: line3_tags.append("[🤐]")
-            if row['I_Cruise']: line3_tags.append("[🏎️]")
-            if row['I_Cyan']: line3_tags.append("[💰🔥]")
-            if row['I_Narrow']: line3_tags.append("[💰🤫]")
-            if row['I_Shield']: line3_tags.append("[💰🛡️]")
-            if row['I_VCP']: line3_tags.append("[🧧]")
-            if row['I_Pit']: line3_tags.append("[💎/😱]")
-            if row['I_Whale']: line3_tags.append("[🐋 巨鯨]")
-            elif row['Lucky']: line3_tags.append("[🧧]")
 
-            # 組裝最終 HTML 字串
-            final_label = f"{icon} | {rocket}{ticker}"
+            # --- Line 4: 神殿隱藏籌碼 ---
+            line4_tags = []
+            if row['I_Breakout']: line4_tags.append("[🪃]")
+            if row['I_Squeeze']: line4_tags.append("[🤐]")
+            if row['I_Cruise']: line4_tags.append("[🏎️]")
+            if row['I_Cyan']: line4_tags.append("[💰🔥]")
+            if row['I_Narrow']: line4_tags.append("[💰🤫]")
+            if row['I_Shield']: line4_tags.append("[💰🛡️]")
+            if row['I_VCP']: line4_tags.append("[🧧]")
+            if row['I_Pit']: line4_tags.append("[💎/😱]")
+            if row['I_Whale']: line4_tags.append("[🐋 巨鯨]")
+            elif row['Lucky']: line4_tags.append("[🧧]")
+
+            # 組裝最終 4 行 HTML 字串 (加大字體到 12px)
+            final_label = f"<b>{icon} | {rocket}{ticker}</b>"
             if line2_tags:
-                final_label += f"<br><span style='color:#aaaaaa;font-size:10px;'>{' '.join(line2_tags)}</span>"
+                final_label += f"<br><span style='color:#cccccc;font-size:12px;'>{' '.join(line2_tags)}</span>"
             if line3_tags:
-                final_label += f"<br><span style='color:#888888;font-size:10px;'>{' '.join(line3_tags)}</span>"
+                final_label += f"<br><span style='color:#ffcc00;font-size:12px;'>{' '.join(line3_tags)}</span>"
+            if line4_tags:
+                final_label += f"<br><span style='color:#888888;font-size:12px;'>{' '.join(line4_tags)}</span>"
                 
             return final_label
 
