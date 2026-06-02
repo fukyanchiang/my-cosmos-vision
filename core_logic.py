@@ -288,7 +288,7 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
     }
 
 # =======================================================
-# 🔥 爺爺滿血升級：究極資產拔河龍虎榜核心 (4行大字防斷版)
+# 🔥 爺爺滿血升級：究極資產拔河龍虎榜核心 (5行超闊大字防斷版)
 # =======================================================
 class AssetRanker:
     @staticmethod
@@ -369,7 +369,6 @@ class AssetRanker:
         cond_vcp_icon = (netma10.iloc[-1] > 0) & (netma10.shift(1).iloc[-1] < 0) & (v.iloc[-1] < ma20_v.iloc[-1])
         cond_pit_icon = (change.iloc[-1] < -1) & is_magenta.iloc[-1]
         
-        # 👑 爺爺防彈補位：精準計算所有隱藏籌碼 (包含 Lucky 幸運紅包)
         cond_whale_icon = ((v.tail(10) > ma60_v.tail(10) * 1.5) & (netvol.tail(10) > 0)).sum() > 0
         cond_lucky = netvol.tail(20).sum() > 0
 
@@ -404,7 +403,6 @@ class AssetRanker:
             'I_Breakout': cond_breakout.fillna(False).values,
         })
         
-        # 👑 爺爺終極防彈裝甲：用 fillna(0) 取代 dropna()，防止 Yahoo 午夜數據斷層殺死全家！
         df = df.fillna(0)
 
         df['Current_Rank'] = df['Abs_Return'].rank(ascending=False, method='min')
@@ -426,7 +424,6 @@ class AssetRanker:
                     hunt_memory = json.load(f)
             except: pass
 
-        # 自動適應港美門檻寫入記憶體
         is_hk_target = "港股" in category_name
         threshold = 30 if is_hk_target else 50
         meet_criteria = (df['RVOL'] >= 1.5) & (df['Rank_Change'] >= threshold)
@@ -453,12 +450,12 @@ class AssetRanker:
                 is_new_star.append(False)
         df['NewStar'] = is_new_star
 
-        # 🚀 爺爺字串工廠：4 行超闊大字版，防手機截斷！
+        # 🚀 爺爺字串工廠：5 行無敵闊落大字版，防手機疊字！
         def generate_label(row):
             chg = int(row['Rank_Change'])
             ticker = row['Ticker']
             
-            # --- Line 1: 綠波/藍波 + 排名 + Ticker ---
+            # --- Line 1: 排名 + 代號 ---
             if chg >= 30: icon = f"🟢 ▲ {chg}"
             elif chg <= -30: icon = f"🔵 ▼ {abs(chg)}"
             elif chg > 0: icon = f"▲ {chg}"
@@ -468,59 +465,59 @@ class AssetRanker:
             is_rocket = (row['Rank_200d'] <= top_10_threshold) and (chg > 0)
             rocket = "🦅 " if is_rocket else ""
             
-            # --- Line 2: 基礎動力與異動 ---
+            # --- Line 2: 動力與跳空 ---
             line2_tags = []
             if row['RVOL'] >= 3.0: line2_tags.append(f"[{row['RVOL']:.1f}x 🔋🔋]")
             elif row['RVOL'] >= 1.5: line2_tags.append(f"[{row['RVOL']:.1f}x 🔋]")
-            
-            if row['Dist_52W'] <= 3.0: line2_tags.append("[⚔️ 準破頂]")
-            if row['Streak']: line2_tags.append("[🔥 連續強勢]")
             if abs(row['Gap']) >= 1.5: line2_tags.append(f"[⚡ GAP {row['Gap']:+.1f}%]")
 
-            # --- Line 3: 獵龍核心徽章 ---
+            # --- Line 3: 強勢與破頂 ---
             line3_tags = []
+            if row['Streak']: line3_tags.append("[🔥 連續強勢]")
+            if row['Dist_52W'] <= 3.0: line3_tags.append("[⚔️ 準破頂]")
             if row['NewStar']: line3_tags.append("[✨🆕 黃金新星]")
-            if row['Lion']: line3_tags.append("[🦁 雄獅收高]")
-            if row['Bomb']: line3_tags.append("[💣 引爆在即]")
-            if row['Abs_Return'] > 5.0: line3_tags.append("[🥇 金牌認證]")
 
-            # --- Line 4: 神殿隱藏籌碼 ---
+            # --- Line 4: 獵龍新徽章 ---
             line4_tags = []
-            if row['I_Breakout']: line4_tags.append("[🪃]")
-            if row['I_Squeeze']: line4_tags.append("[🤐]")
-            if row['I_Cruise']: line4_tags.append("[🏎️]")
-            if row['I_Cyan']: line4_tags.append("[💰🔥]")
-            if row['I_Narrow']: line4_tags.append("[💰🤫]")
-            if row['I_Shield']: line4_tags.append("[💰🛡️]")
-            if row['I_VCP']: line4_tags.append("[🧧]")
-            if row['I_Pit']: line4_tags.append("[💎/😱]")
-            if row['I_Whale']: line4_tags.append("[🐋 巨鯨]")
-            elif row['Lucky']: line4_tags.append("[🧧]")
+            if row['Lion']: line4_tags.append("[🦁 雄獅收高]")
+            if row['Bomb']: line4_tags.append("[💣 引爆在即]")
+            if row['Abs_Return'] > 5.0: line4_tags.append("[🥇 金牌認證]")
 
-            # 組裝最終 4 行 HTML 字串 (加大字體到 12px)
+            # --- Line 5: 神殿隱藏籌碼 ---
+            line5_tags = []
+            if row['I_Breakout']: line5_tags.append("[🪃]")
+            if row['I_Squeeze']: line5_tags.append("[🤐]")
+            if row['I_Cruise']: line5_tags.append("[🏎️]")
+            if row['I_Cyan']: line5_tags.append("[💰🔥]")
+            if row['I_Narrow']: line5_tags.append("[💰🤫]")
+            if row['I_Shield']: line5_tags.append("[💰🛡️]")
+            if row['I_VCP']: line5_tags.append("[🧧]")
+            if row['I_Pit']: line5_tags.append("[💎/😱]")
+            if row['I_Whale']: line5_tags.append("[🐋 巨鯨]")
+            elif row['Lucky']: line5_tags.append("[🧧]")
+
+            # 組裝最終 5 行 HTML 字串 (字體加大到 12px)
             final_label = f"<b>{icon} | {rocket}{ticker}</b>"
             if line2_tags:
                 final_label += f"<br><span style='color:#cccccc;font-size:12px;'>{' '.join(line2_tags)}</span>"
             if line3_tags:
-                final_label += f"<br><span style='color:#ffcc00;font-size:12px;'>{' '.join(line3_tags)}</span>"
+                final_label += f"<br><span style='color:#ffaa00;font-size:12px;'>{' '.join(line3_tags)}</span>"
             if line4_tags:
-                final_label += f"<br><span style='color:#888888;font-size:12px;'>{' '.join(line4_tags)}</span>"
+                final_label += f"<br><span style='color:#ffcc00;font-size:12px;'>{' '.join(line4_tags)}</span>"
+            if line5_tags:
+                final_label += f"<br><span style='color:#888888;font-size:12px;'>{' '.join(line5_tags)}</span>"
                 
             return final_label
 
         df['Display_Label'] = df.apply(generate_label, axis=1)
-        
-        # 確保沒有空行導致 Plotly 繪圖報錯
         df = df[df['Display_Label'].notna()]
         df = df.sort_values(by='Current_Return', ascending=False).reset_index(drop=True)
 
-        # 👑 爺爺神級還原：版塊聚落公仔 📊
         if is_sector_battle:
             n_30 = max(1, int(len(df) * 0.3))
             sep = pd.DataFrame([{'Ticker':'...', 'Current_Return':0, 'Display_Label':'✂️ 中間隱藏雜訊區域 ✂️'}])
             df = pd.concat([df.head(n_30), sep, df.tail(n_30)], ignore_index=True)
             
-            # 當同一版塊內有大量強勢股，自動加上 📊
             top_performers = df.head(n_30)
             if len(top_performers) >= 3:
                 df.loc[:n_30-1, 'Display_Label'] = df.loc[:n_30-1, 'Display_Label'] + " 📊"
