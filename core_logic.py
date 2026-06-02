@@ -446,11 +446,12 @@ class AssetRanker:
                 is_new_star.append(False)
         df['NewStar'] = is_new_star
 
-        # 🚀 爺爺字串工廠：生成大滿貫標籤
+        # 🚀 爺爺字串工廠：優化三行排版，防手機截斷！
         def generate_label(row):
             chg = int(row['Rank_Change'])
             ticker = row['Ticker']
             
+            # 1 & 2. 綠波/藍波 (第一行)
             if chg >= 30: icon = f"🟢 ▲ {chg}"
             elif chg <= -30: icon = f"🔵 ▼ {abs(chg)}"
             elif chg > 0: icon = f"▲ {chg}"
@@ -460,47 +461,55 @@ class AssetRanker:
             is_rocket = (row['Rank_200d'] <= top_10_threshold) and (chg > 0)
             rocket = "🦅 " if is_rocket else ""
             
-            tags = ""
-            if row['RVOL'] >= 3.0: tags += f"[{row['RVOL']:.1f}x 🔋🔋]"
-            elif row['RVOL'] >= 1.5: tags += f"[{row['RVOL']:.1f}x 🔋]"
+            # --- 分行處理 (Line 2) 基礎動力與異動 ---
+            line2_tags = []
+            if row['RVOL'] >= 3.0: line2_tags.append(f"[{row['RVOL']:.1f}x 🔋🔋]")
+            elif row['RVOL'] >= 1.5: line2_tags.append(f"[{row['RVOL']:.1f}x 🔋]")
             
-            if row['Dist_52W'] <= 3.0: tags += " [⚔️ 準破頂]"
-            if row['Streak']: tags += " [🔥 連續強勢]"
-            if abs(row['Gap']) >= 1.5: tags += f" [⚡ GAP {row['Gap']:+.1f}%]"
+            if row['Dist_52W'] <= 3.0: line2_tags.append("[⚔️ 準破頂]")
+            if row['Streak']: line2_tags.append("[🔥 連續強勢]")
+            if abs(row['Gap']) >= 1.5: line2_tags.append(f"[⚡ GAP {row['Gap']:+.1f}%]")
+            if row['NewStar']: line2_tags.append("[✨🆕 黃金新星]")
 
-            if row['NewStar']: tags += " [✨🆕 黃金新星]"
-            if row['Lion']: tags += " [🦁 雄獅收高]"
-            if row['Bomb']: tags += " [💣 引爆在即]"
-            if row['Abs_Return'] > 5.0: tags += " [🥇 金牌認證]"
+            # --- 分行處理 (Line 3) 獵龍加強指標 + 隱藏籌碼 ---
+            line3_tags = []
+            if row['Lion']: line3_tags.append("[🦁 雄獅收高]")
+            if row['Bomb']: line3_tags.append("[💣 引爆在即]")
+            if row['Abs_Return'] > 5.0: line3_tags.append("[🥇 金牌認證]")
             
-            if row['I_Breakout']: tags += " [🪃]"
-            if row['I_Squeeze']: tags += " [🤐]"
-            if row['I_Cruise']: tags += " [🏎️]"
-            if row['I_Cyan']: tags += " [💰🔥]"
-            if row['I_Narrow']: tags += " [💰🤫]"
-            if row['I_Shield']: tags += " [💰🛡️]"
-            if row['I_VCP']: tags += " [🧧]"
-            if row['I_Pit']: tags += " [💎/😱]"
-            if row['I_Whale']: tags += " [🐋]"
+            if row['I_Breakout']: line3_tags.append("[🪃]")
+            if row['I_Squeeze']: line3_tags.append("[🤐]")
+            if row['I_Cruise']: line3_tags.append("[🏎️]")
+            if row['I_Cyan']: line3_tags.append("[💰🔥]")
+            if row['I_Narrow']: line3_tags.append("[💰🤫]")
+            if row['I_Shield']: line3_tags.append("[💰🛡️]")
+            if row['I_VCP']: line3_tags.append("[🧧]")
+            if row['I_Pit']: line3_tags.append("[💎/😱]")
+            if row['I_Whale']: line3_tags.append("[🐋 巨鯨]")
+            elif row['Lucky']: line3_tags.append("[🧧]")
 
-            tags = tags.strip()
-            if tags:
-                return f"{icon} | {rocket}{ticker}<br><span style='color:#aaaaaa;font-size:10px;'>{tags}</span>"
-            else:
-                return f"{icon} | {rocket}{ticker}"
+            # 組裝最終 HTML 字串
+            final_label = f"{icon} | {rocket}{ticker}"
+            if line2_tags:
+                final_label += f"<br><span style='color:#aaaaaa;font-size:10px;'>{' '.join(line2_tags)}</span>"
+            if line3_tags:
+                final_label += f"<br><span style='color:#888888;font-size:10px;'>{' '.join(line3_tags)}</span>"
+                
+            return final_label
 
         df['Display_Label'] = df.apply(generate_label, axis=1)
         
-        # 只保留有 Display_Label 的數據，並且確保沒有全空的 row 導致 Plotly 繪圖報錯
+        # 確保沒有空行導致 Plotly 繪圖報錯
         df = df[df['Display_Label'].notna()]
-        
         df = df.sort_values(by='Current_Return', ascending=False).reset_index(drop=True)
 
+        # 👑 爺爺神級還原：版塊聚落公仔 📊
         if is_sector_battle:
             n_30 = max(1, int(len(df) * 0.3))
             sep = pd.DataFrame([{'Ticker':'...', 'Current_Return':0, 'Display_Label':'✂️ 中間隱藏雜訊區域 ✂️'}])
             df = pd.concat([df.head(n_30), sep, df.tail(n_30)], ignore_index=True)
             
+            # 當同一版塊內有大量強勢股，自動加上 📊
             top_performers = df.head(n_30)
             if len(top_performers) >= 3:
                 df.loc[:n_30-1, 'Display_Label'] = df.loc[:n_30-1, 'Display_Label'] + " 📊"
