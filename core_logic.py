@@ -285,31 +285,31 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
     }
 
 # =======================================================
-# 🔥 爺爺新增：究極資產拔河龍虎榜核心 (8大情報滿血版)
+# 🔥 爺爺新增：究極資產拔河龍虎榜核心 (8大情報滿血版 + 大滿貫徽章對齊)
 # =======================================================
 class AssetRanker:
     @staticmethod
     def get_rank_and_acceleration(tickers, lookback_days, category_name):
         is_sector_battle = "1029" in category_name
         
-        # ⚡ 爺爺修復：改為 threads=False，阻止 Streamlit Cloud 開過多線程導致系統崩潰卡死白屏
         data = yf.download(tickers, period="1y", progress=False, threads=False)
         if data.empty: return pd.DataFrame()
         
         if isinstance(data.columns, pd.MultiIndex):
             close_df = data['Close']; open_df = data['Open']
-            high_df = data['High']; vol_df = data['Volume']
+            high_df = data['High']; vol_df = data['Volume']; low_df = data['Low']
         else:
             close_df = pd.DataFrame(data['Close'].values, index=data.index, columns=tickers)
             open_df = pd.DataFrame(data['Open'].values, index=data.index, columns=tickers)
             high_df = pd.DataFrame(data['High'].values, index=data.index, columns=tickers)
+            low_df = pd.DataFrame(data['Low'].values, index=data.index, columns=tickers)
             vol_df = pd.DataFrame(data['Volume'].values, index=data.index, columns=tickers)
 
         # 🚀 防爆對齊機制
         close_df = close_df.dropna(axis=1, how='all')
         valid_tickers = close_df.columns
-        open_df = open_df[valid_tickers]; high_df = high_df[valid_tickers]; vol_df = vol_df[valid_tickers]
-        close_df = close_df.ffill(); open_df = open_df.ffill(); high_df = high_df.ffill(); vol_df = vol_df.ffill()
+        open_df = open_df[valid_tickers]; high_df = high_df[valid_tickers]; low_df = low_df[valid_tickers]; vol_df = vol_df[valid_tickers]
+        close_df = close_df.ffill(); open_df = open_df.ffill(); high_df = high_df.ffill(); low_df = low_df.ffill(); vol_df = vol_df.ffill()
 
         if len(close_df) < lookback_days + 10: return pd.DataFrame()
 
@@ -333,6 +333,37 @@ class AssetRanker:
         idx_200d = -201 if len(close_df) >= 201 else 0
         ret_200d = ((close_df.iloc[-1] - close_df.iloc[idx_200d]) / close_df.iloc[idx_200d]) * 100
 
+        # ==================================================
+        # 👑 爺爺加建：3 大加強徽章 + 神殿隱藏籌碼 (極速計算)
+        # ==================================================
+        c = close_df.iloc[-1]; o = open_df.iloc[-1]; h = high_df.iloc[-1]; l = low_df.iloc[-1]
+        
+        # ❶ 🦁 雄獅收高 (True Buy): 陽燭 且 收市價鎖定喺全日最高位 30% 內
+        true_buy = (c > o) & (c >= h - (h - l) * 0.3)
+        
+        # ❷ 💣 引爆在即 (Volatility Squeeze): 過去 20 日波幅極度橫行死寂
+        std_20 = close_df.tail(20).std()
+        mean_20 = close_df.tail(20).mean()
+        is_squeeze = (std_20 / mean_20) < 0.035
+        
+        # ❸ 🥇 金牌認證 (High Alpha): 5天絕對回報實質 > 5%
+        high_alpha = curr_ret_abs > 5.0
+        
+        # 神殿核心雷達隱藏公仔 (跨界極速版)
+        var3 = np.maximum(h - l, 0.001)
+        buyvol = vol_df.iloc[-1] * (c - l) / var3
+        sellvol = vol_df.iloc[-1] * (h - c) / var3
+        netvol = buyvol - sellvol
+        
+        ma60_v = vol_df.tail(60).mean()
+        is_whale = (vol_df.iloc[-1] > ma60_v * 1.5) & (netvol > 0)
+        is_lucky = netvol > 0
+        
+        lookback_n = 8 
+        a_point = high_df.shift(2).rolling(lookback_n).max().iloc[-1]
+        is_breakout_today = (close_df.iloc[-1] > a_point) & (close_df.iloc[-2] <= a_point)
+        # ==================================================
+
         df = pd.DataFrame({
             'Ticker': valid_tickers,
             'Abs_Return': curr_ret_abs.values,
@@ -342,7 +373,13 @@ class AssetRanker:
             'RVOL': rvol.values,
             'Dist_52W': dist_to_52w.values,
             'Gap': gap_pct.values,
-            'Streak': streak_3d.values
+            'Streak': streak_3d.values,
+            'TrueBuy': true_buy.values,
+            'Squeeze': is_squeeze.values,
+            'HighAlpha': high_alpha.values,
+            'Whale': is_whale.values,
+            'Lucky': is_lucky.values,
+            'Breakout': is_breakout_today.values
         }).dropna()
 
         df['Current_Rank'] = df['Abs_Return'].rank(ascending=False, method='min')
@@ -350,39 +387,48 @@ class AssetRanker:
         df['Rank_Change'] = df['Past_Rank'] - df['Current_Rank']
         top_10_threshold = max(1, int(len(df) * 0.1))
 
-        # 🚀 爺爺為你精心打造的 8大情報公仔對齊引擎
+        # 🚀 爺爺精心打造：全星系 19+1 大滿貫情報公仔對齊引擎
         def generate_label(row):
             chg = int(row['Rank_Change'])
             ticker = row['Ticker']
             
-            # 1 & 2. 綠波/藍波 (Rank_Change)
+            # 1 & 2. 綠波/藍波 (動力)
             if chg >= 30: icon = f"🟢 ▲ {chg}"
             elif chg <= -30: icon = f"🔵 ▼ {abs(chg)}"
             elif chg > 0: icon = f"▲ {chg}"
             elif chg < 0: icon = f"▼ {abs(chg)}"
             else: icon = "- 0"
 
-            # 3. 火箭 (Top 10% on 200d)
+            # 3. 🦅 長線王者 (取代舊 🚀)
             is_rocket = (row['Rank_200d'] <= top_10_threshold) and (chg > 0)
-            rocket = "🚀 " if is_rocket else ""
+            rocket = "🦅 " if is_rocket else ""
             
-            # 4 & 5. 雙電池/單電池 (RVOL)
+            # 4 & 5. 🔋 電池 (引擎量能)
             vol_tag = ""
             if row['RVOL'] >= 3.0: vol_tag = f"[{row['RVOL']:.1f}x 🔋🔋]"
             elif row['RVOL'] >= 1.5: vol_tag = f"[{row['RVOL']:.1f}x 🔋]"
             
-            # 6. 準破頂 (Dist_52W)
-            top_tag = "[🎯 準破頂]" if row['Dist_52W'] <= 3.0 else ""
+            # 6. ⚔️ 刀鋒破頂 (取代舊 🎯)
+            top_tag = "[⚔️ 準破頂]" if row['Dist_52W'] <= 3.0 else ""
             
-            # 7. 火炎公仔 (連續強勢)
+            # 7. 🔥 火炎 (連續強勢)
             streak_tag = "[🔥 連續強勢]" if row['Streak'] else ""
             
-            # 8. 閃電 (跳空 GAP)
+            # 8. ⚡ 閃電 GAP
             gap_tag = f"[⚡ GAP {row['Gap']:+.1f}%]" if abs(row['Gap']) >= 1.5 else ""
+            
+            # 👑 爺爺大滿貫派發：獵龍加強指標 + 神殿隱藏籌碼
+            if row['TrueBuy']: streak_tag += " [🦁 雄獅收高]"
+            if row['Squeeze']: streak_tag += " [💣 引爆在即]"
+            if row['HighAlpha']: streak_tag += " [🥇 金牌認證]"
+            if row['Breakout']: streak_tag += " [🪃]"
+            
+            if row['Whale']: streak_tag += " [🐋 巨鯨]"
+            elif row['Lucky']: streak_tag += " [🧧]"
 
             tags = f"{vol_tag}{top_tag}{streak_tag}{gap_tag}".strip()
             
-            # 兩行排版，左邊乾淨，刪走百分比，等右邊顯示
+            # 兩行排版設計，左邊乾淨企理
             if tags:
                 return f"{icon} | {rocket}{ticker}<br><span style='color:#aaaaaa;font-size:10px;'>{tags}</span>"
             else:
@@ -391,52 +437,47 @@ class AssetRanker:
         df['Display_Label'] = df.apply(generate_label, axis=1)
         df = df.sort_values(by='Current_Return', ascending=False).reset_index(drop=True)
 
+        # 👑 爺爺神級還原：版塊聚落公仔 📊
         if is_sector_battle:
             n_30 = max(1, int(len(df) * 0.3))
             sep = pd.DataFrame([{'Ticker':'...', 'Current_Return':0, 'Display_Label':'✂️ 中間隱藏雜訊區域 ✂️'}])
             df = pd.concat([df.head(n_30), sep, df.tail(n_30)], ignore_index=True)
+            
+            # 當同一版塊內有大量強勢股，自動加上 📊
+            top_performers = df.head(n_30)
+            if len(top_performers) >= 3:
+                df.loc[:n_30-1, 'Display_Label'] = df.loc[:n_30-1, 'Display_Label'] + " 📊"
 
         return df.iloc[::-1].reset_index(drop=True)
 
 # =======================================================
-# 💰 爺爺全新研發：大戶資金流透視 (福德金字塔) 掃描器 (三線數據滿血修復版)
+# 💰 爺爺全新研發：大戶資金流透視 (福德金字塔) 掃描器
 # =======================================================
 def scan_fude_logic(df, ticker):
-    """
-    此 Function 專門負責計算大戶底氣，完全不會干擾上面嘅掃股邏輯。
-    將傳入嘅 DataFrame 轉化為 5 大獨立三線數據，供 UI 使用。
-    """
     if df is None or len(df) < 200:
         return None 
         
     d = df.copy() 
     
-    # 1. 典型價格 (TP) & 資金流 (MF)
     d['TP'] = (d['High'] + d['Low'] + d['Close']) / 3
     d['MF'] = d['TP'] * d['Volume']
     d['Net_Flow'] = d['MF'] * np.where(d['Close'] > d['Close'].shift(1).fillna(d['Close']), 1, -1)
-    
-    # 2. VWAP 模擬 (20日)
     d['VWAP_20'] = d['MF'].rolling(20).sum() / np.maximum(d['Volume'].rolling(20).sum(), 1)
     
-    # 3. Force Index (攻擊效率/推動力) 
     d['Force_Index'] = (d['Close'] - d['Close'].shift(1)) * d['Volume']
     d['Merit_20'] = d['Force_Index'].rolling(20).sum()
     d['Merit_60'] = d['Force_Index'].rolling(60).sum()
     d['Merit_200'] = d['Force_Index'].rolling(200).sum()
     
-    # 4. Chaikin Money Flow (CMF) 爺爺修復咗打錯字嘅 'l'
     var3 = np.maximum(d['High'] - d['Low'], 0.001)
     clv = ((d['Close'] - d['Low']) - (d['High'] - d['Close'])) / var3
     d['AD'] = clv * d['Volume']
     d['CMF_20'] = d['AD'].rolling(20).sum() / np.maximum(d['Volume'].rolling(20).sum(), 1)
     d['CMF_60'] = d['AD'].rolling(60).sum() / np.maximum(d['Volume'].rolling(60).sum(), 1)
     
-    # 5. OBV
     d['OBV_Daily'] = (np.sign(d['Close'].diff()).fillna(0) * d['Volume'])
     d['OBV_Cum'] = d['OBV_Daily'].cumsum()
 
-    # 6. RVOL & POC
     d['Vol_200MA'] = d['Volume'].rolling(200).mean()
     d['RVOL'] = d['Volume'] / np.maximum(d['Vol_200MA'], 1)
     
@@ -445,12 +486,10 @@ def scan_fude_logic(df, ticker):
     poc_idx = np.argmax(counts)
     poc_price = (bins[poc_idx] + bins[poc_idx+1]) / 2
 
-    # 安全百分比工具函數
     def safe_pct(c, p):
         if p == 0 or pd.isna(p): return 0.0
         return ((c - p) / abs(p)) * 100
 
-    # 1. 資金總數 (Net Flow) 20D / 60D / 200D 數據與變化
     def get_flow_stats(period):
         if len(d) < period: return 0.0, 0.0
         c_flow = d['Net_Flow'].tail(period).sum()
@@ -461,7 +500,6 @@ def scan_fude_logic(df, ticker):
     f60_v, f60_p = get_flow_stats(60)
     f200_v, f200_p = get_flow_stats(200)
 
-    # 2. 估算持股數 (千位取整) Logic
     def calc_shares(flow_val, period):
         avg_p = d['Close'].tail(period).mean()
         if avg_p == 0 or np.isnan(avg_p): return 0
@@ -472,7 +510,6 @@ def scan_fude_logic(df, ticker):
     s60 = calc_shares(f60_v, 60)
     s200 = calc_shares(f200_v, 200)
 
-    # 3. OBV 累積變動 20D / 60D / 200D
     def get_obv_stats(period):
         if len(d) < period: return 0.0, 0.0
         c_obv = d['OBV_Daily'].tail(period).sum()
@@ -483,7 +520,6 @@ def scan_fude_logic(df, ticker):
     o60_v, o60_p = get_obv_stats(60)
     o200_v, o200_p = get_obv_stats(200)
 
-    # 4. EJ 錢流能量 20D / 60D / 200D 均值與變動
     avg_252 = max(d['Volume'].tail(252).mean(), 1)
     def get_ej_stats(period):
         if len(d) < period: return 50.0, 0.0
@@ -497,7 +533,6 @@ def scan_fude_logic(df, ticker):
     ej60, ej60_p = get_ej_stats(60)
     ej200, ej200_p = get_ej_stats(200)
 
-    # 5. 短期能量 BAR (SE) 20D / 60D / 200D 滿血修復算法 (解決開市空值 NaN 死鎖變 0%)
     def get_se_stats(period):
         if len(d) < period + 1: return 75.0, 0.0
         pct_chg = d['Close'].pct_change().fillna(0)
@@ -511,7 +546,6 @@ def scan_fude_logic(df, ticker):
     se60, se60_p = get_se_stats(60)
     se200, se200_p = get_se_stats(200)
 
-    # 6. 資金部署集中度 (Conc) 20D / 60D / 200D 佔比與變動
     def get_conc_stats(period):
         if len(d) < period: return 0.0, 0.0
         da = abs(d['Net_Flow'].tail(period))
@@ -528,7 +562,6 @@ def scan_fude_logic(df, ticker):
     if f20_v > 0: mood = "💪 明目張膽買貨" if c20 > 25 else "🤫 默默暗中吸籌"
     else: mood = "😱 明目張膽掟貨" if c20 > 25 else "📉 默默分批派發"
 
-    # 福德等級邏輯判定
     curr_c = d['Close'].iloc[-1]
     m20 = d['Merit_20'].iloc[-1]; m60 = d['Merit_60'].iloc[-1]; m200 = d['Merit_200'].iloc[-1]
     m20_prev = d['Merit_20'].iloc[-2] if len(d) > 2 else 0
@@ -537,7 +570,7 @@ def scan_fude_logic(df, ticker):
     if m20 > 0 and m60 > 0 and m200 > 0:
         fude_lvl, fude_col, fude_desc = "🌟 福德深厚 (大金主)", "#FFD700", "三線資金皆正，長中短大戶齊心建倉，身家極厚。"
     elif m200 > 0 and m60 > 0 and m20 <= 0:
-        fude_lvl, fude_col, fude_desc = "🕳️ 黃金坑 (長線好,短線洗)", "#00FFCC", "長中線底氣強大，短線游資流出僅為震倉，留意低吸。"
+        fude_lvl, fude_col, fude_desc = "🕳️ 黃金坑 (長線好,短線洗)", "#00FFCC", "長中線底氣強大，短線游গ্ত資流出僅為震倉，留意低吸。"
     elif m20 > 0 and m200 <= 0:
         fude_lvl, fude_col, fude_desc = "💨 虛火熱錢 (短線強,家底薄)", "#FF4B4B", "長線大戶派發中，只靠短線游資炒作，慎防接火棒。"
     else:
@@ -562,34 +595,26 @@ def scan_fude_logic(df, ticker):
         "CMF_20": d['CMF_20'].iloc[-1],
         "CMF_60": d['CMF_60'].iloc[-1],
         "Fude_Level": fude_lvl,
+        "FColor": fude_col, 
         "Fude_Color": fude_col,
         "Fude_Desc": fude_desc,
         "Tags": tags,
-        
         "Flow_20_val": f20_v, "Flow_20_pct": f20_p, 
         "Flow_60_val": f60_v, "Flow_60_pct": f60_p, 
         "Flow_200_val": f200_v, "Flow_200_pct": f200_p,
-        
         "OBV_20_val": o20_v, "OBV_20_pct": o20_p, 
         "OBV_60_val": o60_v, "OBV_60_pct": o60_p, 
         "OBV_200_val": o200_v, "OBV_200_pct": o200_p,
-        
         "EJ_20": ej20, "EJ_20_pct": ej20_p,
         "EJ_60": ej60, "EJ_60_pct": ej60_p,
         "EJ_200": ej200, "EJ_200_pct": ej200_p,
-        
         "SE_20": se20, "SE_20_pct": se20_p,
         "SE_60": se60, "SE_60_pct": se60_p,
         "SE_200": se200, "SE_200_pct": se200_p,
-        
         "Conc_20": c20, "Conc_20_pct": c20_p,
         "Conc_60": c60, "Conc_60_pct": c60_p,
         "Conc_200": c200, "Conc_200_pct": c200_p,
-        
-        "Shares_20": s20,
-        "Shares_60": s60,
-        "Shares_200": s200,
-        
+        "Shares_20": s20, "Shares_60": s60, "Shares_200": s200,
         "Mood": mood,
         "Plot_Data": plot_data
     }
