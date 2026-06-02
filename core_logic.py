@@ -402,7 +402,10 @@ class AssetRanker:
             'I_Squeeze': cond_squeeze.fillna(False).values,
             'I_Cruise': cond_cruise.fillna(False).values,
             'I_Breakout': cond_breakout.fillna(False).values,
-        }).dropna()
+        })
+        
+        # 👑 爺爺終極防彈裝甲：用 fillna(0) 取代 dropna()，防止 Yahoo 午夜數據斷層殺死全家！
+        df = df.fillna(0)
 
         df['Current_Rank'] = df['Abs_Return'].rank(ascending=False, method='min')
         df['Past_Rank'] = df['Past_Abs'].rank(ascending=False, method='min')
