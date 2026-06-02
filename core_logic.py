@@ -368,7 +368,10 @@ class AssetRanker:
         cond_shield_icon = (change.iloc[-1] < 0) & (netvol.iloc[-1] > 0)
         cond_vcp_icon = (netma10.iloc[-1] > 0) & (netma10.shift(1).iloc[-1] < 0) & (v.iloc[-1] < ma20_v.iloc[-1])
         cond_pit_icon = (change.iloc[-1] < -1) & is_magenta.iloc[-1]
+        
+        # 👑 爺爺防彈補位：精準計算所有隱藏籌碼 (包含 Lucky 幸運紅包)
         cond_whale_icon = ((v.tail(10) > ma60_v.tail(10) * 1.5) & (netvol.tail(10) > 0)).sum() > 0
+        cond_lucky = netvol.tail(20).sum() > 0
 
         cond_squeeze = is_squeezing.iloc[-1]
         cond_cruise = is_cruise.iloc[-1]
@@ -395,6 +398,7 @@ class AssetRanker:
             'I_VCP': cond_vcp_icon.fillna(False).values,
             'I_Pit': cond_pit_icon.fillna(False).values,
             'I_Whale': cond_whale_icon.fillna(False).values,
+            'Lucky': cond_lucky.fillna(False).values, 
             'I_Squeeze': cond_squeeze.fillna(False).values,
             'I_Cruise': cond_cruise.fillna(False).values,
             'I_Breakout': cond_breakout.fillna(False).values,
