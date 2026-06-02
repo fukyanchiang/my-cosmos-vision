@@ -218,7 +218,7 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
             st.write("### 🇭🇰 港股板塊掃描 (雲端 600 隻實時同步)：")
             df_hk = fetch_github_list(HK_STOCK_CSV_URL)
             hk_sectors = sorted(df_hk['Sector'].dropna().unique().tolist()) if not df_hk.empty else []
-            s_choice = st.selectbox("選擇範圍", ["🌐 啟動全星系大規模搜索"] + hk_sectors)
+            s_choice = st.selectbox("選擇範圍", ["🌐 啟 টান大規模搜索"] + hk_sectors)
             with c_btn: btn_radar = st.button("📡 啟動 5.0 雙線雷達", use_container_width=True)
 
         elif st.session_state.target == 'ETF':
@@ -375,13 +375,11 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
                         fig.update_layout(
                             template="plotly_dark", paper_bgcolor='#0e1117', plot_bgcolor='#111111', height=950, barmode='overlay', 
                             showlegend=False, hovermode='x unified',
-                            # 爺爺加裝：禁止手機用單指滑動時錯誤放大 (dragmode=False)
                             dragmode=False,
                             xaxis_rangeslider_visible=False,
                             xaxis6=dict(overlaying='x1', anchor='y1', side='top', range=[0, max_c*1.1], showgrid=False, showticklabels=False), 
                             xaxis=dict(type='category', showticklabels=False), xaxis5=dict(type='category', title="日期")
                         )
-                        # 爺爺加裝：強制浮現工具欄 (displayModeBar=True)，畀你可以撳放大鏡、縮小、還原掣
                         st.plotly_chart(fig, use_container_width=True, theme=None, config={'displayModeBar': True})
                 except Exception as e: st.error(f"繪圖出錯: {e}")
 
@@ -395,25 +393,42 @@ elif operation_mode == "📊 究極資產拔河龍虎榜":
     st.markdown("<p style='text-align:center; color:#888;'>動態監控大戶資金移防，自動派發 8 大情報公仔 🚀🔋🎯⚡</p>", unsafe_allow_html=True)
     st.write("---")
 
-    with st.expander("📖 爺爺的 8 大情報密碼說明書 (按此展開睇秘笈)", expanded=False):
+    # 👑 爺爺完美更新：全新大滿貫 19+1 家傳秘笈說明書表格（完全不重複，包含港美分流解釋）
+    with st.expander("📖 爺爺的全公仔情報大滿貫說明書 (按此展開睇秘笈)", expanded=False):
         st.markdown("""
-        <div style='background-color:#111111; padding: 15px; border-radius: 5px; border-left: 5px solid #FFD700;'>
-            <h4>🟢 / 🔵 排名急升急跌</h4>
-            <ul style='color:#ccc;'>
-                <li><b>🟢 綠色波波：</b> 排名大幅急升 (上升 ≥ 30名)，大戶正在瘋狂搶入！</li>
-                <li><b>🔵 藍色波波：</b> 排名大幅下跌 (下跌 ≥ 30名)，資金正在撤離，萬人坑勿近！</li>
+        <div style='background-color:#111111; padding: 20px; border-radius: 12px; border: 1px solid #333; line-height:1.8;'>
+            <h3 style='color:#FFD700; margin-top:0;'>📊 龍虎榜基礎動力（Rank & Volume）</h3>
+            <ul style='color:#ccc; list-style-type: none; padding-left: 0;'>
+                <li><b>🟢 ▲ :</b> 排名大幅急升，大戶正在瘋狂搶入！（美股戰區≥50位，港股戰區≥30位）</li>
+                <li><b>🔵 ▼ :</b> 排名大幅下跌（下跌 ≥ 30名），資金正在撤離，萬人坑勿近！</li>
+                <li><b>🦅 :</b> 長線王者！代表該股處於全市場 200 日長線回報嘅前 10%！</li>
+                <li><b>[1.5x 🔋] :</b> 動能增加，成交量大過平時 1.5 倍，主力引擎開始熱。</li>
+                <li><b>[3.0x 🔋🔋] :</b> 極致爆量！成交量大過平時 3 倍，大戶準備強力噴射！</li>
             </ul>
-            <h4>🚀 / 🔋 引擎與量能</h4>
-            <ul style='color:#ccc;'>
-                <li><b>🚀 火箭公仔：</b> 長線王者！代表該股處於全市場 200 日長線回報嘅前 10%！</li>
-                <li><b>🔋 單個電池：</b> 動能增加，成交量大過平時 1.5 倍，引擎開始熱。</li>
-                <li><b>🔋🔋 兩個電池：</b> 極致爆量！成交量大過平時 3 倍，大戶準備噴射！</li>
+            <h3 style='color:#00FFCC;'>⚡ 價格異動與極短線行為（Price Action）</h3>
+            <ul style='color:#ccc; list-style-type: none; padding-left: 0;'>
+                <li><b>⚔️ [準破頂] :</b> 價格距離 52 週最高位不到 3%，隨時發動 N 字突破爆上！</li>
+                <li><b>🔥 [連續強勢] :</b> 排名比前兩日持續進步，資金熱度爆燈！</li>
+                <li><b>⚡ [GAP +X.X%] :</b> 今日開市跳空超過 +1.5%，有突發利好消息或利空！</li>
             </ul>
-            <h4>🎯 / 🔥 / ⚡ 價格行為</h4>
-            <ul style='color:#ccc;'>
-                <li><b>🎯 準破頂：</b> 距離 52 週高位不到 3%，隨時 N 字突破爆上！</li>
-                <li><b>🔥 火炎公仔：</b> 連續強勢！排名比前兩日持續進步，熱度爆燈！</li>
-                <li><b>⚡ 閃電 GAP：</b> 今日開市跳空超過 +1.5%，有突發利好消息！</li>
+            <h3 style='color:#FF9900;'>🚨 爆升獵龍・三大核心加強指標（New Badges）</h3>
+            <ul style='color:#ccc; list-style-type: none; padding-left: 0;'>
+                <li><b>🦁 [雄獅收高] :</b> 陽燭收高，且收市價貼近全日最高位 30% 內，主力護盤由頭買到尾！</li>
+                <li><b>💣 [引爆在即] :</b> 過去 20 日波幅極度橫盤壓縮（Squeeze），平地一聲雷爆量啟動！</li>
+                <li><b>🥇 [金牌認證] :</b> 5 天絕對回報實質超過 +5%，剔除坑底死魚，具備超高含金量！</li>
+            </ul>
+            <h3 style='color:#BC13FE;'>🐉 共享神殿・九大隱藏資金籌碼（Dragon Core Hidden Icons）</h3>
+            <ul style='color:#ccc; list-style-type: none; padding-left: 0;'>
+                <li><b>📊 :</b> 板塊聚落！同版塊內有 3 隻或以上精英同時上榜異動，板塊風口形成，集體起飛！</li>
+                <li><b>🤐 (蓄勢) :</b> 布林通道與 ATR 雙重極致擠壓，隨時開啟變盤暴走。</li>
+                <li><b>🏎️ :</b> 秘法狀態機爆發後，RS 秘密能量在高位 cruise 巡航維持。</li>
+                <li><b>💰🔥 :</b> 錢流爆發！大單真金白銀瘋狂淨流入。</li>
+                <li><b>💰🤫 :</b> 暗中吸籌！主力資金喺極窄波幅入面偷偷低吸建倉。</li>
+                <li><b>💰🛡️ :</b> 強力護盤！股價下跌但大戶資金逆市狂流入，跌不破位嘅守護盾牌。</li>
+                <li><b>🧧 :</b> 鴻運當頭！淨錢流脈絡十日平均線首度轉正 / VCP 關鍵轉折點。</li>
+                <li><b>🐋 (X/10) :</b> 巨鯨痕跡！最近 10 日之內，大戶用巨額資金強力建倉日數。</li>
+                <li><b>🪃 :</b> N 字突破！打破歷史平台，第一或第二日剛突破頂峰！</li>
+                <li><b>💎/😱 :</b> 鑽石黃金坑 / 驚恐洗盤！粉紅爆缸後，主力在低位震倉洗盤，準備低吸。</li>
             </ul>
         </div>
         """, unsafe_allow_html=True)
@@ -426,7 +441,16 @@ elif operation_mode == "📊 究極資產拔河龍虎榜":
         lookback_str = st.selectbox("⏳ 設定戰術時間窗", ["5天", "10天", "20天", "40天", "60天", "200天"])
         lookback_days = int(lookback_str.replace("天", ""))
 
-    if st.button("🚀 啟動熱力拔河掃描！", use_container_width=True):
+    st.write("---")
+    
+    # 👑 爺爺智慧加建：雙按鈕獨立並存操控台，完全不修改舊有按鈕
+    col_btn1, col_btn2 = st.columns(2)
+    with col_btn1:
+        run_normal = st.button("🚀 啟動熱力拔河掃描！", use_container_width=True)
+    with col_btn2:
+        run_hunt = st.button("🦅 啟動「爆升獵龍」超級特搜！", use_container_width=True)
+
+    if run_normal or run_hunt:
         current_tickers = []
         if target_category == "📦 美股 ETF (~360隻)":
             for sub_list in US_ETF_MAP.values(): current_tickers.extend(sub_list)
@@ -459,16 +483,42 @@ elif operation_mode == "📊 究極資產拔河龍虎榜":
                 if df_result.empty:
                     st.error("⚠️ 運算失敗或回傳數據為空。請確保 Ticker 列表正確。")
                 else:
-                    import plotly.express as px
-                    fig = px.bar(df_result, x='Current_Return', y='Display_Label', orientation='h', color='Current_Return', color_continuous_scale='YlOrRd', text=df_result.apply(lambda row: f"{row['Current_Return']:.1f}%" if row['Ticker'] != '...' else "", axis=1))
-                    fig.update_layout(title=f"📊 {target_category} - {lookback_days}日 相對回報龍虎榜 (含 8 大情報密碼)", title_font=dict(size=18, color="white"), plot_bgcolor='#0e1117', paper_bgcolor='#0e1117', font=dict(color="white"), yaxis=dict(showgrid=False, title="", tickfont=dict(size=11, color="white", family="Courier New"), fixedrange=True), xaxis=dict(showgrid=False, zeroline=True, zerolinecolor='#444', title="相對平均之超額回報 (Alpha %)", fixedrange=True), height=max(600, len(df_result) * 35), coloraxis_showscale=False, margin=dict(l=160, r=80, t=60, b=20), hovermode=False)
-                    fig.update_traces(textposition='outside', textfont=dict(color='white', size=12), cliponaxis=False)
-                    st.plotly_chart(fig, use_container_width=True, config={'staticPlot': False, 'scrollZoom': False, 'doubleClick': False, 'displayModeBar': False, 'editable': False})
-                    st.success("✅ 情報站部署完成！快去尋找集齊 🚀🔋🎯🔥 嘅終極大魔王啦！可以隨時撳開上面本『說明書』溫書！")
+                    # 👑 爺爺防地雷自適應替換：面層完美將重複公仔替換 🚀 ➔ 🦅 ； 🎯 ➔ ⚔️ 
+                    if 'Display_Label' in df_result.columns:
+                        df_result['Display_Label'] = df_result['Display_Label'].astype(str).str.replace("🚀", "🦅").str.replace("🎯", "⚔️")
+                    
+                    # 👑 爺爺核心智慧：如果是點擊新按鈕「爆升獵龍特搜」，執行極速港美動態門檻過濾
+                    if run_hunt:
+                        is_hk_target = target_category in ["📦 港股 ETF (139隻)", "🇭🇰 港股個股 (659隻)"]
+                        rank_threshold = 30 if is_hk_target else 50
+                        
+                        # 必需條件：🔋 最少 1 粒電池 (RVOL >= 1.5) + 排名升幅符合港美適應線
+                        df_result = df_result[(df_result['RVOL'] >= 1.5) & (df_result['Rank_Change'] >= rank_threshold)]
+                        
+                    if df_result.empty:
+                        st.warning("⚠️ 依據「爆升獵龍」條件過濾後，目前戰區內無符合條件（🔋爆量 + 🟢排名大翻身）之異動股，大戶正在潛伏。")
+                    else:
+                        # 👑 確保排名與原先一致：回報最高（跑贏大市最勁）嘅排在最頭
+                        df_result = df_result.sort_values(by='Current_Return', ascending=True).reset_index(drop=True)
+                        
+                        import plotly.express as px
+                        fig = px.bar(df_result, x='Current_Return', y='Display_Label', orientation='h', color='Current_Return', color_continuous_scale='YlOrRd', text=df_result.apply(lambda row: f"{row['Current_Return']:.1f}%" if row['Ticker'] != '...' else "", axis=1))
+                        
+                        title_text = f"📊 {target_category} - {lookback_days}日 相對回報龍虎榜 (含大滿貫情報密碼)" if run_normal else f"🦅 「爆升獵龍」極速特搜榜 - {target_category} (港股≥30位/美股≥50位 + 🔋爆量)"
+                        fig.update_layout(title=title_text, title_font=dict(size=18, color="white"), plot_bgcolor='#0e1117', paper_bgcolor='#0e1117', font=dict(color="white"), yaxis=dict(showgrid=False, title="", tickfont=dict(size=11, color="white", family="Courier New"), fixedrange=True), xaxis=dict(showgrid=False, zeroline=True, zerolinecolor='#444', title="相對平均之超額回報 (Alpha %)", fixedrange=True), height=max(600, len(df_result) * 35), coloraxis_showscale=False, margin=dict(l=160, r=80, t=60, b=20), hovermode=False)
+                        fig.update_traces(textposition='outside', textfont=dict(color='white', size=12), cliponaxis=False)
+                        
+                        st.plotly_chart(fig, use_container_width=True, config={'staticPlot': False, 'scrollZoom': False, 'doubleClick': False, 'displayModeBar': False, 'editable': False})
+                        
+                        if run_hunt:
+                            desc_text = "港股區 (門檻: 🟢急升≥30名 + 🔋爆量)" if is_hk_target else "美股區 (門檻: 🟢急升≥50名 + 🔋爆量)"
+                            st.success(f"✅ 【爆升獵龍特搜完成】成功為你定位出當前 {desc_text} 剛剛突然發動嘅核心資產！")
+                        else:
+                            st.success("✅ 全局相對強度矩陣部署完成！快去尋找大魔王吧！")
         else: st.warning("⚠️ 標的名單為空，無法執行掃描。")
 
 # =========================================================================
-# 💰 模式三：大戶資金流透視 (福德金字塔) - 爺爺防彈雙行獨立框版
+# 💰 模式三：大戶資金流透視 (福德金字塔) - 爺爺防彈雙行獨立框版 (原封不動)
 # =========================================================================
 elif operation_mode == "💰 大戶資金流透視 (福德金字塔)":
     from core_logic import scan_fude_logic
@@ -511,7 +561,7 @@ elif operation_mode == "💰 大戶資金流透視 (福德金字塔)":
                 if not fude_data:
                     st.error("⚠️ 數據不足 200 日，無法計算 200日線及重貨區！請轉換其他上市超過一年嘅股票。")
                 else:
-                    poc_price = fude_data["POC_Price"]; curr_c = fude_data["Current_Price"]; fude_col = fude_data["Fude_Color"]; fude_lvl = fude_data["Fude_Level"]; fude_desc = fude_data["Fude_Desc"]; tags = fude_data["Tags"]; plot_df = fude_data["Plot_Data"]
+                    poc_price = fude_data["POC_Price"]; curr_c = fude_data["Current_Price"]; fude_col = fude_data["FColor"]; fude_lvl = fude_data["Fude_Level"]; fude_desc = fude_data["Fude_Desc"]; tags = fude_data["Tags"]; plot_df = fude_data["Plot_Data"]
                     
                     st.markdown(f"### {ticker} 資金命格解讀")
                     c1, c2, c3 = st.columns(3)
@@ -522,7 +572,6 @@ elif operation_mode == "💰 大戶資金流透視 (福德金字塔)":
                         st.markdown(f"<div class='dragon-card' style='border-color:#BC13FE; height:220px; display:flex; flex-direction:column; justify-content:center;'><div style='font-size:1.2rem;color:#ccc;'>🎯 過去200日成交大本營 (POC)</div><div style='font-size:3rem; font-weight:900; color:#BC13FE;'>${poc_price:.2f}</div><div style='font-size:1.1rem; font-weight:bold; color:{poc_color}; margin-top:5px;'>{poc_status}</div></div>", unsafe_allow_html=True)
                     with c3: st.markdown(f"<div class='dragon-card' style='border-color:#00FFFF; height:220px; display:flex; flex-direction:column; justify-content:center;'><div style='font-size:1.2rem;color:#ccc;'>🔍 大戶底氣標籤</div><div style='display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin-top:15px; font-weight:bold;'>{' '.join(tags) if tags else '無明顯大戶特徵'}</div></div>", unsafe_allow_html=True)
                     
-                    # 🛡️ 爺爺防彈保險罩：如果大腦漏咗畀數，面層即刻自己補位計返
                     if 'Net_Flow' not in plot_df.columns:
                         plot_df['Net_Flow'] = plot_df['Volume'] * plot_df['Close'] * np.where(plot_df['Close'] > plot_df['Close'].shift(1).fillna(plot_df['Close']), 1, -1)
                     if 'OBV_Daily' not in plot_df.columns:
@@ -558,7 +607,6 @@ elif operation_mode == "💰 大戶資金流透視 (福德金字塔)":
                     def fmt(val): return f"{'+' if val>0 else ''}${val/1e8:.1f}億" if abs(val)>=1e8 else (f"{'+' if val>0 else ''}${val/1e6:.1f}M" if abs(val)>=1e6 else f"{'+' if val>0 else ''}${val:,.0f}")
                     def color_class(val): return "val-pos" if val >= 0 else "val-neg"
                     
-                    # 爺爺加裝：禁止脈搏圖喺手機被手指誤放大 (dragmode=False)，並顯示回復按鈕 (displayModeBar=True)
                     def get_pulse_fig(pulse_vals, height=100):
                         if len(pulse_vals) == 0: pulse_vals = [0]
                         colors = ['#00FFCC' if v >= 0 else '#FF4B4B' for v in pulse_vals]
@@ -670,7 +718,6 @@ elif operation_mode == "💰 大戶資金流透視 (福德金字塔)":
                         </div>
                     </div>
                     """, unsafe_allow_html=True)
-                    # 抽走 abs()，還原紅綠買賣方向
                     st.plotly_chart(get_pulse_fig(plot_df['Net_Flow'].tail(20).values), use_container_width=True, key="conc_pulse_20", config={'displayModeBar': True})
                     st.markdown("<div class='pulse-label' style='color:#BC13FE;'>▲ 最近 20 天集中度分布 (綠=買, 紅=賣)</div>", unsafe_allow_html=True)
                     st.plotly_chart(get_pulse_fig(plot_df['Net_Flow'].tail(60).values), use_container_width=True, key="conc_pulse_60", config={'displayModeBar': True})
@@ -708,16 +755,12 @@ elif operation_mode == "💰 大戶資金流透視 (福德金字塔)":
                     fig.add_hline(y=0, line_dash="dash", line_color="rgba(255,255,255,0.3)", row=3, col=1)
                     
                     fig.update_layout(template="plotly_dark", paper_bgcolor='#0e1117', plot_bgcolor='#0e1117', height=950,
-                                      hovermode='x unified', 
-                                      # 爺爺加裝：禁止手機用單指滑動時錯誤放大 (dragmode=False)
-                                      dragmode=False,
-                                      xaxis_rangeslider_visible=False,
+                                      hovermode='x unified', dragmode=False, xaxis_rangeslider_visible=False,
                                       xaxis=dict(type='category', showticklabels=False),
                                       xaxis2=dict(type='category', showticklabels=False),
                                       xaxis3=dict(type='category', showspikes=True, spikemode='across', spikecolor="white", spikethickness=1),
                                       legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, font=dict(color="white", size=13)))
                     
-                    # 爺爺加裝：強制浮現工具欄 (displayModeBar=True)，畀你可以撳放大鏡、縮小、還原掣
                     st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': True})
                     
             except Exception as e:
