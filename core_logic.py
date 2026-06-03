@@ -650,45 +650,34 @@ def scan_fude_logic(df, ticker):
     else:
         fude_lvl, fude_col, fude_desc = "🥀 無主孤魂 (資金流失)", "#888888", "三線資金皆負，大戶徹底放棄，切勿胡亂撈底。"
     
+    # =======================================================
+    # 🌟 爺爺幫你收尾：完美修補斷層 HTML Tag 同 Dictionary 回傳
+    # =======================================================
     tags = []
-    if m200 > 0 and m60 > 0: tags.append("<span style='background:#111; border:1px solid #FFD700; color:#FFD700; padding:5px 10px; border-radius:5px;'>🌟 名門望族</span>")
-    if m20 > m20_prev: tags.append("<span style='background:#111; border:1px solid #FF4B4B; color:#FF4B4B; padding:5px 10px; border-radius:5px;'>🔥 熱錢湧入</span>")
-    if curr_c > vwap_20: tags.append("<span style='background:#111; border:1px solid #00FFCC; color:#00FFCC; padding:5px 10px; border-radius:5px;'>🛡️ 跌不破位</span>")
-    if m20 > 0 and m200 < 0: tags.append("<span style='background:#111; border:1px solid #FF00FF; color:#FF00FF; padding:5px 10px; border-radius:5px;'>⚠️ 虛有其表</span>")
-    
-    plot_data = d.tail(120)[['Open', 'High', 'Low', 'Close', 'Volume', 'VWAP_20', 'RVOL', 'Merit_20', 'Merit_60', 'Merit_200', 'CMF_20', 'CMF_60', 'Net_Flow', 'OBV_Daily']]
-    
+    if m200 > 0 and m60 > 0: 
+        tags.append("<span style='background:#111; border:1px solid #FFD700; color:#FFD700; padding:2px 4px; border-radius:4px;'>長中線護盤</span>")
+    elif m20 > 0: 
+        tags.append("<span style='background:#111; border:1px solid #FF4B4B; color:#FF4B4B; padding:2px 4px; border-radius:4px;'>游資炒作</span>")
+
+    if poc_price > curr_c: 
+        tags.append("<span style='background:#111; border:1px solid #FF4B4B; color:#FF4B4B; padding:2px 4px; border-radius:4px;'>跌穿籌碼區</span>")
+    else: 
+        tags.append("<span style='background:#111; border:1px solid #00FF00; color:#00FF00; padding:2px 4px; border-radius:4px;'>穩守籌碼區</span>")
+
     return {
         "Ticker": ticker,
-        "Current_Price": curr_c,
-        "POC_Price": poc_price,
-        "VWAP_20": vwap_20,
-        "Merit_20": m20,
-        "Merit_60": m60,
-        "Merit_200": m200,
-        "CMF_20": d['CMF_20'].iloc[-1],
-        "CMF_60": d['CMF_60'].iloc[-1],
         "Fude_Level": fude_lvl,
-        "FColor": fude_col, 
         "Fude_Color": fude_col,
         "Fude_Desc": fude_desc,
-        "Tags": tags,
-        "Flow_20_val": f20_v, "Flow_20_pct": f20_p, 
-        "Flow_60_val": f60_v, "Flow_60_pct": f60_p, 
-        "Flow_200_val": f200_v, "Flow_200_pct": f200_p,
-        "OBV_20_val": o20_v, "OBV_20_pct": o20_p, 
-        "OBV_60_val": o60_v, "OBV_60_pct": o60_p, 
-        "OBV_200_val": o200_v, "OBV_200_pct": o200_p,
-        "EJ_20": ej20, "EJ_20_pct": ej20_p,
-        "EJ_60": ej60, "EJ_60_pct": ej60_p,
-        "EJ_200": ej200, "EJ_200_pct": ej200_p,
-        "SE_20": se20, "SE_20_pct": se20_p,
-        "SE_60": se60, "SE_60_pct": se60_p,
-        "SE_200": se200, "SE_200_pct": se200_p,
-        "Conc_20": c20, "Conc_20_pct": c20_p,
-        "Conc_60": c60, "Conc_60_pct": c60_p,
-        "Conc_200": c200, "Conc_200_pct": c200_p,
-        "Shares_20": s20, "Shares_60": s60, "Shares_200": s200,
         "Mood": mood,
-        "Plot_Data": plot_data
+        "Tags": " ".join(tags),
+        "Merit_20": round(m20, 2),
+        "VWAP_20": round(vwap_20, 2),
+        "POC_Price": round(poc_price, 2),
+        "Flow_20d_Vol": s20,
+        "Flow_20d_Pct": round(f20_p, 2),
+        "OBV_20d_Pct": round(o20_p, 2),
+        "EJ_20d": round(ej20, 1),
+        "SE_20d": round(se20, 1),
+        "Conc_20d": round(c20, 1)
     }
