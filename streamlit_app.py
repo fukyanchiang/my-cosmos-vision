@@ -110,7 +110,7 @@ with st.sidebar:
     st.caption("👴 爺爺的操盤矩陣 V188.5")
 
 # ==========================================
-# 🌌 模式一：原本的龍魂雷達系統 (原封不動 + STRONG)
+# 🌌 模式一：龍魂雷達系統 (包含強勢股排列)
 # ==========================================
 if operation_mode == "🐉 龍魂神殿雷達系統":
     MEMORY_FILE = "dragon_memory.json"
@@ -164,17 +164,22 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
     if 'target' not in st.session_state: st.session_state.target = 'NONE'
     if 'scan_mode' not in st.session_state: st.session_state.scan_mode = 'NORMAL'
 
+    # 👑 爺爺防漏修復：每次撳掣切換 Mode，必定強制清空舊有 dragon_results 記憶！
     if st.session_state.page == 'HOME':
         st.markdown("<h1 style='text-align:center;font-size:4rem;margin-top:80px;color:#FFD700;'>🐲 龍魂戰略總部</h1>", unsafe_allow_html=True)
         c1, c2, c3, c4 = st.columns(4)
         if c1.button("🐉 龍魂神殿 (普通掃描)"): 
-            st.session_state.page = 'DRAGON'; st.session_state.scan_mode = 'NORMAL'; st.rerun()
+            st.session_state.page = 'DRAGON'; st.session_state.scan_mode = 'NORMAL'
+            st.session_state.dragon_results = []; st.session_state.sl_list = []; st.rerun()
         if c2.button("📈 VCP 獵龍 (高勝率模式)"): 
-            st.session_state.page = 'DRAGON'; st.session_state.scan_mode = 'VCP'; st.rerun()
+            st.session_state.page = 'DRAGON'; st.session_state.scan_mode = 'VCP'
+            st.session_state.dragon_results = []; st.session_state.sl_list = []; st.rerun()
         if c3.button("🐢 海龜加注"): 
-            st.info("海龜 模式運作中"); st.session_state.page = 'DRAGON'; st.session_state.scan_mode = 'NORMAL'; st.rerun()
+            st.info("海龜 模式運作中"); st.session_state.page = 'DRAGON'; st.session_state.scan_mode = 'NORMAL'
+            st.session_state.dragon_results = []; st.session_state.sl_list = []; st.rerun()
         if c4.button("🔥 強勢股排列"): 
-            st.session_state.page = 'DRAGON'; st.session_state.scan_mode = 'STRONG'; st.rerun()
+            st.session_state.page = 'DRAGON'; st.session_state.scan_mode = 'STRONG'
+            st.session_state.dragon_results = []; st.session_state.sl_list = []; st.rerun()
 
     elif st.session_state.page == 'DRAGON':
         if st.session_state.scan_mode == 'STRONG': mode_display = "🔥 強勢股排列 (週線多頭)"
@@ -188,6 +193,7 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
         if nav[2].button("🇺🇸 美股"): st.session_state.target = 'US'
         if nav[3].button("📦 ETF"): st.session_state.target = 'ETF'
         
+        # 👑 完美閹割：STRONG 模式隱藏個股
         if st.session_state.scan_mode != 'STRONG':
             if nav[4].button("🔍 個股"): st.session_state.target = 'SINGLE'
         
@@ -196,6 +202,7 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
         is_ath_mode = False
         vcp_52w = False
         with c_ath: 
+            # 👑 完美閹割：STRONG 模式隱藏 Checkbox
             if st.session_state.scan_mode != 'STRONG':
                 is_ath_mode = st.checkbox("🔥 啟動 ATH 歷史新高極致過濾")
                 vcp_52w = st.checkbox("🎯 啟動 MM 原汁原味 52週高位 25% 內過濾")
@@ -225,16 +232,12 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
 
         elif st.session_state.target == 'HK':
             st.write("### 🇭🇰 港股板塊掃描 (包含全星系)：")
-            df_hk = fetch_github_list(HK_STOCK_CSV_URL)
-            hk_sectors = sorted(df_hk['Sector'].dropna().unique().tolist()) if not df_hk.empty else []
-            s_choice = st.selectbox("選擇範圍", ["🌐 啟動全星系大規模搜索"] + hk_sectors)
+            s_choice = st.selectbox("選擇範圍", ["🌐 啟動全星系大規模搜索"] + list(HK_STOCK_MAP.keys()))
             with c_btn: btn_radar = st.button("📡 啟動雷達", use_container_width=True)
 
         elif st.session_state.target == 'ETF':
             st.write("### 📦 港股/美股 ETF 掃描 (包含全星系)：")
-            df_etf = fetch_github_list(HK_ETF_CSV_URL)
-            etf_sectors = sorted(df_etf['Sector'].dropna().unique().tolist()) if not df_etf.empty else []
-            s_choice = st.selectbox("選擇範圍", ["🌐 啟動全星系大規模搜索 (僅限港股 ETF)"] + etf_sectors + list(US_ETF_MAP.keys()))
+            s_choice = st.selectbox("選擇範圍", ["🌐 啟動全星系大規模搜索"] + list(HK_ETF_MAP.keys()) + list(US_ETF_MAP.keys()))
             with c_btn: btn_radar = st.button("📡 啟動雷達", use_container_width=True)
 
         if btn_radar:
@@ -247,24 +250,32 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
                     market_mode = "US"
                 except: st.error("讀取 CSV 失敗，請檢查檔案是否存在。")
             elif st.session_state.target == 'HK':
-                df_hk = fetch_github_list(HK_STOCK_CSV_URL)
-                if not df_hk.empty:
-                    if "全星系" in s_choice: selected_tickers = list(df_hk.itertuples(index=False, name=None))
-                    else: selected_tickers = list(df_hk[df_hk['Sector'] == s_choice].itertuples(index=False, name=None))
+                if "全星系" in s_choice:
+                    raw_list = []
+                    for k, v in HK_STOCK_MAP.items():
+                        sec = k.split('.')[1].strip() if '.' in k else k
+                        for t in v: raw_list.append((t, sec))
+                    seen = set(); selected_tickers = [x for x in raw_list if not (x[0] in seen or seen.add(x[0]))]
+                else:
+                    df_hk = fetch_github_list(HK_STOCK_CSV_URL)
+                    if not df_hk.empty: selected_tickers = list(df_hk[df_hk['Sector'] == s_choice].itertuples(index=False, name=None))
                 market_mode = "HK"
             elif st.session_state.target == 'ETF':
-                df_etf = fetch_github_list(HK_ETF_CSV_URL)
-                raw_list = []
                 if "全星系" in s_choice:
-                    if not df_etf.empty: raw_list.extend(list(df_etf.itertuples(index=False, name=None)))
-                    selected_tickers = raw_list
+                    raw_list = []
+                    for d in [HK_ETF_MAP, US_ETF_MAP]:
+                        for k, v in d.items():
+                            sec = k.split('.')[1].strip() if '.' in k else k
+                            for t in v: raw_list.append((t, sec))
+                    seen = set(); selected_tickers = [x for x in raw_list if not (x[0] in seen or seen.add(x[0]))]
                     market_mode = "HK"
                 else:
                     if s_choice in US_ETF_MAP:
                         selected_tickers = [(t, s_choice) for t in US_ETF_MAP[s_choice]]
                         market_mode = "US"
                     else:
-                        selected_tickers = list(df_etf[df_etf['Sector'] == s_choice].itertuples(index=False, name=None))
+                        df_etf = fetch_github_list(HK_ETF_CSV_URL)
+                        if not df_etf.empty: selected_tickers = list(df_etf[df_etf['Sector'] == s_choice].itertuples(index=False, name=None))
                         market_mode = "HK"
 
             if selected_tickers:
@@ -350,6 +361,7 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
         if chart_t:
             with st.spinner("正在繪製全黑戰術圖表..."):
                 try:
+                    # 💡 無論咩模式，畫圖只係要睇半年，節省記憶體
                     df_c = smart_fetch(chart_t, period="6mo")
                     if not df_c.empty:
                         ema10 = df_c['Close'].ewm(span=10, adjust=False).mean()
@@ -370,6 +382,7 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
                         stop_loss = hvn_p * 0.985
                         fig.add_hline(y=stop_loss, line_dash="solid", line_color="#FF4B4B", annotation_text=f"🛑 重貨止損: ${stop_loss:.2f}", annotation_position="bottom right", annotation_font=dict(color="white", size=13), row=1, col=1)
                         
+                        # 👑 爺爺防彈修復：重貨橫條只用 xaxis6，完美呈現長短不一
                         fig.add_trace(go.Bar(y=(bins[:-1]+bins[1:])/2, x=counts, orientation='h', marker_color='rgba(136,136,136,0.4)', name='重貨區', hoverinfo='skip', xaxis='x6', yaxis='y1'))
 
                         v_colors = ['#00FF00' if df_c['Close'].iloc[i] >= df_c['Open'].iloc[i] else '#FF0000' for i in range(len(df_c))]
@@ -387,16 +400,16 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
                             template="plotly_dark", paper_bgcolor='#0e1117', plot_bgcolor='#111111', height=950, barmode='overlay', 
                             showlegend=False, hovermode='x unified',
                             dragmode=False,
-                            xaxis_rangeslider_visible=False,
+                            xaxis_rangeslider_visible=False, # 👑 完美修復 K 線同成交量重疊
                             xaxis6=dict(overlaying='x1', anchor='y1', side='top', range=[0, max_c*1.5], showgrid=False, showticklabels=False), 
                             xaxis=dict(type='category', showticklabels=False), xaxis5=dict(type='category', title="日期")
                         )
                         st.plotly_chart(fig, use_container_width=True, theme=None, config={'displayModeBar': True})
                 except Exception as e: st.error(f"繪圖出錯: {e}")
 
-# ==========================================
-# 🔥 模式二：新研發 - 究極資產拔河龍虎榜
-# ==========================================
+# =========================================================================
+# 📊 模式二：究極資產拔河龍虎榜 (原封不動)
+# =========================================================================
 elif operation_mode == "📊 究極資產拔河龍虎榜":
     from core_logic import AssetRanker
     
@@ -455,7 +468,6 @@ elif operation_mode == "📊 究極資產拔河龍虎榜":
 
     st.write("---")
     
-    # 👑 爺爺智慧加建：雙按鈕獨立並存操控台，完全不修改舊有按鈕
     col_btn1, col_btn2 = st.columns(2)
     with col_btn1:
         run_normal = st.button("🚀 啟動熱力拔河掃描！", use_container_width=True)
@@ -495,31 +507,24 @@ elif operation_mode == "📊 究極資產拔河龍虎榜":
                 if df_result.empty:
                     st.error("⚠️ 運算失敗或回傳數據為空。請確保 Ticker 列表正確。")
                 else:
-                    # 👑 爺爺防地雷自適應替換：面層完美將重複公仔替換 🚀 ➔ 🦅 ； 🎯 ➔ ⚔️ 
                     if 'Display_Label' in df_result.columns:
                         df_result['Display_Label'] = df_result['Display_Label'].astype(str).str.replace("🚀", "🦅").str.replace("🎯", "⚔️")
                     
-                    # 👑 爺爺核心智慧：如果是點擊新按鈕「爆升獵龍特搜」，執行極速港美動態門檻過濾
                     if run_hunt:
                         is_hk_target = "港股" in target_category
                         rank_threshold = 30 if is_hk_target else 50
-                        
-                        # 必需條件：🔋 最少 1 粒電池 (RVOL >= 1.5) + 排名升幅符合港美適應線
                         df_result = df_result[(df_result['RVOL'] >= 1.5) & (df_result['Rank_Change'] >= rank_threshold)]
                         
                     if df_result.empty:
                         st.warning("⚠️ 依據過濾條件，目前戰區內無符合條件之異動股，大戶正在潛伏。")
                     else:
-                        # 👑 確保排名與原先一致：回報最高（跑贏大市最勁）嘅排在最頭 (plotly horizontal bars plot bottom to top)
                         df_result = df_result.sort_values(by='Current_Return', ascending=True).reset_index(drop=True)
-                        
                         import plotly.express as px
                         fig = px.bar(df_result, x='Current_Return', y='Display_Label', orientation='h', color='Current_Return', color_continuous_scale='YlOrRd', text=df_result.apply(lambda row: f"{row['Current_Return']:.1f}%" if row['Ticker'] != '...' else "", axis=1))
                         
                         is_hk_target_str = "港股" in target_category
                         title_text = f"📊 {target_category} - {lookback_days}日 相對回報龍虎榜 (含大滿貫情報密碼)" if not run_hunt else f"🦅 「爆升獵龍」極速特搜榜 - {target_category} (港股≥30位/美股≥50位 + 🔋爆量)"
                         
-                        # 👑 爺爺防重疊終極絕招：將每行高度擴大到 115，完美容納 5 行超大字，保證唔會疊字被 Cut！
                         fig.update_layout(title=title_text, title_font=dict(size=18, color="white"), plot_bgcolor='#0e1117', paper_bgcolor='#0e1117', font=dict(color="white"), yaxis=dict(showgrid=False, title="", tickfont=dict(size=11, color="white", family="Courier New"), fixedrange=True), xaxis=dict(showgrid=False, zeroline=True, zerolinecolor='#444', title="相對平均之超額回報 (Alpha %)", fixedrange=True), height=max(600, len(df_result) * 115), coloraxis_showscale=False, margin=dict(l=160, r=80, t=60, b=20), hovermode=False)
                         fig.update_traces(textposition='outside', textfont=dict(color='white', size=12), cliponaxis=False)
                         
@@ -533,7 +538,7 @@ elif operation_mode == "📊 究極資產拔河龍虎榜":
         else: st.warning("⚠️ 標的名單為空，無法執行掃描。")
 
 # =========================================================================
-# 💰 模式三：大戶資金流透視 (福德金字塔) - 爺爺防彈雙行獨立框版 (原封不動)
+# 💰 模式三：大戶資金流透視 (福德金字塔) (原封不動)
 # =========================================================================
 elif operation_mode == "💰 大戶資金流透視 (福德金字塔)":
     from core_logic import scan_fude_logic
