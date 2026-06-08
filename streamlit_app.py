@@ -110,7 +110,7 @@ with st.sidebar:
     st.caption("👴 爺爺的操盤矩陣 V188.5")
 
 # ==========================================
-# 🌌 模式一：原本的龍魂雷達系統 (原封不動)
+# 🌌 模式一：原本的龍魂雷達系統 (原封不動 + STRONG)
 # ==========================================
 if operation_mode == "🐉 龍魂神殿雷達系統":
     MEMORY_FILE = "dragon_memory.json"
@@ -166,16 +166,20 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
 
     if st.session_state.page == 'HOME':
         st.markdown("<h1 style='text-align:center;font-size:4rem;margin-top:80px;color:#FFD700;'>🐲 龍魂戰略總部</h1>", unsafe_allow_html=True)
-        c1, c2, c3 = st.columns(3)
+        c1, c2, c3, c4 = st.columns(4)
         if c1.button("🐉 龍魂神殿 (普通掃描)"): 
             st.session_state.page = 'DRAGON'; st.session_state.scan_mode = 'NORMAL'; st.rerun()
         if c2.button("📈 VCP 獵龍 (高勝率模式)"): 
             st.session_state.page = 'DRAGON'; st.session_state.scan_mode = 'VCP'; st.rerun()
         if c3.button("🐢 海龜加注"): 
             st.info("海龜 模式運作中"); st.session_state.page = 'DRAGON'; st.session_state.scan_mode = 'NORMAL'; st.rerun()
+        if c4.button("🔥 強勢股排列"): 
+            st.session_state.page = 'DRAGON'; st.session_state.scan_mode = 'STRONG'; st.rerun()
 
     elif st.session_state.page == 'DRAGON':
-        mode_display = "📈 VCP 高勝率獵龍" if st.session_state.scan_mode == 'VCP' else "🐉 龍魂神殿 5.0 旗艦雷達"
+        if st.session_state.scan_mode == 'STRONG': mode_display = "🔥 強勢股排列 (週線多頭)"
+        elif st.session_state.scan_mode == 'VCP': mode_display = "📈 VCP 高勝率獵龍"
+        else: mode_display = "🐉 龍魂神殿 5.0 旗艦雷達"
         st.markdown(f"<h1 style='text-align:center; color:#00FFCC;'>{mode_display}</h1>", unsafe_allow_html=True)
         
         nav = st.columns(6)
@@ -183,13 +187,18 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
         if nav[1].button("🇭🇰 港股"): st.session_state.target = 'HK'
         if nav[2].button("🇺🇸 美股"): st.session_state.target = 'US'
         if nav[3].button("📦 ETF"): st.session_state.target = 'ETF'
-        if nav[4].button("🔍 個股"): st.session_state.target = 'SINGLE'
+        
+        if st.session_state.scan_mode != 'STRONG':
+            if nav[4].button("🔍 個股"): st.session_state.target = 'SINGLE'
         
         st.markdown("---")
         c_ath, c_btn = st.columns([3, 1])
+        is_ath_mode = False
+        vcp_52w = False
         with c_ath: 
-            is_ath_mode = st.checkbox("🔥 啟動 ATH 歷史新高極致過濾")
-            vcp_52w = st.checkbox("🎯 啟動 MM 原汁原味 52週高位 25% 內過濾")
+            if st.session_state.scan_mode != 'STRONG':
+                is_ath_mode = st.checkbox("🔥 啟動 ATH 歷史新高極致過濾")
+                vcp_52w = st.checkbox("🎯 啟動 MM 原汁原味 52週高位 25% 內過濾")
         
         selected_tickers = []; market_mode = "HK"; btn_radar = False
 
@@ -200,9 +209,9 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
             for i, (f, name) in enumerate(files):
                 if m[i].button(f"選定 {name}"): 
                     st.session_state.active_file = f; st.success(f"✅ 已選定 {f}")
-            with c_btn: btn_radar = st.button("📡 啟動 5.0 雙線雷達", use_container_width=True)
+            with c_btn: btn_radar = st.button("📡 啟動雷達", use_container_width=True)
 
-        elif st.session_state.target == 'SINGLE':
+        elif st.session_state.target == 'SINGLE' and st.session_state.scan_mode != 'STRONG':
             st.write("### 🔍 個股自訂掃描：")
             col1, col2 = st.columns([3, 1])
             with col1: single_t = st.text_input("輸入股票代號 (例: NVDA, 0700.HK, TSLA)", "").upper().strip()
@@ -215,18 +224,18 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
                     else: st.warning("請先輸入代號！")
 
         elif st.session_state.target == 'HK':
-            st.write("### 🇭🇰 港股板塊掃描 (雲端 600 隻實時同步)：")
+            st.write("### 🇭🇰 港股板塊掃描 (包含全星系)：")
             df_hk = fetch_github_list(HK_STOCK_CSV_URL)
             hk_sectors = sorted(df_hk['Sector'].dropna().unique().tolist()) if not df_hk.empty else []
             s_choice = st.selectbox("選擇範圍", ["🌐 啟動全星系大規模搜索"] + hk_sectors)
-            with c_btn: btn_radar = st.button("📡 啟動 5.0 雙線雷達", use_container_width=True)
+            with c_btn: btn_radar = st.button("📡 啟動雷達", use_container_width=True)
 
         elif st.session_state.target == 'ETF':
-            st.write("### 📦 港股/美股 ETF 掃描 (雲端 140 隻實時同步)：")
+            st.write("### 📦 港股/美股 ETF 掃描 (包含全星系)：")
             df_etf = fetch_github_list(HK_ETF_CSV_URL)
             etf_sectors = sorted(df_etf['Sector'].dropna().unique().tolist()) if not df_etf.empty else []
             s_choice = st.selectbox("選擇範圍", ["🌐 啟動全星系大規模搜索 (僅限港股 ETF)"] + etf_sectors + list(US_ETF_MAP.keys()))
-            with c_btn: btn_radar = st.button("📡 啟動 5.0 雙線雷達", use_container_width=True)
+            with c_btn: btn_radar = st.button("📡 啟動雷達", use_container_width=True)
 
         if btn_radar:
             if st.session_state.target == 'SINGLE': market_mode = "US" if not selected_tickers[0][0].endswith(".HK") else "HK"
@@ -259,13 +268,15 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
                         market_mode = "HK"
 
             if selected_tickers:
-                st.info(f"🚀 5.0 引擎掃描中 ({len(selected_tickers)} 隻) | 模式: {st.session_state.scan_mode}...")
+                st.info(f"🚀 引擎掃描中 ({len(selected_tickers)} 隻) | 模式: {st.session_state.scan_mode}...")
                 results = []; sl_list = []; pb = st.progress(0)
                 is_single_mode = (st.session_state.target == 'SINGLE')
                 
                 for i, (t, sec) in enumerate(selected_tickers):
                     pb.progress((i+1)/len(selected_tickers))
-                    df = smart_fetch(t)
+                    # 💡 若是 STRONG 模式，必須拉長至 5y 來計算 200周線(1000天線)
+                    fetch_period = "5y" if st.session_state.scan_mode == 'STRONG' else "2y"
+                    df = smart_fetch(t, period=fetch_period)
                     if not df.empty:
                         if is_ath_mode and (df['Close'].iloc[-1] / df['High'].tail(252).max()) < 0.93: 
                             if not is_single_mode: continue
@@ -377,7 +388,7 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
                             showlegend=False, hovermode='x unified',
                             dragmode=False,
                             xaxis_rangeslider_visible=False,
-                            xaxis6=dict(overlaying='x1', anchor='y1', side='top', range=[0, max_c*1.1], showgrid=False, showticklabels=False), 
+                            xaxis6=dict(overlaying='x1', anchor='y1', side='top', range=[0, max_c*1.5], showgrid=False, showticklabels=False), 
                             xaxis=dict(type='category', showticklabels=False), xaxis5=dict(type='category', title="日期")
                         )
                         st.plotly_chart(fig, use_container_width=True, theme=None, config={'displayModeBar': True})
