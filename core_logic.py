@@ -252,7 +252,7 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
     if bias > limit:
         if mode == 'NORMAL':
             core_p += 25; bias_p = 50 + (bias - limit) * 10
-        elif mode == 'VCP': 
+        elif mode in ['VCP', 'STRONG']: 
             score -= 40 
     elif mode == 'VCP' and bias > 8: score -= 40
     
