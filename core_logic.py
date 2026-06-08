@@ -6,7 +6,7 @@ import json
 import os
 from datetime import datetime
 
-# 👴 爺爺微調：為咗計到 200周線(1000天)，預設抓取 5 年數據
+# 👴 為咗計到 200周線(1000天)，預設抓取 5 年數據
 def smart_fetch(ticker_sym, period="5y"):
     try:
         time.sleep(0.2); asset = yf.Ticker(ticker_sym)
@@ -31,16 +31,17 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
     c = df['Close']; h = df['High']; l = df['Low']; o = df['Open']; v = df['Volume']
     curr_p = c.iloc[-1]; pct = c.pct_change().fillna(0); change = pct * 100
     ma20_v = v.rolling(20).mean(); ma60_v = v.rolling(60).mean(); ma50 = c.rolling(50).mean()
-    v_std20 = v.rolling(20).std(); v_upper = ma20_v + (2.0 * v_std20)
-    ema10 = c.ewm(span=10, adjust=False).mean()
-    ema20 = c.ewm(span=20, adjust=False).mean()
-
-    # 👴 爺爺無痕加入：為 STRONG 模式準備長線 MA (對應週線)
+    
+    # 👴 為 STRONG 模式準備長線 MA (對應週線)
     ma100 = c.rolling(100).mean()
     ma250 = c.rolling(250).mean()
     ma500 = c.rolling(500).mean()
     ma1000 = c.rolling(1000).mean()
     ma50_v = v.rolling(50).mean()
+    
+    v_std20 = v.rolling(20).std(); v_upper = ma20_v + (2.0 * v_std20)
+    ema10 = c.ewm(span=10, adjust=False).mean()
+    ema20 = c.ewm(span=20, adjust=False).mean()
     
     var1 = c - l; var2 = h - c; var3 = np.maximum(h - l, 0.001)
     buyvol = v * var1 / var3; sellvol = v * var2 / var3; netvol = buyvol - sellvol
@@ -138,7 +139,7 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
     stage_2_signal = thrust_3_inc & pruden_break.rolling(14).max().fillna(0).astype(bool)
 
     # =======================================================
-    # 🚨 第一層：7大禁示 + 死線判定
+    # 🚨 第一層：7大禁示 + 死線判定 (共通)
     # =======================================================
     foul_points = 0; foul_list = []
     if is_magenta.tail(20).any(): foul_points += 10; foul_list.append("犯1(-10)")
@@ -167,8 +168,6 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
         else: obv_state = 7 if obv_pct > 50 else 8
 
     is_dead = False; death_reason = ""
-    
-    # 👴 爺爺保護罩：STRONG模式跳過普通死線審判
     if mode != 'STRONG':
         if curr_p <= ma50.iloc[-1]: is_dead = True; death_reason = "跌穿50天線"
         elif is_magenta.iloc[-1]: is_dead = True; death_reason = "今日粉紅爆缸"
@@ -186,7 +185,7 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
         if is_dead and not force_return: return None
 
     # =======================================================
-    # 🏆 核心計分系統 (包含 STRONG 模式)
+    # 🏆 核心計分系統 (防漏隔離版)
     # =======================================================
     bonus_list = []; core_p = 0; bias_p = 0
     is_vcp_trend = False; is_vcp_burst_7d = False
@@ -204,64 +203,60 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
             score += 20; bonus_list.append("VCP強勢🔥(+20)")
             
     elif mode == 'STRONG':
-        if len(c) < 1000: return None # 數據不足計 200周線(1000天)
+        if len(c) < 1000: return None 
         
-        # 海選：5 條週線多頭排列
+        # 核心海選：5 條週線多頭排列
         aligned = (ma50 > ma100) & (ma100 > ma250) & (ma250 > ma500) & (ma500 > ma1000)
         if not aligned.iloc[-1]: return None
         
-        score = 100.0 # 海選過關底分
+        score = 100.0 # 底分
         
-        # 1. 初排順頭 8 天
         if not aligned.iloc[-9:-1].all():
             score += 30; bonus_list.append("初排順🎖️(+30)")
             
-        # 2. 10天升穿20天回復強勢(頭4天)
         cross_10_20 = (ema10 > ema20) & (ema10.shift(1) <= ema20.shift(1))
         if cross_10_20.tail(4).any() and curr_p > ema20.iloc[-1]:
             score += 30; bonus_list.append("10MA金叉🏹(+30)")
             
-        # 3. 20天升穿50天強勢回升(頭5天)
         cross_20_50 = (ema20 > ma50) & (ema20.shift(1) <= ma50.shift(1))
         if cross_20_50.tail(5).any() and curr_p > ma50.iloc[-1]:
             score += 30; bonus_list.append("20MA金叉💥(+30)")
             
-        # 4. VCP末端極致縮量窒息圈
         volatility = (h - l) / l * 100
         if (volatility.tail(5) <= 1.5).all() and (v.iloc[-1] < ma50_v.iloc[-1] * 0.6):
             score += 30; bonus_list.append("極致縮量😎(+30)")
             
-        # 5. 中期生命線精準試底回測已成功
         was_below = ((c < ema10) & (c < ema20) & ((l <= ma50 * 1.02) | (l <= ma100 * 1.02))).tail(20).any()
         is_above_now = (curr_p > ema10.iloc[-1]) and (curr_p > ema20.iloc[-1])
         if was_below and is_above_now:
             score += 30; bonus_list.append("試底成功🧱(+30)")
             
-    else:
+    else: # 👴 完美隔離：普通模式專用計分，絕對唔會亂入 STRONG 模式！
         score = 100.0 
+        if is_secret_bonus.iloc[-1]: score += 20; bonus_list.append("秘法起步🏎️(+20)")
+        if airplane_crash.iloc[-1]: core_p += 50; foul_list.append("高位墜機🛬(-50)")
+        if is_rebound_active: score += 10; bonus_list.append("回升(+10)")
+        if is_weak_active: core_p += 60; foul_list.append("弱勢(-60)")
+        if ttm_2_active.iloc[-1]: score += 15; bonus_list.append("TTM🚀(+15)")
 
-    if is_secret_bonus.iloc[-1]: score += 20; bonus_list.append("秘法起步🏎️(+20)")
-    if airplane_crash.iloc[-1]: core_p += 50; foul_list.append("高位墜機🛬(-50)")
-    if is_rebound_active: score += 10; bonus_list.append("回升(+10)")
-    if is_weak_active: core_p += 60; foul_list.append("弱勢(-60)")
-    if ttm_2_active.iloc[-1]: score += 15; bonus_list.append("TTM🚀(+15)")
-
-    if stage_2_signal.tail(4).any(): score += 30; bonus_list.append("第二階段 ♂(+30)")
-    if se_val >= 90.0: score += 5; bonus_list.append("動能(+5)")
-    if (buyvol.iloc[-1] / (sellvol.iloc[-1] if sellvol.iloc[-1]>0 else 0.1)) > 1.5: score += 5; bonus_list.append("兵力(+5)")
-    if obv_state in [1, 7]: score += 10; bonus_list.append("OBV(+10)")
-    total_v60 = max(v.tail(60).sum(), 1)
-    if netvol.tail(60).sum() > (total_v60 * 0.12): score += 5; bonus_list.append("穩定流入(+5)") 
-    if rs_val >= 92.0: score += 5; bonus_list.append("RS(+5)")
-    if curr_p >= h.tail(60).max(): score += 5; bonus_list.append("破頂(+5)")
+        if stage_2_signal.tail(4).any(): score += 30; bonus_list.append("第二階段 ♂(+30)")
+        if se_val >= 90.0: score += 5; bonus_list.append("動能(+5)")
+        if (buyvol.iloc[-1] / (sellvol.iloc[-1] if sellvol.iloc[-1]>0 else 0.1)) > 1.5: score += 5; bonus_list.append("兵力(+5)")
+        if obv_state in [1, 7]: score += 10; bonus_list.append("OBV(+10)")
+        total_v60 = max(v.tail(60).sum(), 1)
+        if netvol.tail(60).sum() > (total_v60 * 0.12): score += 5; bonus_list.append("穩定流入(+5)") 
+        if rs_val >= 92.0: score += 5; bonus_list.append("RS(+5)")
+        if curr_p >= h.tail(60).max(): score += 5; bonus_list.append("破頂(+5)")
 
     limit = 10 if market == "HK" else 5
     if bias > limit:
-        core_p += 25; bias_p = 50 + (bias - limit) * 10
-        if mode in ['VCP', 'STRONG']: score -= 40 
+        if mode == 'NORMAL':
+            core_p += 25; bias_p = 50 + (bias - limit) * 10
+        elif mode == 'VCP': 
+            score -= 40 
     elif mode == 'VCP' and bias > 8: score -= 40
     
-    if mode not in ['VCP', 'STRONG']: 
+    if mode == 'NORMAL': 
         if netvol.tail(60).sum() < 0: core_p += 30
         if v.iloc[-1] > ma60_v.iloc[-1] * 2.5: core_p += 20
         if (var2.iloc[-1] / var3.iloc[-1]) > 0.5: core_p += 15
@@ -301,8 +296,9 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
     is_breakout_yest = (c.iloc[-2] > a_point_yest) and (c.iloc[-3] <= a_point_yest)
     
     if is_breakout_today or is_breakout_yest:
-        score += 20
-        bonus_list.append("N字突破🪃(+20)")
+        if mode != 'STRONG':
+            score += 20
+            bonus_list.append("N字突破🪃(+20)")
         hidden_icons.append("🪃")
 
     # =======================================================
@@ -316,10 +312,11 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
     elif mode == 'STRONG':
         status_prefix = "👑 [5條週線排順] "
 
-    final_score = score - core_p - bias_p - foul_points
+    # STRONG 模式只受家法(foul_points)扣分影響
+    final_score = score - foul_points if mode == 'STRONG' else score - core_p - bias_p - foul_points
     icons_final = " ".join(hidden_icons)
     display_info = bonus_list + foul_list
-    if display_info: icons_final += " | 🎖️" + ",".join(display_info)
+    if display_info: icons_final += " | " + ",".join(display_info)
     
     if mode == 'STRONG':
         base_status = ""
@@ -328,7 +325,8 @@ def scan_dragon_logic(df, ticker, sector_name, market="HK", mode='NORMAL', force
 
     return {
         "Ticker": ticker, "Sector": sector_name, "Score": round(final_score, 1), 
-        "RawPower": round(ej_val, 1), "Penalty": round(core_p + bias_p + foul_points, 1),
+        "RawPower": round(ej_val, 1), 
+        "Penalty": round(foul_points if mode == 'STRONG' else core_p + bias_p + foul_points, 1),
         "RS": round(rs_val, 1),
         "EJ": round(current_power, 3), 
         "SE": round(se_val, 1),
