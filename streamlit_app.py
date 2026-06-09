@@ -8,7 +8,6 @@ from core_logic import scan_dragon_logic, smart_fetch, check_stop_loss
 import time
 import os
 import json
-import concurrent.futures  # 🏎️ 引入黃金 3 缸引擎
 
 # 💡 Streamlit 規定：set_page_config 必須作為全程式第一個運行的 Streamlit 指令
 st.set_page_config(page_title="龍魂神殿 5.0", layout="wide")
@@ -308,9 +307,9 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
                         market_mode = "HK"
 
             if selected_tickers:
-                st.info(f"🚀 黃金 3 缸引擎啟動中 ({len(selected_tickers)} 隻) | 模式: {st.session_state.run_mode}...")
+                st.info(f"🚀 經典單線程引擎穩陣啟動中 ({len(selected_tickers)} 隻) | 模式: {st.session_state.run_mode}...")
                 
-                # 👴 視覺提速器：實時跳動，等你知佢有做嘢！
+                # 👴 爺爺的「視覺提速器」：加一個實時文字框，等你知道佢係度努力做緊嘢，冇死機！
                 status_text = st.empty()
                 pb = st.progress(0)
                 
@@ -318,34 +317,20 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
                 is_single_mode = (st.session_state.target == 'SINGLE')
                 fetch_period = "5y" if st.session_state.run_mode == 'STRONG_WEEKLY' else "2y"
                 
-                # 👴 單隻股票獨立處理函數
-                def process_ticker(item):
-                    t, sec = item
-                    df = smart_fetch(t, period=fetch_period)
-                    if df.empty: return None, None, t
-                    if is_ath_mode and (df['Close'].iloc[-1] / df['High'].tail(252).max()) < 0.93: 
-                        if not is_single_mode: return None, None, t
+                # 👴 絕對安全、永不死機嘅「經典單線程」掃描迴圈
+                for i, (t, sec) in enumerate(selected_tickers):
+                    # 實時更新畫面進度同埋跳動文字
+                    pb.progress((i+1)/len(selected_tickers))
+                    status_text.markdown(f"**📡 經典單線程實時分析中:** `{t}` ({i+1}/{len(selected_tickers)})")
                     
-                    is_sl = t if check_stop_loss(df) else None
-                    res = scan_dragon_logic(df, t, sec, market_mode, mode=st.session_state.run_mode, force_return=is_single_mode, vcp_52w=vcp_52w, vcp_ath=is_ath_mode)
-                    return res, is_sl, t
-
-                # 🏎️ 啟動「黃金 3 缸」安全並行處理！(max_workers=3 防斷線)
-                completed = 0
-                total_t = len(selected_tickers)
-                with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
-                    futures = {executor.submit(process_ticker, item): item for item in selected_tickers}
-                    for future in concurrent.futures.as_completed(futures):
-                        completed += 1
-                        res, sl_t, processed_t = future.result()
+                    df = smart_fetch(t, period=fetch_period)
+                    if not df.empty:
+                        if is_ath_mode and (df['Close'].iloc[-1] / df['High'].tail(252).max()) < 0.93: 
+                            if not is_single_mode: continue
+                        if check_stop_loss(df): sl_list.append(t)
                         
-                        # 實時更新畫面進度同埋跳動文字
-                        status_text.markdown(f"**📡 黃金3缸引擎 實時分析中:** `{processed_t}` ({completed}/{total_t})")
-                        if completed % 2 == 0 or completed == total_t:
-                            pb.progress(completed / total_t)
-                        
+                        res = scan_dragon_logic(df, t, sec, market_mode, mode=st.session_state.run_mode, force_return=is_single_mode, vcp_52w=vcp_52w, vcp_ath=is_ath_mode)
                         if res: results.append(res)
-                        if sl_t: sl_list.append(sl_t)
                 
                 pb.empty()
                 status_text.empty()
@@ -372,7 +357,7 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
 
                     if is_single_mode: st.session_state.force_chart_ticker = selected_tickers[0][0]
                     
-                    st.success("✅ 黃金3缸極速掃描完成！結果已自動封裝入記憶體，唔會再消失！")
+                    st.success("✅ 穩定掃描完成！結果已自動封裝入記憶體，唔會再消失！")
                     time.sleep(0.5)
                     st.rerun() 
                 else: 
