@@ -1,9 +1,9 @@
-import streamlit as st 
-import yfinance as yf 
-import pandas as pd 
-import numpy as np 
-import plotly.graph_objects as go 
-from plotly.subplots import make_subplots 
+import streamlit as st
+import yfinance as yf
+import pandas as pd
+import numpy as np
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 from core_logic import scan_dragon_logic, smart_fetch, check_stop_loss
 import time
 import os
@@ -12,13 +12,19 @@ import json
 # 💡 Streamlit 規定：set_page_config 必須作為全程式第一個運行的 Streamlit 指令
 st.set_page_config(page_title="龍魂神殿 5.0", layout="wide")
 
+# 🛡️ 爺爺終極防護罩：把所有基礎變數鎖在全程式最頂端，保證網頁怎麼重整都不會報錯！
+if 'page' not in st.session_state: st.session_state.page = 'HOME'
+if 'target' not in st.session_state: st.session_state.target = 'NONE'
+if 'scan_mode' not in st.session_state: st.session_state.scan_mode = 'NORMAL'
+if 'run_mode' not in st.session_state: st.session_state.run_mode = 'NORMAL'
+
 # ==========================================
 # 🌐 全局共享名單及字典 (供雷達與龍虎榜共同讀取)
 # ==========================================
 HK_STOCK_CSV_URL = "https://raw.githubusercontent.com/fukyanchiang/my-cosmos-vision/refs/heads/main/hk_stock.csv"
 HK_ETF_CSV_URL = "https://raw.githubusercontent.com/fukyanchiang/my-cosmos-vision/refs/heads/main/hk_etf.csv"
 
-@st.cache_data(ttl=3600) 
+@st.cache_data(ttl=3600)
 def fetch_github_list(url):
     try:
         df = pd.read_csv(url)
@@ -160,11 +166,6 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
         change_colors = ['#00FF00' if val >= 0 else '#FF0000' for val in daily_change]
         fig.add_trace(go.Bar(x=dates_chart, y=daily_change, marker_color=change_colors, name='日波幅%'), row=row_start+2, col=1)
 
-    if 'page' not in st.session_state: st.session_state.page = 'HOME'
-    if 'target' not in st.session_state: st.session_state.target = 'NONE'
-    if 'scan_mode' not in st.session_state: st.session_state.scan_mode = 'NORMAL'
-    if 'run_mode' not in st.session_state: st.session_state.run_mode = 'NORMAL'
-
     # 👴 爺爺防漏隔離：一撳首頁任何模式，立刻清空殘留記憶
     if st.session_state.page == 'HOME':
         st.markdown("<h1 style='text-align:center;font-size:4rem;margin-top:80px;color:#FFD700;'>🐲 龍魂戰略總部</h1>", unsafe_allow_html=True)
@@ -220,7 +221,7 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
                     if btn_w: btn_radar = True; st.session_state.run_mode = 'STRONG_WEEKLY'
                     if btn_d: btn_radar = True; st.session_state.run_mode = 'STRONG_DAILY'
                 else:
-                    if st.button("📡 啟動雷達", use_container_width=True): 
+                    if st.button("📡 啟猛雷達", use_container_width=True): 
                         btn_radar = True; st.session_state.run_mode = st.session_state.scan_mode
 
         elif st.session_state.target == 'SINGLE':
@@ -456,16 +457,3 @@ elif operation_mode == "📊 究極資產拔河龍虎榜":
                 <li><b>🟢 ▲ :</b> 排名大幅急升，大戶正在瘋狂搶入！（美股戰區≥50位，港股戰區≥30位）</li>
                 <li><b>🔵 ▼ :</b> 排名大幅下跌（下跌 ≥ 30名），資金正在撤離，萬人坑勿近！</li>
                 <li><b>🦅 :</b> 長線王者！代表該股處於全市場 200 日長線回報嘅前 10%！</li>
-            </ul>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    st.info("💡 龍虎榜功能模組已就緒。")
-
-# ==========================================
-# 💰 模式三：大戶資金流透視 (福德金字塔)
-# ==========================================
-elif operation_mode == "💰 大戶資金流透視 (福德金字塔)":
-    st.markdown("<h1 style='text-align:center; color:#FFD700;'>💰 大戶資金流透視 (福德金字塔)</h1>", unsafe_allow_html=True)
-    st.write("---")
-    st.info("💡 福德金字塔功能模組已就緒。")
