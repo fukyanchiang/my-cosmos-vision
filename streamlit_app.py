@@ -13,14 +13,6 @@ import json
 st.set_page_config(page_title="龍魂神殿 5.0", layout="wide")
 
 # ==========================================
-# 🛡️ 爺爺全域安全鎖：將所有狀態初始化搬登最頂，確保 100% 唔會彈 AttributeError
-# ==========================================
-if 'page' not in st.session_state: st.session_state.page = 'HOME'
-if 'target' not in st.session_state: st.session_state.target = 'NONE'
-if 'scan_mode' not in st.session_state: st.session_state.scan_mode = 'NORMAL'
-if 'run_mode' not in st.session_state: st.session_state.run_mode = 'NORMAL'
-
-# ==========================================
 # 🌐 全局共享名單及字典 (供雷達與龍虎榜共同讀取)
 # ==========================================
 HK_STOCK_CSV_URL = "https://raw.githubusercontent.com/fukyanchiang/my-cosmos-vision/refs/heads/main/hk_stock.csv"
@@ -167,6 +159,11 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
         daily_change = df['Close'].pct_change() * 100
         change_colors = ['#00FF00' if val >= 0 else '#FF0000' for val in daily_change]
         fig.add_trace(go.Bar(x=dates_chart, y=daily_change, marker_color=change_colors, name='日波幅%'), row=row_start+2, col=1)
+
+    if 'page' not in st.session_state: st.session_state.page = 'HOME'
+    if 'target' not in st.session_state: st.session_state.target = 'NONE'
+    if 'scan_mode' not in st.session_state: st.session_state.scan_mode = 'NORMAL'
+    if 'run_mode' not in st.session_state: st.session_state.run_mode = 'NORMAL'
 
     # 👴 爺爺防漏隔離：一撳首頁任何模式，立刻清空殘留記憶
     if st.session_state.page == 'HOME':
@@ -316,7 +313,7 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
                 
                 for i, (t, sec) in enumerate(selected_tickers):
                     pb.progress((i+1)/len(selected_tickers))
-                    # 👴 智能時窗：如果係 WEEKLY 模式一物要用 5 年數據計 200周線！
+                    # 👴 智能時窗：如果係 WEEKLY 模式一定要用 5 年數據計 200周線！
                     fetch_period = "5y" if st.session_state.run_mode == 'STRONG_WEEKLY' else "2y"
                     df = smart_fetch(t, period=fetch_period)
                     if not df.empty:
@@ -458,8 +455,17 @@ elif operation_mode == "📊 究極資產拔河龍虎榜":
             <ul style='color:#ccc; list-style-type: none; padding-left: 0;'>
                 <li><b>🟢 ▲ :</b> 排名大幅急升，大戶正在瘋狂搶入！（美股戰區≥50位，港股戰區≥30位）</li>
                 <li><b>🔵 ▼ :</b> 排名大幅下跌（下跌 ≥ 30名），資金正在撤離，萬人坑勿近！</li>
+                <li><b>🦅 :</b> 長線王者！代表該股處於全市場 200 日長線回報嘅前 10%！</li>
             </ul>
         </div>
         """, unsafe_allow_html=True)
     
-    st.write("ℹ️ 龍虎榜與大戶資金流核心模組已成功與 `core_logic.py` 完成動態綁定。")
+    st.info("💡 龍虎榜功能模組已就緒。")
+
+# ==========================================
+# 💰 模式三：大戶資金流透視 (福德金字塔)
+# ==========================================
+elif operation_mode == "💰 大戶資金流透視 (福德金字塔)":
+    st.markdown("<h1 style='text-align:center; color:#FFD700;'>💰 大戶資金流透視 (福德金字塔)</h1>", unsafe_allow_html=True)
+    st.write("---")
+    st.info("💡 福德金字塔功能模組已就緒。")
