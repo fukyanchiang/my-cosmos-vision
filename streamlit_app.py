@@ -8,8 +8,6 @@ from core_logic import scan_dragon_logic, smart_fetch, check_stop_loss
 import time
 import os
 import json
-import concurrent.futures
-import random # 👴 爺爺新加：用來製造「錯開起步」防抄牌
 
 # 💡 Streamlit 規定：set_page_config 必須作為全程式第一個運行的 Streamlit 指令
 st.set_page_config(page_title="龍魂神殿 5.0", layout="wide")
@@ -308,8 +306,9 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
                         market_mode = "HK"
 
             if selected_tickers:
-                st.info(f"🚀 黃金 2 缸引擎啟動中 ({len(selected_tickers)} 隻) | 模式: {st.session_state.run_mode}...")
+                st.info(f"🚀 啟動極致穩定雷達 ({len(selected_tickers)} 隻) | 模式: {st.session_state.run_mode}...")
                 
+                # 👴 爺爺的「視覺提速器」：加一個實時文字框，等你知道佢係度努力做緊嘢，冇死機！
                 status_text = st.empty()
                 pb = st.progress(0)
                 
@@ -317,36 +316,20 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
                 is_single_mode = (st.session_state.target == 'SINGLE')
                 fetch_period = "5y" if st.session_state.run_mode == 'STRONG_WEEKLY' else "2y"
                 
-                # 👴 單個任務處理
-                def process_ticker(item):
-                    t, sec = item
-                    # 👴 爺爺防抄牌秘技：起步窒一窒，扮真人！錯開起步時間 0.1 到 0.6 秒
-                    time.sleep(random.uniform(0.1, 0.6))
-                    df = smart_fetch(t, period=fetch_period)
-                    if df.empty: return None, None, t
-                    if is_ath_mode and (df['Close'].iloc[-1] / df['High'].tail(252).max()) < 0.93: 
-                        if not is_single_mode: return None, None, t
+                # 👴 絕對安全、永不死機嘅「經典單線程」掃描迴圈
+                for i, (t, sec) in enumerate(selected_tickers):
+                    # 實時更新畫面進度同埋跳動文字
+                    pb.progress((i+1)/len(selected_tickers))
+                    status_text.markdown(f"**📡 正在實時分析:** `{t}` ({i+1}/{len(selected_tickers)})")
                     
-                    is_sl = t if check_stop_loss(df) else None
-                    res = scan_dragon_logic(df, t, sec, market_mode, mode=st.session_state.run_mode, force_return=is_single_mode, vcp_52w=vcp_52w, vcp_ath=is_ath_mode)
-                    return res, is_sl, t
-
-                # 🏎️ 啟動「黃金 2 缸」！(max_workers=2，速度倍增且安全)
-                completed = 0
-                total_t = len(selected_tickers)
-                with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
-                    futures = {executor.submit(process_ticker, item): item for item in selected_tickers}
-                    for future in concurrent.futures.as_completed(futures):
-                        completed += 1
-                        res, sl_t, processed_t = future.result()
+                    df = smart_fetch(t, period=fetch_period)
+                    if not df.empty:
+                        if is_ath_mode and (df['Close'].iloc[-1] / df['High'].tail(252).max()) < 0.93: 
+                            if not is_single_mode: continue
+                        if check_stop_loss(df): sl_list.append(t)
                         
-                        # 視覺提速：實時跳動文字
-                        status_text.markdown(f"**📡 黃金2缸引擎 實時分析中:** `{processed_t}` ({completed}/{total_t})")
-                        if completed % 2 == 0 or completed == total_t:
-                            pb.progress(completed / total_t)
-                        
+                        res = scan_dragon_logic(df, t, sec, market_mode, mode=st.session_state.run_mode, force_return=is_single_mode, vcp_52w=vcp_52w, vcp_ath=is_ath_mode)
                         if res: results.append(res)
-                        if sl_t: sl_list.append(sl_t)
                 
                 pb.empty()
                 status_text.empty()
@@ -373,7 +356,7 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
 
                     if is_single_mode: st.session_state.force_chart_ticker = selected_tickers[0][0]
                     
-                    st.success("✅ 黃金2缸極速掃描完成！結果已自動封裝入記憶體，唔會再消失！")
+                    st.success("✅ 穩定掃描完成！結果已自動封裝入記憶體，唔會再消失！")
                     time.sleep(0.5)
                     st.rerun() 
                 else: 
@@ -384,6 +367,7 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
                 st.markdown(f"<div class='bear-warning'>🛡️ 戰損置頂: {' | '.join(st.session_state.sl_list)} 跌穿 10-EMA！</div>", unsafe_allow_html=True)
             
             st.write("---")
+            # 👴 完美並排加入雙重戰術過濾閘門
             col_f1, col_f2 = st.columns([1, 1])
             with col_f1: show_n_shape_only = st.toggle("🔍 只顯示 🪃 N字突破 (今日/昨日剛破頂)")
             with col_f2: show_n_test_only = st.toggle("🔍 只顯示 🎯 N字回測成功 (回踩關鍵位企穩)")
@@ -436,6 +420,7 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
                         stop_loss = hvn_p * 0.985
                         fig.add_hline(y=stop_loss, line_dash="solid", line_color="#FF4B4B", annotation_text=f"🛑 重貨止損: ${stop_loss:.2f}", annotation_position="bottom right", annotation_font=dict(color="white", size=13), row=1, col=1)
                         
+                        # 完美修復重貨區：唔加 row/col，指定 xaxis6，完美長短不一
                         fig.add_trace(go.Bar(y=(bins[:-1]+bins[1:])/2, x=counts, orientation='h', marker_color='rgba(136,136,136,0.4)', name='重貨區', hoverinfo='skip', xaxis='x6', yaxis='y1'))
 
                         v_colors = ['#00FF00' if df_c['Close'].iloc[i] >= df_c['Open'].iloc[i] else '#FF0000' for i in range(len(df_c))]
@@ -470,6 +455,7 @@ elif operation_mode == "📊 究極資產拔河龍虎榜":
     st.markdown("<p style='text-align:center; color:#888;'>動態監控大戶資金移防，自動派發 19+2 大情報公仔 🦅🔋⚔️⚡</p>", unsafe_allow_html=True)
     st.write("---")
 
+    # 👑 爺爺完美更新：全新大滿貫 19+2 家傳秘笈說明書表格
     with st.expander("📖 爺爺的全公仔情報大滿貫說明書 (按此展開睇秘笈)", expanded=False):
         st.markdown("""
         <div style='background-color:#111111; padding: 20px; border-radius: 12px; border: 1px solid #333; line-height:1.8;'>
