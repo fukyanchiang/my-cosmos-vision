@@ -8,7 +8,6 @@ from core_logic import scan_dragon_logic, smart_fetch, check_stop_loss
 import time
 import os
 import json
-import concurrent.futures  # 🏎️ 引入引擎
 
 # 💡 Streamlit 規定：set_page_config 必須作為全程式第一個運行的 Streamlit 指令
 st.set_page_config(page_title="龍魂神殿 5.0", layout="wide")
@@ -221,7 +220,7 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
                     if btn_w: btn_radar = True; st.session_state.run_mode = 'STRONG_WEEKLY'
                     if btn_d: btn_radar = True; st.session_state.run_mode = 'STRONG_DAILY'
                 else:
-                    if st.button("📡 啟勃雷達", use_container_width=True): 
+                    if st.button("📡 啟動雷達", use_container_width=True): 
                         btn_radar = True; st.session_state.run_mode = st.session_state.scan_mode
 
         elif st.session_state.target == 'SINGLE':
@@ -308,39 +307,33 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
                         market_mode = "HK"
 
             if selected_tickers:
-                st.info(f"🚀 黃金 4 缸引擎啟動中 ({len(selected_tickers)} 隻) | 模式: {st.session_state.run_mode}...")
-                results = []; sl_list = []; pb = st.progress(0)
+                st.info(f"🚀 啟動極致穩定雷達 ({len(selected_tickers)} 隻) | 模式: {st.session_state.run_mode}...")
+                
+                # 👴 爺爺的「視覺提速器」：加一個實時文字框，等你知道佢係度努力做緊嘢，冇死機！
+                status_text = st.empty()
+                pb = st.progress(0)
+                
+                results = []; sl_list = []
                 is_single_mode = (st.session_state.target == 'SINGLE')
                 fetch_period = "5y" if st.session_state.run_mode == 'STRONG_WEEKLY' else "2y"
                 
-                # 👴 獨立處理函數
-                def process_ticker(item):
-                    t, sec = item
-                    df = smart_fetch(t, period=fetch_period)
-                    if df.empty: return None, None
-                    if is_ath_mode and (df['Close'].iloc[-1] / df['High'].tail(252).max()) < 0.93: 
-                        if not is_single_mode: return None, None
+                # 👴 絕對安全、永不死機嘅「經典單線程」掃描迴圈
+                for i, (t, sec) in enumerate(selected_tickers):
+                    # 實時更新畫面進度同埋跳動文字
+                    pb.progress((i+1)/len(selected_tickers))
+                    status_text.markdown(f"**📡 正在實時分析:** `{t}` ({i+1}/{len(selected_tickers)})")
                     
-                    is_sl = t if check_stop_loss(df) else None
-                    res = scan_dragon_logic(df, t, sec, market_mode, mode=st.session_state.run_mode, force_return=is_single_mode, vcp_52w=vcp_52w, vcp_ath=is_ath_mode)
-                    return res, is_sl
-
-                # 🏎️ 啟動「黃金 4 缸」安全並行處理！(max_workers=4 防斷線)
-                completed = 0
-                total_t = len(selected_tickers)
-                with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
-                    futures = {executor.submit(process_ticker, item): item for item in selected_tickers}
-                    for future in concurrent.futures.as_completed(futures):
-                        completed += 1
-                        # 每掃完 3 隻先刷新一次畫面，令速度極大化！
-                        if completed % 3 == 0 or completed == total_t:
-                            pb.progress(completed / total_t)
+                    df = smart_fetch(t, period=fetch_period)
+                    if not df.empty:
+                        if is_ath_mode and (df['Close'].iloc[-1] / df['High'].tail(252).max()) < 0.93: 
+                            if not is_single_mode: continue
+                        if check_stop_loss(df): sl_list.append(t)
                         
-                        res, sl_t = future.result()
+                        res = scan_dragon_logic(df, t, sec, market_mode, mode=st.session_state.run_mode, force_return=is_single_mode, vcp_52w=vcp_52w, vcp_ath=is_ath_mode)
                         if res: results.append(res)
-                        if sl_t: sl_list.append(sl_t)
                 
                 pb.empty()
+                status_text.empty()
                 
                 if results:
                     sector_counts = {}
@@ -364,7 +357,7 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
 
                     if is_single_mode: st.session_state.force_chart_ticker = selected_tickers[0][0]
                     
-                    st.success("✅ 光速掃描完成！結果已自動封裝入記憶體，唔會再消失！")
+                    st.success("✅ 穩定掃描完成！結果已自動封裝入記憶體，唔會再消失！")
                     time.sleep(0.5)
                     st.rerun() 
                 else: 
@@ -475,7 +468,7 @@ elif operation_mode == "📊 究極資產拔河龍虎榜":
                 <li><b>[1.5x 🔋] :</b> 動能增加，成交量大過平時 1.5 倍，主力引擎開始熱。</li>
                 <li><b>[3.0x 🔋🔋] :</b> 極致爆量！成交量大過平時 3 倍，大戶準備強力噴射！</li>
             </ul>
-            <h3 style='color:#00FFCC;'>⚡ 價格異動與極短線行為（Price Action）</h3>
+            <h3 style='color:#00FFCC;'>⚡ 價格異提與極短線行為（Price Action）</h3>
             <ul style='color:#ccc; list-style-type: none; padding-left: 0;'>
                 <li><b>⚔️ [準破頂] :</b> 價格距離 52 週最高位不到 3%，隨時發動 N 字突破爆上！</li>
                 <li><b>🔥 [連續強勢] :</b> 排名比前兩日持續進步，資金熱度爆燈！</li>
