@@ -1,9 +1,9 @@
-import streamlit as st
-import yfinance as yf
-import pandas as pd
-import numpy as np
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
+import streamlit as st 
+import yfinance as yf 
+import pandas as pd 
+import numpy as np 
+import plotly.graph_objects as go 
+from plotly.subplots import make_subplots 
 from core_logic import scan_dragon_logic, smart_fetch, check_stop_loss
 import time
 import os
@@ -12,19 +12,13 @@ import json
 # 💡 Streamlit 規定：set_page_config 必須作為全程式第一個運行的 Streamlit 指令
 st.set_page_config(page_title="龍魂神殿 5.0", layout="wide")
 
-# 🛡️ 爺爺終極防護罩：把所有基礎變數鎖在全程式最頂端，保證網頁怎麼重整都不會報錯！
-if 'page' not in st.session_state: st.session_state.page = 'HOME'
-if 'target' not in st.session_state: st.session_state.target = 'NONE'
-if 'scan_mode' not in st.session_state: st.session_state.scan_mode = 'NORMAL'
-if 'run_mode' not in st.session_state: st.session_state.run_mode = 'NORMAL'
-
 # ==========================================
 # 🌐 全局共享名單及字典 (供雷達與龍虎榜共同讀取)
 # ==========================================
 HK_STOCK_CSV_URL = "https://raw.githubusercontent.com/fukyanchiang/my-cosmos-vision/refs/heads/main/hk_stock.csv"
 HK_ETF_CSV_URL = "https://raw.githubusercontent.com/fukyanchiang/my-cosmos-vision/refs/heads/main/hk_etf.csv"
 
-@st.cache_data(ttl=3600)
+@st.cache_data(ttl=3600) 
 def fetch_github_list(url):
     try:
         df = pd.read_csv(url)
@@ -166,6 +160,11 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
         change_colors = ['#00FF00' if val >= 0 else '#FF0000' for val in daily_change]
         fig.add_trace(go.Bar(x=dates_chart, y=daily_change, marker_color=change_colors, name='日波幅%'), row=row_start+2, col=1)
 
+    if 'page' not in st.session_state: st.session_state.page = 'HOME'
+    if 'target' not in st.session_state: st.session_state.target = 'NONE'
+    if 'scan_mode' not in st.session_state: st.session_state.scan_mode = 'NORMAL'
+    if 'run_mode' not in st.session_state: st.session_state.run_mode = 'NORMAL'
+
     # 👴 爺爺防漏隔離：一撳首頁任何模式，立刻清空殘留記憶
     if st.session_state.page == 'HOME':
         st.markdown("<h1 style='text-align:center;font-size:4rem;margin-top:80px;color:#FFD700;'>🐲 龍魂戰略總部</h1>", unsafe_allow_html=True)
@@ -221,7 +220,7 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
                     if btn_w: btn_radar = True; st.session_state.run_mode = 'STRONG_WEEKLY'
                     if btn_d: btn_radar = True; st.session_state.run_mode = 'STRONG_DAILY'
                 else:
-                    if st.button("📡 啟猛雷達", use_container_width=True): 
+                    if st.button("📡 啟動雷達", use_container_width=True): 
                         btn_radar = True; st.session_state.run_mode = st.session_state.scan_mode
 
         elif st.session_state.target == 'SINGLE':
@@ -457,3 +456,362 @@ elif operation_mode == "📊 究極資產拔河龍虎榜":
                 <li><b>🟢 ▲ :</b> 排名大幅急升，大戶正在瘋狂搶入！（美股戰區≥50位，港股戰區≥30位）</li>
                 <li><b>🔵 ▼ :</b> 排名大幅下跌（下跌 ≥ 30名），資金正在撤離，萬人坑勿近！</li>
                 <li><b>🦅 :</b> 長線王者！代表該股處於全市場 200 日長線回報嘅前 10%！</li>
+                <li><b>[1.5x 🔋] :</b> 動能增加，成交量大過平時 1.5 倍，主力引擎開始熱。</li>
+                <li><b>[3.0x 🔋🔋] :</b> 極致爆量！成交量大過平時 3 倍，大戶準備強力噴射！</li>
+            </ul>
+            <h3 style='color:#00FFCC;'>⚡ 價格異動與極短線行為（Price Action）</h3>
+            <ul style='color:#ccc; list-style-type: none; padding-left: 0;'>
+                <li><b>⚔️ [準破頂] :</b> 價格距離 52 週最高位不到 3%，隨時發動 N 字突破爆上！</li>
+                <li><b>🔥 [連續強勢] :</b> 排名比前兩日持續進步，資金熱度爆燈！</li>
+                <li><b>⚡ [GAP +X.X%] :</b> 今日開市跳空超過 +1.5%，有突發利好消息或利空！</li>
+            </ul>
+            <h3 style='color:#FF9900;'>🚨 爆升獵龍・四大核心加強指標（New Badges）</h3>
+            <ul style='color:#ccc; list-style-type: none; padding-left: 0;'>
+                <li><b>✨🆕 [黃金新星] :</b> 重磅新星！此股在過去 3 日內首度強力衝進異動榜，資金初次點火，黃金爆發力極強，頭 3 日高亮護航！</li>
+                <li><b>🦁 [雄獅收高] :</b> 陽燭收高，且收市價貼近全日最高位 30% 內，主力護盤由頭買到尾！</li>
+                <li><b>💣 [引爆在即] :</b> 過去 20 日波幅極度橫盤壓縮（Squeeze），平地一聲雷爆量啟動！</li>
+                <li><b>🥇 [金牌認證] :</b> 5 天絕對回報實質超過 +5%，剔除坑底死魚，具備超高含金量！</li>
+            </ul>
+            <h3 style='color:#BC13FE;'>🐉 共享神殿・九大隱藏資金籌碼（Dragon Core Hidden Icons）</h3>
+            <ul style='color:#ccc; list-style-type: none; padding-left: 0;'>
+                <li><b>📊 :</b> 板塊聚落！同版塊內有 3 隻或以上精英同時上榜異動，板塊風口形成，集體起飛！</li>
+                <li><b>🤐 (蓄勢) :</b> 布林通道與 ATR 雙重極致擠壓，隨時開啟變盤暴走。</li>
+                <li><b>🏎️ :</b> 秘法狀態機爆發後，RS 秘密能量在高位 cruise 巡航維持。</li>
+                <li><b>💰🔥 :</b> 錢流爆發！大單真金白銀瘋狂淨流入。</li>
+                <li><b>💰🤫 :</b> 暗中吸籌！主力資金喺極窄波幅入面偷偷低吸建倉。</li>
+                <li><b>💰🛡️ :</b> 強力護盤！股價下跌但大戶資金逆市狂流入，跌不破位嘅守護盾牌。</li>
+                <li><b>🧧 :</b> 鴻運當頭！淨錢流脈絡十日平均線首度轉正 / VCP 關鍵轉折點。</li>
+                <li><b>🐋 (X/10) :</b> 巨鯨痕跡！最近 10 日之內，大戶用巨額資金強力建倉日數。</li>
+                <li><b>🪃 :</b> N 字突破！打破歷史平台，第一或第二日剛突破頂峰！</li>
+                <li><b>💎/😱 :</b> 鑽石黃金坑 / 驚恐洗盤！粉紅爆缸後，主力在低位震倉洗盤，準備低吸。</li>
+            </ul>
+        </div>
+        """, unsafe_allow_html=True)
+    st.write("---")
+
+    col1, col2 = st.columns([2, 1])
+    with col1:
+        target_category = st.selectbox("📍 選擇意向掃描戰區", ["📦 美股 ETF (~360隻)", "📦 港股 ETF (139隻)", "🇭🇰 港股個股 (659隻)", "🇺🇸 美股精選 (576隻)", "🇺🇸 美股大藍籌 (500隻)", "🏭 美股選定行業 (1029隻)"])
+    with col2:
+        lookback_str = st.selectbox("⏳ 設定戰術時間窗", ["5天", "10天", "20天", "40天", "60天", "200天"])
+        lookback_days = int(lookback_str.replace("天", ""))
+
+    st.write("---")
+    
+    col_btn1, col_btn2 = st.columns(2)
+    with col_btn1:
+        run_normal = st.button("🚀 啟動熱力拔河掃描！", use_container_width=True)
+    with col_btn2:
+        run_hunt = st.button("🦅 啟動「爆升獵龍」超級特搜！", use_container_width=True)
+
+    if run_normal or run_hunt:
+        current_tickers = []
+        if target_category == "📦 美股 ETF (~360隻)":
+            for sub_list in US_ETF_MAP.values(): current_tickers.extend(sub_list)
+            current_tickers = list(set(current_tickers)) 
+        elif target_category == "📦 港股 ETF (139隻)":
+            df_etf_list = fetch_github_list(HK_ETF_CSV_URL)
+            if not df_etf_list.empty and 'Ticker' in df_etf_list.columns: current_tickers = df_etf_list['Ticker'].dropna().unique().tolist()
+        elif target_category == "🇭🇰 港股個股 (659隻)":
+            df_hk_list = fetch_github_list(HK_STOCK_CSV_URL)
+            if not df_hk_list.empty and 'Ticker' in df_hk_list.columns: current_tickers = df_hk_list['Ticker'].dropna().unique().tolist()
+        elif target_category == "🇺🇸 美股精選 (576隻)":
+            try:
+                df_csv = pd.read_csv("Market_Focus.csv")
+                col = [c for c in df_csv.columns if c.lower() in ['ticker', 'symbol', '代號']][0]
+                current_tickers = df_csv[col].dropna().unique().tolist()
+            except: st.error("⚠️ 無法讀取 Market_Focus.csv")
+        elif target_category == "🇺🇸 美股大藍籌 (500隻)":
+            try:
+                df_csv = pd.read_csv("SP500_Equities.csv")
+                col = [c for c in df_csv.columns if c.lower() in ['ticker', 'symbol', '代號']][0]
+                current_tickers = df_csv[col].dropna().unique().tolist()
+            except: st.error("⚠️ 無法讀取 SP500_Equities.csv")
+        elif target_category == "🏭 美股選定行業 (1029隻)":
+            for sub_list in US_STOCK_MAP.values(): current_tickers.extend(sub_list)
+            current_tickers = list(set(current_tickers))
+
+        if current_tickers:
+            with st.spinner(f"正在與納斯達克/港交所衛星連線，深度計算 {target_category} 的資金矩陣..."):
+                df_result = AssetRanker.get_rank_and_acceleration(current_tickers, lookback_days, target_category)
+                if df_result.empty:
+                    st.error("⚠️ 運算失敗或回傳數據為空。請確保 Ticker 列表正確。")
+                else:
+                    if 'Display_Label' in df_result.columns:
+                        df_result['Display_Label'] = df_result['Display_Label'].astype(str).str.replace("🚀", "🦅").str.replace("🎯", "⚔️")
+                    
+                    if run_hunt:
+                        is_hk_target = "港股" in target_category
+                        rank_threshold = 30 if is_hk_target else 50
+                        df_result = df_result[(df_result['RVOL'] >= 1.5) & (df_result['Rank_Change'] >= rank_threshold)]
+                        
+                    if df_result.empty:
+                        st.warning("⚠️ 依據過濾條件，目前戰區內無符合條件之異動股，大戶正在潛伏。")
+                    else:
+                        df_result = df_result.sort_values(by='Current_Return', ascending=True).reset_index(drop=True)
+                        import plotly.express as px
+                        fig = px.bar(df_result, x='Current_Return', y='Display_Label', orientation='h', color='Current_Return', color_continuous_scale='YlOrRd', text=df_result.apply(lambda row: f"{row['Current_Return']:.1f}%" if row['Ticker'] != '...' else "", axis=1))
+                        
+                        is_hk_target_str = "港股" in target_category
+                        title_text = f"📊 {target_category} - {lookback_days}日 相對回報龍虎榜 (含大滿貫情報密碼)" if not run_hunt else f"🦅 「爆升獵龍」極速特搜榜 - {target_category} (港股≥30位/美股≥50位 + 🔋爆量)"
+                        
+                        fig.update_layout(title=title_text, title_font=dict(size=18, color="white"), plot_bgcolor='#0e1117', paper_bgcolor='#0e1117', font=dict(color="white"), yaxis=dict(showgrid=False, title="", tickfont=dict(size=11, color="white", family="Courier New"), fixedrange=True), xaxis=dict(showgrid=False, zeroline=True, zerolinecolor='#444', title="相對平均之超額回報 (Alpha %)", fixedrange=True), height=max(600, len(df_result) * 115), coloraxis_showscale=False, margin=dict(l=160, r=80, t=60, b=20), hovermode=False)
+                        fig.update_traces(textposition='outside', textfont=dict(color='white', size=12), cliponaxis=False)
+                        
+                        st.plotly_chart(fig, use_container_width=True, config={'staticPlot': False, 'scrollZoom': False, 'doubleClick': False, 'displayModeBar': False, 'editable': False})
+                        
+                        if run_hunt:
+                            desc_text = "港股區 (門檻: 🟢急升≥30名 + 🔋爆量)" if is_hk_target_str else "美股區 (門檻: 🟢急升≥50名 + 🔋爆量)"
+                            st.success(f"✅ 【爆升獵龍特搜完成】成功為你定位出當前 {desc_text} 剛剛突然發動嘅核心資產！")
+                        else:
+                            st.success("✅ 全局相對強度矩陣部署完成！快去尋找大魔王吧！")
+        else: st.warning("⚠️ 標的名單為空，無法執行掃描。")
+
+# =========================================================================
+# 💰 模式三：大戶資金流透視 (福德金字塔) (原封不動)
+# =========================================================================
+elif operation_mode == "💰 大戶資金流透視 (福德金字塔)":
+    from core_logic import scan_fude_logic
+    
+    st.markdown("""
+        <style>
+        .stApp { background-color: #000000 !important; }
+        .fude-card-ind { background-color: #050505 !important; border: 2px solid; border-radius: 12px; padding: 25px; margin-bottom: 30px; box-shadow: 0 4px 20px rgba(0,0,0,1); }
+        .fude-title { font-size: 1.5rem; font-weight: 900; margin-bottom: 15px; border-bottom: 1px solid #333; padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+        .fude-table { width: 100%; color: #ddd; font-size: 1.1rem; border-collapse: collapse; margin-bottom: 20px; }
+        .fude-table th { text-align: left; padding: 10px 0; border-bottom: 2px solid #555; color: #aaa; font-weight: normal; }
+        .fude-table td { padding: 12px 0; border-bottom: 1px solid #222; }
+        .fude-table th:nth-child(2), .fude-table th:nth-child(3), .fude-table th:nth-child(4) { text-align: right; }
+        .fude-table td:nth-child(2), .fude-table td:nth-child(3), .fude-table td:nth-child(4) { text-align: right; font-weight: bold; }
+        .val-pos { color: #00FFCC !important; }
+        .val-neg { color: #FF4B4B !important; }
+        .pulse-label { font-size: 0.95rem; color: #888; text-align: right; margin-top: 5px; margin-bottom: 20px; font-weight: bold; }
+        </style>
+    """, unsafe_allow_html=True)
+
+    st.markdown("<h1 style='text-align:center; color:#FFD700;'>💰 大戶資金流透視 (福德金字塔)</h1>", unsafe_allow_html=True)
+    st.markdown("""
+    <div style='background-color:#111; padding:15px; border-radius:10px; border-left: 5px solid #FFD700; margin-bottom: 20px;'>
+        <h3 style='color:#FFD700; margin-top:0;'>⛩️ 華爾街大鱷模擬器 (無米煮飯量價版)</h3>
+        <p style='color:#ddd; margin-bottom:0;'>透過 Yahoo 數據進行深度解構，拆解 <b>20日(熱錢) / 60日(底氣) / 200日(福德家底)</b>。<br>
+        結合 Force Index、CMF 及 VWAP 偏離度，透視大戶暗中吸籌與派發嘅真實意向。</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    col_input, col_btn = st.columns([3, 1])
+    with col_input: ticker = st.text_input("輸入股票代號 (例: NVDA, 0700.HK, TSLA)", "NVDA").upper().strip()
+    with col_btn: st.write("<br>", unsafe_allow_html=True); run_scan = st.button("📡 透視資金底牌", use_container_width=True)
+
+    if run_scan or ticker:
+        with st.spinner(f"⏳ 爺爺正在為你潛入深網，計算 {ticker} 嘅福德家底..."):
+            try:
+                df = smart_fetch(ticker, period="2y")
+                fude_data = scan_fude_logic(df, ticker)
+                
+                if not fude_data:
+                    st.error("⚠️ 數據不足 200 日，無法計算 200日線及重貨區！請轉換其他上市超過一年嘅股票。")
+                else:
+                    poc_price = fude_data["POC_Price"]; curr_c = fude_data["Current_Price"]; fude_col = fude_data["FColor"]; fude_lvl = fude_data["Fude_Level"]; fude_desc = fude_data["Fude_Desc"]; tags = fude_data["Tags"]; plot_df = fude_data["Plot_Data"]
+                    
+                    st.markdown(f"### {ticker} 資金命格解讀")
+                    c1, c2, c3 = st.columns(3)
+                    with c1: st.markdown(f"<div class='dragon-card' style='border-color:{fude_col}; height:220px; display:flex; flex-direction:column; justify-content:center;'><div style='font-size:1.2rem;color:#ccc;'>⛩️ 福德等級 (200日)</div><div style='font-size:2rem; font-weight:bold; color:{fude_col}; margin-top:10px;'>{fude_lvl}</div><div style='font-size:1rem; color:#ccc; margin-top:10px;'>{fude_desc}</div></div>", unsafe_allow_html=True)
+                    with c2:
+                        poc_status = "✅ 股價已突圍大本營" if curr_c > poc_price else "⚠️ 處於天量套牢區之下"
+                        poc_color = "#00FFCC" if curr_c > poc_price else "#FF4B4B"
+                        st.markdown(f"<div class='dragon-card' style='border-color:#BC13FE; height:220px; display:flex; flex-direction:column; justify-content:center;'><div style='font-size:1.2rem;color:#ccc;'>🎯 過去200日成交大本營 (POC)</div><div style='font-size:3rem; font-weight:900; color:#BC13FE;'>${poc_price:.2f}</div><div style='font-size:1.1rem; font-weight:bold; color:{poc_color}; margin-top:5px;'>{poc_status}</div></div>", unsafe_allow_html=True)
+                    with c3: st.markdown(f"<div class='dragon-card' style='border-color:#00FFFF; height:220px; display:flex; flex-direction:column; justify-content:center;'><div style='font-size:1.2rem;color:#ccc;'>🔍 大戶底氣標籤</div><div style='display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin-top:15px; font-weight:bold;'>{' '.join(tags) if tags else '無明顯大戶特徵'}</div></div>", unsafe_allow_html=True)
+                    
+                    if 'Net_Flow' not in plot_df.columns:
+                        plot_df['Net_Flow'] = plot_df['Volume'] * plot_df['Close'] * np.where(plot_df['Close'] > plot_df['Close'].shift(1).fillna(plot_df['Close']), 1, -1)
+                    if 'OBV_Daily' not in plot_df.columns:
+                        plot_df['OBV_Daily'] = np.sign(plot_df['Close'].diff()).fillna(0) * plot_df['Volume']
+
+                    def get_val(key, default=0.0): return fude_data.get(key, default)
+                    
+                    f20 = get_val('Flow_20_val'); p20 = get_val('Flow_20_pct')
+                    f60 = get_val('Flow_60_val'); p60 = get_val('Flow_60_pct')
+                    f200 = get_val('Flow_200_val'); p200 = get_val('Flow_200_pct')
+                    
+                    o20 = get_val('OBV_20_val'); p20_o = get_val('OBV_20_pct')
+                    o60 = get_val('OBV_60_val'); p60_o = get_val('OBV_60_pct')
+                    o200 = get_val('OBV_200_val'); p200_o = get_val('OBV_200_pct')
+                    
+                    ej20 = get_val('EJ_20', 50.0); ej20_p = get_val('EJ_20_pct')
+                    ej60 = get_val('EJ_60', 50.0); ej60_p = get_val('EJ_60_pct')
+                    ej200 = get_val('EJ_200', 50.0); ej200_p = get_val('EJ_200_pct')
+                    
+                    se20 = get_val('SE_20', 50.0); se20_p = get_val('SE_20_pct')
+                    se60 = get_val('SE_60', 50.0); se60_p = get_val('SE_60_pct')
+                    se200 = get_val('SE_200', 50.0); se200_p = get_val('SE_200_pct')
+                    
+                    c20 = get_val('Conc_20'); c20_p = get_val('Conc_20_pct')
+                    c60 = get_val('Conc_60'); c60_p = get_val('Conc_60_pct')
+                    c200 = get_val('Conc_200'); c200_p = get_val('Conc_200_pct')
+                    
+                    s20 = get_val('Shares_20'); s60 = get_val('Shares_60'); s200 = get_val('Shares_200')
+
+                    st.write("---")
+                    st.markdown(f"### 🌊 獨家解密：主力資金池透視 (5大獨立指標)", unsafe_allow_html=True)
+
+                    def fmt(val): return f"{'+' if val>0 else ''}${val/1e8:.1f}億" if abs(val)>=1e8 else (f"{'+' if val>0 else ''}${val/1e6:.1f}M" if abs(val)>=1e6 else f"{'+' if val>0 else ''}${val:,.0f}")
+                    def color_class(val): return "val-pos" if val >= 0 else "val-neg"
+                    
+                    def get_pulse_fig(pulse_vals, height=100):
+                        if len(pulse_vals) == 0: pulse_vals = [0]
+                        colors = ['#00FFCC' if v >= 0 else '#FF4B4B' for v in pulse_vals]
+                        fig_p = go.Figure(go.Bar(x=list(range(len(pulse_vals))), y=pulse_vals, marker_color=colors, hoverinfo='skip'))
+                        fig_p.update_layout(height=height, margin=dict(l=0,r=0,t=0,b=0), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', xaxis=dict(visible=False, fixedrange=True), yaxis=dict(visible=False, fixedrange=True), showlegend=False, dragmode=False)
+                        return fig_p
+
+                    def draw_triad_bar(val, color):
+                        lit = int((min(120, max(0, val))/120)*21)
+                        html = "<div style='display:flex; gap:6px; margin-top: 15px; margin-bottom: 25px;'>"
+                        for idx in range(21):
+                            c_code = "#FF4B4B" if idx<6 else ("#FFD700" if idx<12 else color)
+                            bg = c_code if idx < lit else '#222'
+                            op = 1 if idx < lit else 0.3
+                            html += f"<div style='width:25px; height:35px; background-color:{bg}; opacity:{op}; border-radius:4px;'></div>"
+                        html += "</div>"
+                        return html
+
+                    # 1. EJ 錢流底氣 (雙層柱)
+                    ej_c = "#00FFFF"
+                    st.markdown(f"""
+                    <div class='fude-card-ind' style='border-color:{ej_c};'>
+                        <div class='fude-title' style='color:{ej_c};'><span>🔋 EJ 錢流底氣 (真金白銀版)</span></div>
+                        <table class='fude-table'>
+                            <tr><th>週期</th><th>實際吸金量</th><th>變化 %</th></tr>
+                            <tr><td>20日底氣</td><td class='{color_class(f20)}'>{fmt(f20)}</td><td class='{color_class(p20)}'>{p20:+.1f}%</td></tr>
+                            <tr><td>60日底氣</td><td class='{color_class(f60)}'>{fmt(f60)}</td><td class='{color_class(p60)}'>{p60:+.1f}%</td></tr>
+                            <tr><td>200日底氣</td><td class='{color_class(f200)}'>{fmt(f200)}</td><td class='{color_class(p200)}'>{p200:+.1f}%</td></tr>
+                        </table>
+                        {draw_triad_bar(ej20, ej_c)}
+                    </div>
+                    """, unsafe_allow_html=True)
+                    st.plotly_chart(get_pulse_fig(plot_df['Net_Flow'].tail(20).values), use_container_width=True, key="ej_pulse_20", config={'displayModeBar': True})
+                    st.markdown(f"<div class='pulse-label' style='color:{ej_c};'>▲ 最近 20 天微觀錢流爆發</div>", unsafe_allow_html=True)
+                    st.plotly_chart(get_pulse_fig(plot_df['Net_Flow'].tail(60).values), use_container_width=True, key="ej_pulse_60", config={'displayModeBar': True})
+                    st.markdown(f"<div class='pulse-label' style='color:{ej_c};'>▲ 最近 60 天中線建倉軌跡</div><br>", unsafe_allow_html=True)
+
+                    # 2. 短期能量 BAR (雙層柱)
+                    se_c = "#FF00FF"
+                    st.markdown(f"""
+                    <div class='fude-card-ind' style='border-color:{se_c};'>
+                        <div class='fude-title' style='color:{se_c};'><span>⚡ 短期能量 BAR</span></div>
+                        <table class='fude-table'>
+                            <tr><th>週期</th><th>能量數值</th><th>變化 %</th></tr>
+                            <tr><td>20日動能</td><td class='val-pos'>{se20:.1f}%</td><td class='{color_class(se20_p)}'>{se20_p:+.1f}%</td></tr>
+                            <tr><td>60日動能</td><td class='val-pos'>{se60:.1f}%</td><td class='{color_class(se60_p)}'>{se60_p:+.1f}%</td></tr>
+                            <tr><td>200日動能</td><td class='val-pos'>{se200:.1f}%</td><td class='{color_class(se200_p)}'>{se200_p:+.1f}%</td></tr>
+                        </table>
+                        {draw_triad_bar(se20, se_c)}
+                    </div>
+                    """, unsafe_allow_html=True)
+                    se_pulse_20 = plot_df['Close'].pct_change().tail(20).fillna(0).values * 100
+                    se_pulse_60 = plot_df['Close'].pct_change().tail(60).fillna(0).values * 100
+                    st.plotly_chart(get_pulse_fig(se_pulse_20), use_container_width=True, key="se_pulse_20", config={'displayModeBar': True})
+                    st.markdown(f"<div class='pulse-label' style='color:{se_c};'>▲ 最近 20 天動能波幅</div>", unsafe_allow_html=True)
+                    st.plotly_chart(get_pulse_fig(se_pulse_60), use_container_width=True, key="se_pulse_60", config={'displayModeBar': True})
+                    st.markdown(f"<div class='pulse-label' style='color:{se_c};'>▲ 最近 60 天動能波幅</div><br>", unsafe_allow_html=True)
+
+                    # 3. 資金總數 (Money Flow) (雙層柱)
+                    flow_color = "#00FFCC" if f20 >= 0 else "#FF4B4B"
+                    st.markdown(f"""
+                    <div class='fude-card-ind' style='border-color:{flow_color};'>
+                        <div class='fude-title' style='color:{flow_color};'><span>💰 資金總數 (Money Flow)</span></div>
+                        <table class='fude-table'>
+                            <tr><th>週期</th><th>總量</th><th>變化 %</th></tr>
+                            <tr><td>20日總量</td><td class='{color_class(f20)}'>{fmt(f20)}</td><td class='{color_class(p20)}'>{p20:+.1f}%</td></tr>
+                            <tr><td>60日總量</td><td class='{color_class(f60)}'>{fmt(f60)}</td><td class='{color_class(p60)}'>{p60:+.1f}%</td></tr>
+                            <tr><td>200日總量</td><td class='{color_class(f200)}'>{fmt(f200)}</td><td class='{color_class(p200)}'>{p200:+.1f}%</td></tr>
+                        </table>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    st.plotly_chart(get_pulse_fig(plot_df['Net_Flow'].tail(20).values), use_container_width=True, key="mf_pulse_20", config={'displayModeBar': True})
+                    st.markdown(f"<div class='pulse-label' style='color:{flow_color};'>▲ 最近 20 天資金流向</div>", unsafe_allow_html=True)
+                    st.plotly_chart(get_pulse_fig(plot_df['Net_Flow'].tail(60).values), use_container_width=True, key="mf_pulse_60", config={'displayModeBar': True})
+                    st.markdown(f"<div class='pulse-label' style='color:{flow_color};'>▲ 最近 60 天資金流向</div><br>", unsafe_allow_html=True)
+
+                    # 4. OBV 軌跡 (雙層柱)
+                    obv_color = "#00FFCC" if o20 >= 0 else "#FF4B4B"; trend_str = "📈 流入" if o20 >= 0 else "📉 流出"
+                    st.markdown(f"""
+                    <div class='fude-card-ind' style='border-color:{obv_color};'>
+                        <div class='fude-title' style='color:{obv_color};'><span>📈 OBV 籌碼軌跡</span><span>{trend_str}</span></div>
+                        <table class='fude-table'>
+                            <tr><th>週期</th><th>累積量</th><th>變化 %</th></tr>
+                            <tr><td>20日累積量</td><td class='{color_class(o20)}'>{fmt(o20)}</td><td class='{color_class(p20_o)}'>{p20_o:+.1f}%</td></tr>
+                            <tr><td>60日累積量</td><td class='{color_class(o60)}'>{fmt(o60)}</td><td class='{color_class(p60_o)}'>{p60_o:+.1f}%</td></tr>
+                            <tr><td>200日累積量</td><td class='{color_class(o200)}'>{fmt(o200)}</td><td class='{color_class(p200_o)}'>{p200_o:+.1f}%</td></tr>
+                        </table>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    st.plotly_chart(get_pulse_fig(plot_df['OBV_Daily'].tail(20).values), use_container_width=True, key="obv_pulse_20", config={'displayModeBar': True})
+                    st.markdown(f"<div class='pulse-label' style='color:{obv_color};'>▲ 最近 20 天 OBV 變動</div>", unsafe_allow_html=True)
+                    st.plotly_chart(get_pulse_fig(plot_df['OBV_Daily'].tail(60).values), use_container_width=True, key="obv_pulse_60", config={'displayModeBar': True})
+                    st.markdown(f"<div class='pulse-label' style='color:{obv_color};'>▲ 最近 60 天 OBV 變動</div><br>", unsafe_allow_html=True)
+
+                    # 5. 資金部署集中度 (加股數 + 雙層有紅綠柱)
+                    conc_color = "#FF4B4B" if c20 > 35 else ("#FFD700" if c20 > 15 else "#00FFCC")
+                    conc_note = "（突發買入或掟貨）" if c20 > 35 else ("（公開正常進出）" if c20 > 15 else "（隱密吸籌/派發）")
+                    st.markdown(f"""
+                    <div class='fude-card-ind' style='border-color:#BC13FE;'>
+                        <div class='fude-title' style='color:#BC13FE;'><span>🎯 資金部署集中度</span><span style='color:{conc_color}; font-size:1.1rem;'>{conc_note}</span></div>
+                        <table class='fude-table'>
+                            <tr><th>週期</th><th>極值佔比</th><th>變化 %</th><th>估算股數</th></tr>
+                            <tr><td>20日</td><td style='color:{conc_color};'>{c20:.1f}%</td><td class='{color_class(c20_p)}'>{c20_p:+.1f}%</td><td class='{color_class(s20)}'>{'+' if s20>0 else ''}{s20:,} 股</td></tr>
+                            <tr><td>60日</td><td style='color:#FFF;'>{c60:.1f}%</td><td class='{color_class(c60_p)}'>{c60_p:+.1f}%</td><td class='{color_class(s60)}'>{'+' if s60>0 else ''}{s60:,} 股</td></tr>
+                            <tr><td>200日</td><td style='color:#FFF;'>{c200:.1f}%</td><td class='{color_class(c200_p)}'>{c200_p:+.1f}%</td><td class='{color_class(s200)}'>{'+' if s200>0 else ''}{s200:,} 股</td></tr>
+                        </table>
+                        <div style='width:100%; background-color:#222; border-radius:10px; height:20px; margin-top:30px; margin-bottom:30px; border:1px solid #444;'>
+                            <div style='width:{min(100, c20)}%; background-color:{conc_color}; height:100%; box-shadow:0 0 15px {conc_color}; border-radius:10px;'></div>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    st.plotly_chart(get_pulse_fig(plot_df['Net_Flow'].tail(20).values), use_container_width=True, key="conc_pulse_20", config={'displayModeBar': True})
+                    st.markdown("<div class='pulse-label' style='color:#BC13FE;'>▲ 最近 20 天集中度分布 (綠=買, 紅=賣)</div>", unsafe_allow_html=True)
+                    st.plotly_chart(get_pulse_fig(plot_df['Net_Flow'].tail(60).values), use_container_width=True, key="conc_pulse_60", config={'displayModeBar': True})
+                    st.markdown("<div class='pulse-label' style='color:#BC13FE;'>▲ 最近 60 天集中度分布 (綠=買, 紅=賣)</div><br>", unsafe_allow_html=True)
+
+                    # --- 原裝戰術圖表保留區 ---
+                    st.write("---")
+                    st.markdown("### 📊 摩訶釋達・量價拆解戰術圖 (Force Index & VWAP)")
+                    
+                    dates = plot_df.index.strftime('%Y-%m-%d')
+                    fig = make_subplots(rows=3, cols=1, shared_xaxes=True, row_heights=[0.5, 0.25, 0.25], vertical_spacing=0.03, subplot_titles=("股價與大鱷成本 (VWAP 20) + 🦈 強勢吸籌", "三層福德動力 (Force Index)", "中短線底氣流向 (CMF)"))
+                    
+                    fig.add_trace(go.Candlestick(x=dates, open=plot_df['Open'], high=plot_df['High'], low=plot_df['Low'], close=plot_df['Close'], name="K線"), row=1, col=1)
+                    fig.add_trace(go.Scatter(x=dates, y=plot_df['VWAP_20'], mode='lines', name='VWAP (20日成本)', line=dict(color='orange', width=2, dash='dot')), row=1, col=1)
+                    fig.add_hline(y=poc_price, line_dash="solid", line_color="#BC13FE", annotation_text=f"📌 POC 密集區: ${poc_price:.2f}", annotation_position="top left", annotation_font=dict(color="white", size=13), row=1, col=1)
+                    
+                    for i in range(len(plot_df)):
+                        if plot_df['RVOL'].iloc[i] > 1.5 and plot_df['Close'].iloc[i] > plot_df['VWAP_20'].iloc[i] and plot_df['Close'].iloc[i] > plot_df['Open'].iloc[i]:
+                            fig.add_annotation(x=dates[i], y=plot_df['Low'].iloc[i], text="🦈", showarrow=True, ax=0, ay=30, arrowcolor="#00FFCC", font=dict(size=18), row=1, col=1)
+
+                    max_20 = max(plot_df['Merit_20'].abs().max(), 1)
+                    max_60 = max(plot_df['Merit_60'].abs().max(), 1)
+                    max_200 = max(plot_df['Merit_200'].abs().max(), 1)
+                    norm_20 = plot_df['Merit_20'] / max_20
+                    norm_60 = plot_df['Merit_60'] / max_60
+                    norm_200 = plot_df['Merit_200'] / max_200
+                    
+                    fig.add_trace(go.Scatter(x=dates, y=norm_20, mode='lines', name='熱錢 (20日)', line=dict(color='#FF4B4B', width=1.5)), row=2, col=1)
+                    fig.add_trace(go.Scatter(x=dates, y=norm_60, mode='lines', name='底氣 (60日)', line=dict(color='#00FFCC', width=2)), row=2, col=1)
+                    fig.add_trace(go.Scatter(x=dates, y=norm_200, mode='lines', name='福德 (200日)', line=dict(color='#FFD700', width=3)), row=2, col=1)
+                    fig.add_hline(y=0, line_dash="dash", line_color="rgba(255,255,255,0.3)", row=2, col=1)
+                    
+                    fig.add_trace(go.Scatter(x=dates, y=plot_df['CMF_20'], mode='lines', name='CMF (20日)', line=dict(color='#FF00FF', width=1.5)), row=3, col=1)
+                    fig.add_trace(go.Scatter(x=dates, y=plot_df['CMF_60'], mode='lines', name='CMF (60日)', line=dict(color='white', width=2)), row=3, col=1)
+                    fig.add_hline(y=0, line_dash="dash", line_color="rgba(255,255,255,0.3)", row=3, col=1)
+                    
+                    fig.update_layout(template="plotly_dark", paper_bgcolor='#0e1117', plot_bgcolor='#0e1117', height=950,
+                                      hovermode='x unified', dragmode=False, xaxis_rangeslider_visible=False,
+                                      xaxis=dict(type='category', showticklabels=False),
+                                      xaxis2=dict(type='category', showticklabels=False),
+                                      xaxis3=dict(type='category', showspikes=True, spikemode='across', spikecolor="white", spikethickness=1),
+                                      legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, font=dict(color="white", size=13)))
+                    
+                    st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': True})
+                    
+            except Exception as e:
+                st.error(f"⚠️ 計算過程發生錯誤: {e}")
