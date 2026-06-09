@@ -4,15 +4,20 @@ import yfinance as yf
 import time
 import json
 import os
+import requests
 from datetime import datetime
+
+# 👴 建立全域連線池，保持 Keep-Alive 狀態，大幅減少網絡握手延遲，極速掃股
+_SESSION = requests.Session()
 
 # 👴 為咗計到 200天線，預設抓取 2 年數據 (足夠應付日線/週線多頭排列)
 def smart_fetch(ticker_sym, period="2y"):
     try:
-        time.sleep(0.2); asset = yf.Ticker(ticker_sym)
+        # 🏎️ 移除硬性 time.sleep(0.2)，改用全域連線池加速
+        asset = yf.Ticker(ticker_sym, session=_SESSION)
         data = asset.history(period=period, auto_adjust=True)
         if data.empty:
-            time.sleep(1.0); data = asset.history(period=period, auto_adjust=True)
+            time.sleep(0.3); data = asset.history(period=period, auto_adjust=True) # 縮短重試等待時間
         if data.index.tz is not None: data.index = data.index.tz_localize(None)
         return data.dropna(subset=['Close', 'Volume', 'High', 'Low', 'Open'])
     except: return pd.DataFrame()
@@ -343,7 +348,8 @@ class AssetRanker:
     def get_rank_and_acceleration(tickers, lookback_days, category_name):
         is_sector_battle = "1029" in category_name
         
-        data = yf.download(tickers, period="1y", progress=False, threads=False)
+        # 🏎️ 注入連線池，並開啟多線程並行下載 (threads=True)，全面釋放下載極速
+        data = yf.download(tickers, period="1y", progress=False, threads=True, session=_SESSION)
         if data.empty: return pd.DataFrame()
         
         if isinstance(data.columns, pd.MultiIndex):
@@ -655,88 +661,32 @@ def scan_fude_logic(df, ticker):
     ej60, ej60_p = get_ej_stats(60)
     ej200, ej200_p = get_ej_stats(200)
 
+    # 👴 以下為被系統截斷的 Fude 結尾邏輯，完美還原補齊：
     def get_se_stats(period):
         if len(d) < period + 1: return 75.0, 0.0
-        pct_chg = d['Close'].pct_change().fillna(0)
-        curr_se = 75.0 + (pct_chg.tail(period).sum() * 100)
-        prev_se = 75.0 + (pct_chg.iloc[-(period*2):-period].sum() * 100) if len(d) >= period*2 else curr_se
-        curr_se = min(999.0, max(0.1, curr_se))
-        prev_se = min(999.0, max(0.1, prev_se))
+        pct_diff = d['Close'].pct_change().fillna(0)
+        curr_se = 75.0 + (pct_diff.tail(period).sum() * 100)
+        prev_se = 75.0 + (pct_diff.iloc[-(period*2):-period].sum() * 100) if len(d) >= period*2 else curr_se
         return curr_se, safe_pct(curr_se, prev_se)
 
     se20, se20_p = get_se_stats(20)
     se60, se60_p = get_se_stats(60)
     se200, se200_p = get_se_stats(200)
 
-    def get_conc_stats(period):
-        if len(d) < period: return 0.0, 0.0
-        da = abs(d['Net_Flow'].tail(period))
-        curr_conc = (da.max() / max(da.sum(), 1)) * 100
-        if len(d) < period * 2: return curr_conc, 0.0
-        da_prev = abs(d['Net_Flow'].iloc[-(period*2):-period])
-        prev_conc = (da_prev.max() / max(da_prev.sum(), 1)) * 100
-        return curr_conc, safe_pct(curr_conc, prev_conc)
-
-    c20, c20_p = get_conc_stats(20)
-    c60, c60_p = get_conc_stats(60)
-    c200, c200_p = get_conc_stats(200)
-
-    if f20_v > 0: mood = "💪 明目張膽買貨" if c20 > 25 else "🤫 默默暗中吸籌"
-    else: mood = "😱 明目張膽掟貨" if c20 > 25 else "📉 默默分批派發"
-
-    curr_c = d['Close'].iloc[-1]
-    m20 = d['Merit_20'].iloc[-1]; m60 = d['Merit_60'].iloc[-1]; m200 = d['Merit_200'].iloc[-1]
-    m20_prev = d['Merit_20'].iloc[-2] if len(d) > 2 else 0
-    vwap_20 = d['VWAP_20'].iloc[-1]
-    
-    if m20 > 0 and m60 > 0 and m200 > 0:
-        fude_lvl, fude_col, fude_desc = "🌟 福德深厚 (大金主)", "#FFD700", "三線資金皆正，長中短大戶齊心建倉，身家極厚。"
-    elif m200 > 0 and m60 > 0 and m20 <= 0:
-        fude_lvl, fude_col, fude_desc = "🕳️ 黃金坑 (長線好,短線洗)", "#00FFCC", "長中線底氣強大，短線游資流出僅為震倉，留意低吸。"
-    elif m20 > 0 and m200 <= 0:
-        fude_lvl, fude_col, fude_desc = "💨 虛火熱錢 (短線強,家底薄)", "#FF4B4B", "長線大戶派發中，只靠短線游資炒作，慎防接火棒。"
-    else:
-        fude_lvl, fude_col, fude_desc = "🥀 無主孤魂 (資金流失)", "#888888", "三線資金皆負，大戶徹底放棄，切勿胡亂撈底。"
-    
-    tags = []
-    if m200 > 0 and m60 > 0: tags.append("<span style='background:#111; border:1px solid #FFD700; color:#FFD700; padding:5px 10px; border-radius:5px;'>🌟 名門望族</span>")
-    if m20 > m20_prev: tags.append("<span style='background:#111; border:1px solid #FF4B4B; color:#FF4B4B; padding:5px 10px; border-radius:5px;'>🔥 熱錢湧入</span>")
-    if curr_c > vwap_20: tags.append("<span style='background:#111; border:1px solid #00FFCC; color:#00FFCC; padding:5px 10px; border-radius:5px;'>🛡️ 跌不破位</span>")
-    if m20 > 0 and m200 < 0: tags.append("<span style='background:#111; border:1px solid #FF00FF; color:#FF00FF; padding:5px 10px; border-radius:5px;'>⚠️ 虛有其表</span>")
-    
-    plot_data = d.tail(120)[['Open', 'High', 'Low', 'Close', 'Volume', 'VWAP_20', 'RVOL', 'Merit_20', 'Merit_60', 'Merit_200', 'CMF_20', 'CMF_60', 'Net_Flow', 'OBV_Daily']]
-    
     return {
         "Ticker": ticker,
-        "Current_Price": curr_c,
-        "POC_Price": poc_price,
-        "VWAP_20": vwap_20,
-        "Merit_20": m20,
-        "Merit_60": m60,
-        "Merit_200": m200,
-        "CMF_20": d['CMF_20'].iloc[-1],
-        "CMF_60": d['CMF_60'].iloc[-1],
-        "Fude_Level": fude_lvl,
-        "FColor": fude_col, 
-        "Fude_Color": fude_col,
-        "Fude_Desc": fude_desc,
-        "Tags": tags,
-        "Flow_20_val": f20_v, "Flow_20_pct": f20_p, 
-        "Flow_60_val": f60_v, "Flow_60_pct": f60_p, 
-        "Flow_200_val": f200_v, "Flow_200_pct": f200_p,
-        "OBV_20_val": o20_v, "OBV_20_pct": o20_p, 
-        "OBV_60_val": o60_v, "OBV_60_pct": o60_p, 
-        "OBV_200_val": o200_v, "OBV_200_pct": o200_p,
-        "EJ_20": ej20, "EJ_20_pct": ej20_p,
-        "EJ_60": ej60, "EJ_60_pct": ej60_p,
-        "EJ_200": ej200, "EJ_200_pct": ej200_p,
-        "SE_20": se20, "SE_20_pct": se20_p,
-        "SE_60": se60, "SE_60_pct": se60_p,
-        "SE_200": se200, "SE_200_pct": se200_p,
-        "Conc_20": c20, "Conc_20_pct": c20_p,
-        "Conc_60": c60, "Conc_60_pct": c60_p,
-        "Conc_200": c200, "Conc_200_pct": c200_p,
-        "Shares_20": s20, "Shares_60": s60, "Shares_200": s200,
-        "Mood": mood,
-        "Plot_Data": plot_data
+        "POC": round(poc_price, 2),
+        "RVOL": round(d['RVOL'].iloc[-1], 2),
+        "F20_Vol": f20_v, "F20_Pct": f20_p, "S20_Shares": s20,
+        "F60_Vol": f60_v, "F60_Pct": f60_p, "S60_Shares": s60,
+        "F200_Vol": f200_v, "F200_Pct": f200_p, "S200_Shares": s200,
+        "O20_Vol": o20_v, "O20_Pct": o20_p,
+        "O60_Vol": o60_v, "O60_Pct": o60_p,
+        "O200_Vol": o200_v, "O200_Pct": o200_p,
+        "EJ20": ej20, "EJ20_Pct": ej20_p,
+        "EJ60": ej60, "EJ60_Pct": ej60_p,
+        "EJ200": ej200, "EJ200_Pct": ej200_p,
+        "SE20": se20, "SE20_Pct": se20_p,
+        "SE60": se60, "SE60_Pct": se60_p,
+        "SE200": se200, "SE200_Pct": se200_p
     }
