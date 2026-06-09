@@ -8,7 +8,7 @@ from core_logic import scan_dragon_logic, smart_fetch, check_stop_loss
 import time
 import os
 import json
-import concurrent.futures  # ⚡ 爺爺核心加速：引入多線程並發庫
+import concurrent.futures  # ⚡ 多線程並發庫
 
 # 💡 Streamlit 規定：set_page_config 必須作為全程式第一個運行的 Streamlit 指令
 st.set_page_config(page_title="龍魂神殿 5.0", layout="wide")
@@ -108,7 +108,7 @@ with st.sidebar:
         ["🐉 龍魂神殿雷達系統", "📊 究極資產拔河龍虎榜", "💰 大戶資金流透視 (福德金字塔)"]
     )
     st.markdown("---")
-    st.caption("👴 爺爺的操盤矩陣 V188.5")
+    st.caption("👴 爺爺的操盤矩陣 V188.6")
 
 # ==========================================
 # 🌌 模式一：龍魂雷達系統 (包含強勢股排列)
@@ -166,7 +166,6 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
     if 'scan_mode' not in st.session_state: st.session_state.scan_mode = 'NORMAL'
     if 'run_mode' not in st.session_state: st.session_state.run_mode = 'NORMAL'
 
-    # 👴 爺爺防漏隔離：一撳首頁任何模式，立刻清空殘留記憶
     if st.session_state.page == 'HOME':
         st.markdown("<h1 style='text-align:center;font-size:4rem;margin-top:80px;color:#FFD700;'>🐲 龍魂戰略總部</h1>", unsafe_allow_html=True)
         c1, c2, c3, c4 = st.columns(4)
@@ -201,7 +200,6 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
         is_ath_mode = False
         vcp_52w = False
         with c_ath: 
-            # 👴 完美解放限制：ATH / 52W 任何模式都可以揀
             is_ath_mode = st.checkbox("🔥 啟動 ATH 歷史新高極致過濾")
             vcp_52w = st.checkbox("🎯 啟動 MM 原汁原味 52週高位 25% 內過濾")
         
@@ -248,7 +246,7 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
                         else: st.warning("請先輸入代號！")
 
         elif st.session_state.target == 'HK':
-            st.write("### 🇭🇰 港股板塊掃描 (包含全星系)：")
+            st.write("### 🇭🇰 港股板塊掃描：")
             df_hk = fetch_github_list(HK_STOCK_CSV_URL)
             hk_sectors = sorted(df_hk['Sector'].dropna().unique().tolist()) if not df_hk.empty else []
             s_choice = st.selectbox("選擇範圍", ["🌐 啟動全星系大規模搜索"] + hk_sectors)
@@ -263,7 +261,7 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
                         btn_radar = True; st.session_state.run_mode = st.session_state.scan_mode
 
         elif st.session_state.target == 'ETF':
-            st.write("### 📦 港股/美股 ETF 掃描 (包含全星系)：")
+            st.write("### 📦 港股/美股 ETF 掃描：")
             df_etf = fetch_github_list(HK_ETF_CSV_URL)
             etf_sectors = sorted(df_etf['Sector'].dropna().unique().tolist()) if not df_etf.empty else []
             s_choice = st.selectbox("選擇範圍", ["🌐 啟動全星系大規模搜索 (僅限港股 ETF)"] + etf_sectors + list(US_ETF_MAP.keys()))
@@ -312,27 +310,28 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
                 results = []; sl_list = []; pb = st.progress(0)
                 is_single_mode = (st.session_state.target == 'SINGLE')
                 
+                # 🛡️ 爺爺核心拯救修正：在丟進多線程之前，將綁定主線程的數值完全解綁並本地化！
+                local_run_mode = st.session_state.run_mode
+                
                 # ----------------------------------------------------
                 # 🛠️ 爺爺多線程封裝：定義單隻股票處理核心 worker
                 # ----------------------------------------------------
                 def process_ticker(ticker_info):
                     t, sec = ticker_info
-                    # 智能時窗判斷
-                    fetch_period = "5y" if st.session_state.run_mode == 'STRONG_WEEKLY' else "2y"
+                    # 💡 完美修復：改用局部變量 local_run_mode，不再跨線程去讀 st.session_state
+                    fetch_period = "5y" if local_run_mode == 'STRONG_WEEKLY' else "2y"
                     try:
                         df = smart_fetch(t, period=fetch_period)
                         if df is not None and not df.empty:
-                            # ATH 強制過濾
                             if is_ath_mode and (df['Close'].iloc[-1] / df['High'].tail(252).max()) < 0.93: 
                                 if not is_single_mode: return None
                             
-                            # 檢查止損狀況
                             is_sl = check_stop_loss(df)
                             
-                            # 執行核心邏輯
+                            # 💡 完美修復：這裡也改用 local_run_mode
                             res = scan_dragon_logic(
                                 df, t, sec, market_mode, 
-                                mode=st.session_state.run_mode, 
+                                mode=local_run_mode, 
                                 force_return=is_single_mode, 
                                 vcp_52w=vcp_52w, vcp_ath=is_ath_mode
                             )
@@ -342,13 +341,11 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
                     return None
 
                 # ----------------------------------------------------
-                # ⚡ 啟動多線程池 (預設開 15 線程爆發式下載)
+                # ⚡ 啟動多線程池 (線程完全獨立閉包運行)
                 # ----------------------------------------------------
                 with concurrent.futures.ThreadPoolExecutor(max_workers=15) as executor:
-                    # 分發任務
                     future_to_ticker = {executor.submit(process_ticker, item): item for item in selected_tickers}
                     
-                    # 隨著線程回傳，同步更新 Streamlit 進度條
                     for idx, future in enumerate(concurrent.futures.as_completed(future_to_ticker)):
                         pb.progress((idx + 1) / len(selected_tickers))
                         
@@ -363,9 +360,6 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
                 
                 pb.empty()
                 
-                # ----------------------------------------------------
-                # 🗃️ 封裝回傳數據與持久化記憶（保持原裝邏輯）
-                # ----------------------------------------------------
                 if results:
                     sector_counts = {}
                     for r in results:
@@ -388,7 +382,7 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
 
                     if is_single_mode: st.session_state.force_chart_ticker = selected_tickers[0][0]
                     
-                    st.success("✅ 掃描完成！多線程數據已完美裝入記憶體！")
+                    st.success("✅ 完美修復！多線程數據已成功注入，速度起飛！")
                     time.sleep(0.5)
                     st.rerun() 
                 else: 
@@ -399,7 +393,6 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
                 st.markdown(f"<div class='bear-warning'>🛡️ 戰損置頂: {' | '.join(st.session_state.sl_list)} 跌穿 10-EMA！</div>", unsafe_allow_html=True)
             
             st.write("---")
-            # 👴 完美並排加入雙重戰術過濾閘門
             col_f1, col_f2 = st.columns([1, 1])
             with col_f1: show_n_shape_only = st.toggle("🔍 只顯示 🪃 N字突破 (今日/昨日剛破頂)")
             with col_f2: show_n_test_only = st.toggle("🔍 只顯示 🎯 N字回測成功 (回踩關鍵位企穩)")
@@ -452,7 +445,6 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
                         stop_loss = hvn_p * 0.985
                         fig.add_hline(y=stop_loss, line_dash="solid", line_color="#FF4B4B", annotation_text=f"🛑 重貨止損: ${stop_loss:.2f}", annotation_position="bottom right", annotation_font=dict(color="white", size=13), row=1, col=1)
                         
-                        # 完美修復重貨區：唔加 row/col，指定 xaxis6，完美長短不一
                         fig.add_trace(go.Bar(y=(bins[:-1]+bins[1:])/2, x=counts, orientation='h', marker_color='rgba(136,136,136,0.4)', name='重貨區', hoverinfo='skip', xaxis='x6', yaxis='y1'))
 
                         v_colors = ['#00FF00' if df_c['Close'].iloc[i] >= df_c['Open'].iloc[i] else '#FF0000' for i in range(len(df_c))]
@@ -487,14 +479,13 @@ elif operation_mode == "📊 究極資產拔河龍虎榜":
     st.markdown("<p style='text-align:center; color:#888;'>動態監控大戶資金移防，自動派發 19+2 大情報公仔 🦅🔋⚔️⚡</p>", unsafe_allow_html=True)
     st.write("---")
 
-    # 👑 爺爺完美更新：全新大滿貫 19+2 家傳秘笈說明書表格
     with st.expander("📖 爺爺的全公仔情報大滿貫說明書 (按此展開睇秘笈)", expanded=False):
         st.markdown("""
         <div style='background-color:#111111; padding: 20px; border-radius: 12px; border: 1px solid #333; line-height:1.8;'>
             <h3 style='color:#FFD700; margin-top:0;'>📊 龍虎榜基礎動力（Rank & Volume）</h3>
             <ul style='color:#ccc; list-style-type: none; padding-left: 0;'>
-                <li><b>🟢 ▲ :</b> 排名大幅急升，大戶正在瘋狂搶入！（美股戰區≥50位，港股戰區≥30位）</li>
-                <li><b>🔵 ▼ :</b> 排名大幅下跌（下跌 ≥ 30名），資金正在撤離，萬人坑勿近！</li>
+                <li><b>🟢 ▲ :</b> 排名大幅急升，大戶正在瘋狂搶入！</li>
+                <li><b>🔵 ▼ :</b> 排名大幅下跌，資金正在撤離，萬人坑勿近！</li>
             </ul>
         </div>
         """, unsafe_allow_html=True)
