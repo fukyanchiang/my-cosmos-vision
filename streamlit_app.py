@@ -8,6 +8,7 @@ from core_logic import scan_dragon_logic, smart_fetch, check_stop_loss
 import time
 import os
 import json
+import hardpenny_market # 👴 爺爺新增：導入爛市尋強者模組
 
 # 💡 Streamlit 規定：set_page_config 必須作為全程式第一個運行的 Streamlit 指令
 st.set_page_config(page_title="龍魂神殿 5.0", layout="wide")
@@ -168,19 +169,35 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
     # 👴 爺爺防漏隔離：一撳首頁任何模式，立刻清空殘留記憶
     if st.session_state.page == 'HOME':
         st.markdown("<h1 style='text-align:center;font-size:4rem;margin-top:80px;color:#FFD700;'>🐲 龍魂戰略總部</h1>", unsafe_allow_html=True)
-        c1, c2, c3, c4 = st.columns(4)
+        
+        # 👴 爺爺新增：排版修改為 5 欄，加入爛市尋強者按鈕
+        c1, c2, c3, c4, c5 = st.columns(5)
+        
         if c1.button("🐉 龍魂神殿 (普通掃描)"): 
             st.session_state.page = 'DRAGON'; st.session_state.scan_mode = 'NORMAL'
             st.session_state.dragon_results = []; st.session_state.sl_list = []; st.rerun()
+            
         if c2.button("📈 VCP 獵龍 (高勝率模式)"): 
             st.session_state.page = 'DRAGON'; st.session_state.scan_mode = 'VCP'
             st.session_state.dragon_results = []; st.session_state.sl_list = []; st.rerun()
+            
         if c3.button("🐢 海龜加注"): 
             st.info("海龜 模式運作中"); st.session_state.page = 'DRAGON'; st.session_state.scan_mode = 'NORMAL'
             st.session_state.dragon_results = []; st.session_state.sl_list = []; st.rerun()
+            
         if c4.button("🔥 強勢股排列"): 
             st.session_state.page = 'DRAGON'; st.session_state.scan_mode = 'STRONG'
             st.session_state.dragon_results = []; st.session_state.sl_list = []; st.rerun()
+
+        # 👴 爺爺新增：爛市尋強者 (9大SEPA條件) 導航按鈕
+        if c5.button("🔍 爛市尋強者 (9大SEPA)"):
+            st.session_state.page = 'HARDPENNY'
+            st.session_state.dragon_results = []; st.session_state.sl_list = []; st.rerun()
+
+    # 👴 爺爺新增：攔截並顯示爛市尋強者頁面
+    elif st.session_state.page == 'HARDPENNY':
+        if st.button("⬅️ 返回總部"): st.session_state.page = 'HOME'; st.rerun()
+        hardpenny_market.show_hard_market_scanner()
 
     elif st.session_state.page == 'DRAGON':
         if st.session_state.scan_mode == 'STRONG': mode_display = "🔥 強勢股排列 (週線/日線多頭)"
@@ -510,7 +527,7 @@ elif operation_mode == "📊 究極資產拔河龍虎榜":
     with col_btn1:
         run_normal = st.button("🚀 啟動熱力拔河掃描！", use_container_width=True)
     with col_btn2:
-        run_hunt = st.button("🦅 啟動「爆升獵龍」超級特搜！", use_container_width=True)
+        run_hunt = st.button("🦅 啟 এলিট「爆升獵龍」超級特搜！", use_container_width=True)
 
     if run_normal or run_hunt:
         current_tickers = []
