@@ -2,26 +2,99 @@ import streamlit as st
 import yfinance as yf
 import pandas as pd
 
+# 🌐 港股 CSV 在 GitHub 的遠端連結
+HK_STOCK_CSV_URL = "https://raw.githubusercontent.com/fukyanchiang/my-cosmos-vision/refs/heads/main/hk_stock.csv"
+HK_ETF_CSV_URL = "https://raw.githubusercontent.com/fukyanchiang/my-cosmos-vision/refs/heads/main/hk_etf.csv"
+
+def fetch_tickers_from_csv(source_key):
+    """根據選擇從 CSV 自動讀取股票/ETF 代碼"""
+    try:
+        if source_key == "US_MARKET_FOCUS":
+            df = pd.read_csv("Market_Focus.csv")
+        elif source_key == "US_SP500":
+            df = pd.read_csv("SP500_Equities.csv")
+        elif source_key == "US_INDUSTRY":
+            df = pd.read_csv("Industry_Focus.csv")
+        elif source_key == "US_ETFS":
+            df = pd.read_csv("US_ETFs.csv")
+        elif source_key == "HK_STOCKS":
+            df = pd.read_csv(HK_STOCK_CSV_URL)
+        elif source_key == "HK_ETFS":
+            df = pd.read_csv(HK_ETF_CSV_URL)
+        else:
+            return []
+
+        # 自動尋找包含代碼的欄位
+        col = [c for c in df.columns if c.lower() in ['ticker', 'symbol', '代號', 'code']][0]
+        raw_tickers = df[col].dropna().astype(str).tolist()
+        
+        # 格式化代碼 (特別處理港股格式)
+        formatted_tickers = []
+        for t in raw_tickers:
+            t = t.strip().upper()
+            if source_key in ["HK_STOCKS", "HK_ETFS"]:
+                if not t.endswith(".HK"):
+                    t = f"{t.zfill(4)}.HK"
+            formatted_tickers.append(t)
+            
+        return list(dict.fromkeys(formatted_tickers)) # 去重
+    except Exception as e:
+        st.error(f"⚠️ 讀取 CSV 名單失敗: {e}")
+        return []
+
 def show_hard_market_scanner():
     st.header("🔍 爛市尋強者 - 9大 SEPA 條件 100% 嚴格篩選")
     st.markdown("完全忠於量化邏輯：1-8 條件為硬性門檻，第 9 條件作均線糾纏度智能排序。")
 
-    tickers_input = st.text_input(
-        "輸入要掃描的美股代碼 (用逗號分隔)：", 
-        "NVDA, TSLA, AAPL, AMD, MSFT, META, AMZN, GOOGL, PLTR, ARM"
+    # 🎛️ 戰略名單來源選擇器
+    source_option = st.selectbox(
+        "📍 請選擇要掃描的美股/港股戰略名單：",
+        [
+            "✍️ 自訂手動輸入",
+            "🇺🇸 美股 - 精選名單 (Market_Focus.csv)",
+            "🇺🇸 美股 - 大藍籌 S&P 500 (SP500_Equities.csv)",
+            "🇺🇸 美股 - 行業焦點 (Industry_Focus.csv)",
+            "🇺🇸 美股 - 美股 ETF (US_ETFs.csv)",
+            "🇭🇰 港股 - 全港股名單 (hk_stock.csv)",
+            "🇭🇰 港股 - 港股 ETF 名單 (hk_etf.csv)"
+        ]
     )
 
-    if st.button("🚀 開始 9 大條件 100% 嚴格篩選"):
+    ticker_list = []
+    
+    if source_option == "✍️ 自訂手動輸入":
+        tickers_input = st.text_input(
+            "輸入要掃描的美股/港股代碼 (用逗號分隔)：", 
+            "NVDA, TSLA, AAPL, AMD, MSFT, META, AMZN, GOOGL, PLTR, ARM"
+        )
         ticker_list = [t.strip().upper() for t in tickers_input.split(",") if t.strip()]
-        
+    else:
+        if "Market_Focus" in source_option:
+            ticker_list = fetch_tickers_from_csv("US_MARKET_FOCUS")
+        elif "SP500" in source_option:
+            ticker_list = fetch_tickers_from_csv("US_SP500")
+        elif "Industry_Focus" in source_option:
+            ticker_list = fetch_tickers_from_csv("US_INDUSTRY")
+        elif "US_ETFs" in source_option:
+            ticker_list = fetch_tickers_from_csv("US_ETFS")
+        elif "hk_stock" in source_option:
+            ticker_list = fetch_tickers_from_csv("HK_STOCKS")
+        elif "hk_etf" in source_option:
+            ticker_list = fetch_tickers_from_csv("HK_ETFS")
+
+        st.info(f"📊 已成功加載戰略名單，共找到 **{len(ticker_list)}** 隻標的準備進行 9 大條件雷達掃描。")
+
+    if st.button("🚀 開始 9 大條件 100% 嚴格篩選"):
         if not ticker_list:
-            st.warning("請先輸入股票代碼！")
+            st.warning("請先選擇或輸入股票代碼！")
             return
 
         results = []
         progress_bar = st.progress(0)
+        status_text = st.empty()
         
         for idx, symbol in enumerate(ticker_list):
+            status_text.markdown(f"**📡 正在進行 9 大條件深度分析:** `{symbol}` ({idx+1}/{len(ticker_list)})")
             try:
                 # 抓取足夠長度的歷史數據
                 df = yf.download(symbol, period="1y", interval="1d", progress=False)
@@ -115,6 +188,8 @@ def show_hard_market_scanner():
             # 更新進度條
             progress_bar.progress((idx + 1) / len(ticker_list))
 
+        status_text.empty()
+        
         # 輸出結果
         if results:
             res_df = pd.DataFrame(results)
@@ -126,3 +201,5 @@ def show_hard_market_scanner():
             
             st.dataframe(res_df, use_container_width=True)
             st.success("✅ 掃描完成！排在最頂部的股票，代表其 10、20、50 日均線最為糾纏，是爆發前夕的最佳目標。")
+        else:
+            st.warning("💤 名單內暫無符合 9 大嚴格條件的標的。")
