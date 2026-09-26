@@ -444,22 +444,56 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
                 except Exception as e: st.error(f"繪圖出錯: {e}")
 
 # =========================================================================
-# ✨ 模式 1.5：天外飛仙 (極速起爆雷達) ── 👴 爺爺新增大圓滿版
+# ✨ 模式 1.5：天外飛仙 (極速起爆雷達) ── 👴 爺爺直連診斷修復版
 # =========================================================================
 elif operation_mode == "✨ 天外飛仙 (極速起爆雷達)":
     st.markdown("<h1 style='text-align:center; color:#FFD700;'>✨ 天外飛仙 (第 6 掣) 極速起爆雷達</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align:center; color:#888;'>搭載 21 大核心加分引擎、雙梯隊時間視角 (1-3日黃金起爆 / 4-10日沉底觀察)</p>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align:center; color:#888;'>雙管齊下：支援全池過濾 ＋ 單股精準診斷測試</p>", unsafe_allow_html=True)
     st.write("---")
 
-    # 定義 6 大戰區的對應表
+    # 定義 6 大戰區的對應表 (同時兼容大小寫檔名)
     TF_POOLS = {
-        "🇺🇸 美股 - SP500大藍籌 (500隻)": "SP500_Equities.csv",
-        "🇺🇸 美股 - 焦點精選 (576隻)": "Market_Focus.csv",
-        "🇺🇸 美股 - 行業焦點 (1029隻)": "Industry_Focus.csv",
-        "📦 美股 - ETFs (~360隻)": "US_ETFs.csv",
-        "🇭🇰 港股 - 焦點個股 (659隻)": HK_STOCK_CSV_URL,
-        "📦 港股 - ETFs (139隻)": HK_ETF_CSV_URL
+        "🇺🇸 美股 - 焦點精選 (576隻)": ["Market_Focus.csv", "market_focus.csv"],
+        "🇺🇸 美股 - SP500大藍籌 (500隻)": ["SP500_Equities.csv", "sp500_equities.csv"],
+        "🇺🇸 美股 - 行業焦點 (1029隻)": ["Industry_Focus.csv", "industry_focus.csv"],
+        "📦 美股 - ETFs (~360隻)": ["US_ETFs.csv", "us_etfs.csv"],
+        "🇭🇰 港股 - 焦點個股 (659隻)": [HK_STOCK_CSV_URL],
+        "📦 港股 - ETFs (139隻)": [HK_ETF_CSV_URL]
     }
+
+    st.markdown("### 🎯 測試診斷一：單股直接穿透測試 (請先測試 MU)")
+    col_single1, col_single2 = st.columns([3, 1])
+    with col_single1:
+        test_ticker = st.text_input("輸入測試股票代號 (預設: MU)：", "MU").upper().strip()
+    with col_single2:
+        st.write("<br>", unsafe_allow_html=True)
+        run_single_tf = st.button("🧪 單股直連分析", use_container_width=True)
+
+    if run_single_tf and test_ticker:
+        with st.spinner(f"正在直接讀取 {test_ticker} 並進行天外飛仙運算..."):
+            try:
+                df_single = smart_fetch(test_ticker, period="2y")
+                if df_single.empty:
+                    st.error(f"❌ 無法取得 {test_ticker} 數據，請檢查代號！")
+                else:
+                    st.info(f"📊 成功取得 {test_ticker} 過去 {len(df_single)} 個交易日數據！正在帶入 21 大引擎...")
+                    res_single = run_tianwai_feixian(df_single)
+                    latest_s = res_single.iloc[-1]
+                    
+                    st.write("---")
+                    st.markdown(f"### 🔍 {test_ticker} 診斷結果：")
+                    st.json({
+                        "股票代號": test_ticker,
+                        "天外飛仙狀態碼": int(latest_s['天外飛仙_狀態']),
+                        "狀態解讀": "🚀 黃金起爆 (1-3日)" if latest_s['天外飛仙_狀態'] == 1 else ("🐢 沉底觀察 (4-10日)" if latest_s['天外飛仙_狀態'] == 2 else "❌ 未觸發條件 (狀態碼 0)"),
+                        "霸王總分": float(latest_s['霸王總分']),
+                        "最新收市價": float(latest_s['Close'])
+                    })
+            except Exception as e:
+                st.error(f"💥 運算過程發生崩潰: {e}")
+
+    st.write("---")
+    st.markdown("### 📂 測試診斷二：全池大規模自動掃瞄")
 
     col1, col2 = st.columns([3, 1])
     with col1:
@@ -470,14 +504,19 @@ elif operation_mode == "✨ 天外飛仙 (極速起爆雷達)":
 
     if run_tf:
         tickers = []
-        target_csv = TF_POOLS[selected_pool]
+        possible_files = TF_POOLS[selected_pool]
         
-        with st.spinner("正在讀取名單..."):
-            if target_csv.startswith("http"):
-                df_list = fetch_github_list(target_csv)
-            else:
-                try: df_list = pd.read_csv(target_csv)
-                except: df_list = pd.DataFrame()
+        with st.spinner("正在尋找並讀取戰區名單..."):
+            df_list = pd.DataFrame()
+            for path in possible_files:
+                if path.startswith("http"):
+                    df_list = fetch_github_list(path)
+                else:
+                    if os.path.exists(path):
+                        try:
+                            df_list = pd.read_csv(path)
+                            break
+                        except: pass
             
             if not df_list.empty:
                 col_name = [c for c in df_list.columns if c.lower() in ['ticker', 'symbol', '代號', 'code']]
@@ -485,24 +524,24 @@ elif operation_mode == "✨ 天外飛仙 (極速起爆雷達)":
                     tickers = df_list[col_name[0]].dropna().astype(str).tolist()
                     if "港股" in selected_pool:
                         tickers = [t.zfill(4) + ".HK" if not t.endswith(".HK") else t for t in tickers]
-        
+
         if not tickers:
-            st.error("⚠️ 無法載入股票名單，請檢查檔案是否存在或欄位名稱！")
+            st.error(f"⚠️ 無法載入股票名單！嘗試讀取 {possible_files} 皆失敗，請確認檔案已 Commit 上 GitHub！")
         else:
-            st.success(f"🎯 成功鎖定 {len(tickers)} 隻目標！正在啟動極致穩定雷達運算...")
+            st.success(f"🎯 成功鎖定 {len(tickers)} 隻標的！正在用最穩定引擎逐隻分析...")
             
             progress_bar = st.progress(0)
             status_text = st.empty()
             results = []
+            debug_errors = []
 
-            # 👴 爺爺的終極修復：放棄多線程，改用最穩定嘅 smart_fetch 單線程迴圈！
             for i, t in enumerate(tickers):
                 progress_bar.progress((i+1)/len(tickers))
-                status_text.markdown(f"**📡 正在實時分析:** `{t}` ({i+1}/{len(tickers)})")
+                status_text.markdown(f"**📡 正在深度分析:** `{t}` ({i+1}/{len(tickers)})")
                 
                 try:
                     df_hist = smart_fetch(t, period="2y")
-                    if not df_hist.empty and len(df_hist) > 200:
+                    if not df_hist.empty and len(df_hist) > 100:
                         res_df = run_tianwai_feixian(df_hist)
                         latest = res_df.iloc[-1]
                         
@@ -513,8 +552,10 @@ elif operation_mode == "✨ 天外飛仙 (極速起爆雷達)":
                                 "狀態碼": latest['天外飛仙_狀態'],
                                 "霸王總分": latest['霸王總分']
                             })
+                    else:
+                        if len(debug_errors) < 5: debug_errors.append(f"{t}: 數據為空或少於100天")
                 except Exception as e:
-                    pass
+                    if len(debug_errors) < 5: debug_errors.append(f"{t}: 算式報錯 ({e})")
             
             progress_bar.empty()
             status_text.empty()
@@ -526,7 +567,10 @@ elif operation_mode == "✨ 天外飛仙 (極速起爆雷達)":
                 final_df = final_df.reset_index(drop=True)
                 st.dataframe(final_df, use_container_width=True)
             else:
-                st.warning("😭 報告統帥，今日此股票池無任何標的觸發天外飛仙！大市可能處於極度死水狀態。")
+                st.warning("😭 報告統帥，今日此股票池無任何標的觸發天外飛仙！")
+                if debug_errors:
+                    with st.expander("🔍 點擊查看前 5 隻股票分析失敗原因（Debug 日誌）："):
+                        for err in debug_errors: st.write(f"- {err}")
 
 # =========================================================================
 # 💰 模式三：大戶資金流透視 (福德金字塔) (原封不動)
