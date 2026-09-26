@@ -72,15 +72,10 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     # ==========================================
     # 雙梯隊時間窗口判斷 (3天黃金起爆 / 4-10天沉底)
     # ==========================================
-    # 第 1 天 (起爆當日)
     DAY1_COND = (DAYS_SINCE_MACD_ORANGE == 0) & IS_TTM_ORANGE & POWER_STRONG & STAGE2
-    # 第 2-3 天 (確認延伸)
     DAY23_COND = (DAYS_SINCE_MACD_ORANGE.isin([1, 2])) & IS_TTM_ORANGE & POWER_STRONG & STAGE2
-    
     IS_HOT_WINDOW = DAY1_COND | DAY23_COND
-    # 第 4-10 天 (沉底過濾：只要求 Stage 2，在最底顯示多7個交易日)
     IS_COOL_WINDOW = (DAYS_SINCE_MACD_ORANGE >= 3) & (DAYS_SINCE_MACD_ORANGE <= 9) & STAGE2
-    
     BASE_MATCH = IS_HOT_WINDOW | IS_COOL_WINDOW
 
     # ==========================================
@@ -318,10 +313,6 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     TOTAL_SCORE = np.where(IS_HOT_WINDOW, 100, np.where(IS_COOL_WINDOW, 0, -9999)) + (len(tags) * 10)
     df['霸王總分'] = pd.Series(TOTAL_SCORE, index=df.index).fillna(-9999).astype(float)
     
-    # 確保不會 KeyError
-    if len(df) > 0:
-        df.at[df.index[-1], '天外飛仙_標籤'] = tags_str
-        
     df['Power'] = POWER
     df['EMA10'] = MA10
     df['Bias'] = (C - MA20) / (MA20 + 1e-5) * 100
@@ -329,5 +320,9 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     df['EJ'] = TTM_MOMENTUM
     df['SE'] = MACD_VAL
     df['Vol_Ratio'] = V / (VOL_MA20 + 1e-5)
+    
+    df['天外飛仙_標籤'] = ""
+    if len(df) > 0:
+        df.at[df.index[-1], '天外飛仙_標籤'] = tags_str
 
     return df
