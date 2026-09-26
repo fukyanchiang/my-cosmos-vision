@@ -33,13 +33,21 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
         idx = np.arange(len(cond))
         last_true = pd.Series(np.where(cond, idx, np.nan), index=cond.index).ffill()
         return pd.Series(idx - last_true, index=cond.index).fillna(9999)
+        
+    # 👴 爺爺完美還原：富途/通達信的 FORCAST (線性回歸預測) 函數
+    def FORCAST(S, N):
+        w = np.arange(1, N + 1) - (N + 1) / 2.0
+        w2_sum = np.sum(w ** 2)
+        slope_num = sum(w[i] * S.shift(N - 1 - i) for i in range(N))
+        slope = slope_num / w2_sum
+        return S.rolling(N).mean() + slope * (N - 1) / 2.0
 
     # --- 共用均線 ---
     MA10, MA20 = MA(C, 10), MA(C, 20)
     MA50, MA150, MA200 = MA(C, 50), MA(C, 150), MA(C, 200)
 
     # ==========================================
-    # 基礎 STAGE 2 結構定義 (改用括號包覆，防彈設計)
+    # 基礎 STAGE 2 結構定義 (安全括號防彈設計)
     # ==========================================
     STAGE2 = ((C > MA50) & (C > MA150) & (MA50 > MA150) & (MA150 > MA200) & 
               (MA200 > MA200.shift(20)) & (C > LLV(L, 250) * 1.3))
@@ -63,10 +71,12 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     POWER_STRONG = POWER > 0.5
 
     # ==========================================
-    # 硬條件 3: TTM 橙柱雙確認
+    # 硬條件 3: TTM 橙柱雙確認 (完美修復 FORCAST)
     # ==========================================
     N_TTM = 20
-    TTM_MOMENTUM = C - MA(C, N_TTM)
+    VAR1 = (HHV(H, N_TTM) + LLV(L, N_TTM)) / 2 + MA(C, N_TTM)
+    TTM_MOMENTUM = FORCAST(C - VAR1 / 2, N_TTM)  # 👈 真正還原 TTM Squeeze 核心
+    
     TTM_PRICE_HOLD = COUNT(C > MA150, 3) > 0
     TTM_STAGE2_ON = TTM_PRICE_HOLD & (MA50 > MA150) & (MA150 > MA150.shift(10))
     IS_ORANGE_UP = (TTM_MOMENTUM >= 0) & TTM_STAGE2_ON & (TTM_MOMENTUM > TTM_MOMENTUM.shift(1))
