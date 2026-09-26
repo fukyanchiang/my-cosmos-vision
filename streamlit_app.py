@@ -180,160 +180,204 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
             st.session_state.dragon_results = []; st.session_state.sl_list = []; st.rerun()
 
     elif st.session_state.page == 'DRAGON':
-        if st.session_state.scan_mode == 'STRONG': mode_display = "🔥 強勢股排列 (週線/日線多頭)"
-        elif st.session_state.scan_mode == 'VCP': mode_display = "📈 VCP 高勝率獵龍"
-        elif st.session_state.scan_mode == 'TIANWAI': mode_display = "✨ 天外飛仙 (第 6 掣) 極速起爆雷達"
-        else: mode_display = "🐉 龍魂神殿 5.0 旗艦雷達"
-        
-        st.markdown(f"<h1 style='text-align:center; color:#00FFCC;'>{mode_display}</h1>", unsafe_allow_html=True)
-        
-        nav = st.columns(6)
-        if nav[0].button("⬅️ 返回總部"): st.session_state.page = 'HOME'; st.rerun()
-        if nav[1].button("🇭🇰 港股"): st.session_state.target = 'HK'
-        if nav[2].button("🇺🇸 美股"): st.session_state.target = 'US'
-        if nav[3].button("📦 ETF"): st.session_state.target = 'ETF'
-        if nav[4].button("🔍 個股"): st.session_state.target = 'SINGLE'
-        
-        st.markdown("---")
-        c_ath, c_btn = st.columns([3, 1])
-        is_ath_mode = False
-        vcp_52w = False
-        with c_ath: 
-            is_ath_mode = st.checkbox("🔥 啟動 ATH 歷史新高極致過濾")
-            vcp_52w = st.checkbox("🎯 啟動 MM 原汁原味 52週高位 25% 內過濾")
-        
-        selected_tickers = []; market_mode = "HK"; btn_radar = False
-
-        if st.session_state.target == 'US':
-            st.write("### 🇺🇸 選擇美股戰略名單：")
-            m = st.columns(5)
-            files = [("SP500_Equities.csv", "大藍籌"), ("Market_Focus.csv", "精選"), ("Industry_Focus.csv", "行業"), ("Core_Stocks.csv", "核心"), ("US_ETFs.csv", "美股ETF")]
-            for i, (f, name) in enumerate(files):
-                if m[i].button(f"選定 {name}"): 
-                    st.session_state.active_file = f; st.success(f"✅ 已選定 {f}")
-            with c_btn:
-                if st.session_state.scan_mode == 'STRONG':
-                    btn_w = st.button("📡 啟動雷達 (週線多頭)", use_container_width=True)
-                    btn_d = st.button("📡 日線多頭排順", use_container_width=True)
-                    if btn_w: btn_radar = True; st.session_state.run_mode = 'STRONG_WEEKLY'
-                    if btn_d: btn_radar = True; st.session_state.run_mode = 'STRONG_DAILY'
-                elif st.session_state.scan_mode == 'TIANWAI':
-                    if st.button("✨ 啟動飛仙雷達", use_container_width=True): 
-                        btn_radar = True; st.session_state.run_mode = 'TIANWAI'
-                else:
-                    if st.button("📡 啟動雷達", use_container_width=True): 
-                        btn_radar = True; st.session_state.run_mode = st.session_state.scan_mode
-
-        elif st.session_state.target == 'SINGLE':
-            st.write("### 🔍 個股自訂掃描：")
-            col1, col2 = st.columns([3, 1])
-            with col1: single_t = st.text_input("輸入股票代號 (例: NVDA, 0700.HK, TSLA)", "").upper().strip()
-            with col2:
+        # --- 獨立嘅「天外飛仙」極簡 UI ---
+        if st.session_state.scan_mode == 'TIANWAI':
+            st.markdown("<h1 style='text-align:center; color:#00FFCC;'>✨ 天外飛仙 (第 6 掣) 極速起爆雷達</h1>", unsafe_allow_html=True)
+            nav = st.columns([1, 1, 1, 3])
+            if nav[0].button("⬅️ 返回總部"): st.session_state.page = 'HOME'; st.rerun()
+            if nav[1].button("🇺🇸 美股"): st.session_state.target = 'US_TW'
+            if nav[2].button("🇭🇰 港股"): st.session_state.target = 'HK_TW'
+            
+            st.markdown("---")
+            selected_tickers = []; market_mode = "HK"; btn_radar = False
+            
+            if st.session_state.target == 'US_TW':
+                st.write("### 🇺🇸 選擇美股戰略名單：")
+                m = st.columns(4)
+                files = [("SP500_Equities.csv", "大藍籌"), ("Market_Focus.csv", "精選"), ("Industry_Focus.csv", "行業"), ("US_ETFs.csv", "美股ETF")]
+                for i, (f, name) in enumerate(files):
+                    if m[i].button(f"選定 {name}"): 
+                        st.session_state.active_file = f; st.success(f"✅ 已選定 {name}")
                 st.write("<br>", unsafe_allow_html=True)
-                if st.session_state.scan_mode == 'STRONG':
-                    btn_w = st.button("📡 啟動雷達 (週線多頭)", use_container_width=True)
-                    btn_d = st.button("📡 日線多頭排順", use_container_width=True)
-                    if btn_w or btn_d:
-                        if single_t:
-                            selected_tickers = [(single_t, "自選個股")]
-                            btn_radar = True
-                            st.session_state.run_mode = 'STRONG_WEEKLY' if btn_w else 'STRONG_DAILY'
-                        else: st.warning("請先輸入代號！")
-                elif st.session_state.scan_mode == 'TIANWAI':
-                    if st.button("✨ 啟動飛仙雷達", use_container_width=True): 
-                        if single_t:
-                            selected_tickers = [(single_t, "自選個股")]
-                            btn_radar = True
-                            st.session_state.run_mode = 'TIANWAI'
-                        else: st.warning("請先輸入代號！")
-                else:
-                    if st.button("📡 立即分析此股", use_container_width=True): 
-                        if single_t:
-                            selected_tickers = [(single_t, "自選個股")]
-                            btn_radar = True
-                            st.session_state.run_mode = st.session_state.scan_mode
-                        else: st.warning("請先輸入代號！")
+                if st.button("✨ 啟動飛仙雷達", use_container_width=True): btn_radar = True
 
-        elif st.session_state.target == 'HK':
-            st.write("### 🇭🇰 港股板塊掃描 (包含全星系)：")
-            df_hk = fetch_github_list(HK_STOCK_CSV_URL)
-            hk_sectors = sorted(df_hk['Sector'].dropna().unique().tolist()) if not df_hk.empty else []
-            s_choice = st.selectbox("選擇範圍", ["🌐 啟動全星系大規模搜索"] + hk_sectors)
-            with c_btn:
-                if st.session_state.scan_mode == 'STRONG':
-                    btn_w = st.button("📡 啟動雷達 (週線多頭)", use_container_width=True)
-                    btn_d = st.button("📡 日線多頭排順", use_container_width=True)
-                    if btn_w: btn_radar = True; st.session_state.run_mode = 'STRONG_WEEKLY'
-                    if btn_d: btn_radar = True; st.session_state.run_mode = 'STRONG_DAILY'
-                elif st.session_state.scan_mode == 'TIANWAI':
-                    if st.button("✨ 啟動飛仙雷達", use_container_width=True): 
-                        btn_radar = True; st.session_state.run_mode = 'TIANWAI'
-                else:
-                    if st.button("📡 啟動雷達", use_container_width=True): 
-                        btn_radar = True; st.session_state.run_mode = st.session_state.scan_mode
+            elif st.session_state.target == 'HK_TW':
+                st.write("### 🇭🇰 選擇港股戰略名單：")
+                m = st.columns(2)
+                files = [("hk_stock.csv", "港股個股"), ("hk_etf.csv", "港股ETF")]
+                for i, (f, name) in enumerate(files):
+                    if m[i].button(f"選定 {name}"): 
+                        st.session_state.active_file = f; st.success(f"✅ 已選定 {name}")
+                st.write("<br>", unsafe_allow_html=True)
+                if st.button("✨ 啟動飛仙雷達", use_container_width=True): btn_radar = True
+                
+            if btn_radar:
+                st.session_state.run_mode = 'TIANWAI'
+                if hasattr(st.session_state, 'active_file'):
+                    f = st.session_state.active_file
+                    try:
+                        if f == 'hk_stock.csv': df_csv = fetch_github_list(HK_STOCK_CSV_URL)
+                        elif f == 'hk_etf.csv': df_csv = fetch_github_list(HK_ETF_CSV_URL)
+                        else: df_csv = pd.read_csv(f)
+                        
+                        col = [c for c in df_csv.columns if c.lower() in ['ticker', 'symbol', '代號', 'code']][0]
+                        tickers = df_csv[col].dropna().astype(str).tolist()
+                        if f in ['hk_stock.csv', 'hk_etf.csv']:
+                            market_mode = 'HK'
+                            tickers = [t.zfill(4) + ".HK" if not t.endswith(".HK") else t for t in tickers]
+                        else:
+                            market_mode = 'US'
+                        
+                        if 'Sector' in df_csv.columns:
+                            selected_tickers = list(df_csv[[col, 'Sector']].dropna().itertuples(index=False, name=None))
+                            if market_mode == 'HK': selected_tickers = [(t.zfill(4)+".HK" if not t.endswith(".HK") else t, sec) for t, sec in selected_tickers]
+                        else:
+                            selected_tickers = [(t, "天外飛仙") for t in tickers]
+                    except: st.error("讀取檔案失敗。")
+                else: st.warning("請先選定一個名單！")
 
-        elif st.session_state.target == 'ETF':
-            st.write("### 📦 港股/美股 ETF 掃描 (包含全星系)：")
-            df_etf = fetch_github_list(HK_ETF_CSV_URL)
-            etf_sectors = sorted(df_etf['Sector'].dropna().unique().tolist()) if not df_etf.empty else []
-            s_choice = st.selectbox("選擇範圍", ["🌐 啟動全星系大規模搜索 (僅限港股 ETF)"] + etf_sectors + list(US_ETF_MAP.keys()))
-            with c_btn:
-                if st.session_state.scan_mode == 'STRONG':
-                    btn_w = st.button("📡 啟動雷達 (週線多頭)", use_container_width=True)
-                    btn_d = st.button("📡 日線多頭排順", use_container_width=True)
-                    if btn_w: btn_radar = True; st.session_state.run_mode = 'STRONG_WEEKLY'
-                    if btn_d: btn_radar = True; st.session_state.run_mode = 'STRONG_DAILY'
-                elif st.session_state.scan_mode == 'TIANWAI':
-                    if st.button("✨ 啟動飛仙雷達", use_container_width=True): 
-                        btn_radar = True; st.session_state.run_mode = 'TIANWAI'
-                else:
-                    if st.button("📡 啟動雷達", use_container_width=True): 
-                        btn_radar = True; st.session_state.run_mode = st.session_state.scan_mode
+        # --- 正常龍魂神殿 UI ---
+        else:
+            if st.session_state.scan_mode == 'STRONG': mode_display = "🔥 強勢股排列 (週線/日線多頭)"
+            elif st.session_state.scan_mode == 'VCP': mode_display = "📈 VCP 高勝率獵龍"
+            else: mode_display = "🐉 龍魂神殿 5.0 旗艦雷達"
+            
+            st.markdown(f"<h1 style='text-align:center; color:#00FFCC;'>{mode_display}</h1>", unsafe_allow_html=True)
+            
+            nav = st.columns(6)
+            if nav[0].button("⬅️ 返回總部"): st.session_state.page = 'HOME'; st.rerun()
+            if nav[1].button("🇭🇰 港股"): st.session_state.target = 'HK'
+            if nav[2].button("🇺🇸 美股"): st.session_state.target = 'US'
+            if nav[3].button("📦 ETF"): st.session_state.target = 'ETF'
+            if nav[4].button("🔍 個股"): st.session_state.target = 'SINGLE'
+            
+            st.markdown("---")
+            c_ath, c_btn = st.columns([3, 1])
+            is_ath_mode = False
+            vcp_52w = False
+            with c_ath: 
+                is_ath_mode = st.checkbox("🔥 啟動 ATH 歷史新高極致過濾")
+                vcp_52w = st.checkbox("🎯 啟動 MM 原汁原味 52週高位 25% 內過濾")
+            
+            selected_tickers = []; market_mode = "HK"; btn_radar = False
 
-        if btn_radar:
-            if st.session_state.target == 'SINGLE': market_mode = "US" if not selected_tickers[0][0].endswith(".HK") else "HK"
-            elif st.session_state.target == 'US' and hasattr(st.session_state, 'active_file'):
-                try:
-                    df_csv = pd.read_csv(st.session_state.active_file)
-                    col = [c for c in df_csv.columns if c.lower() in ['ticker', 'symbol', '代號']][0]
-                    selected_tickers = [(t, "美股戰略") for t in df_csv[col].dropna().unique()]
-                    market_mode = "US"
-                except: st.error("讀取 CSV 失敗，請檢查檔案是否存在。")
-            elif st.session_state.target == 'HK':
-                df_hk = fetch_github_list(HK_STOCK_CSV_URL)
-                if not df_hk.empty:
-                    if "全星系" in s_choice: selected_tickers = list(df_hk.itertuples(index=False, name=None))
-                    else: selected_tickers = list(df_hk[df_hk['Sector'] == s_choice].itertuples(index=False, name=None))
-                market_mode = "HK"
-            elif st.session_state.target == 'ETF':
-                df_etf = fetch_github_list(HK_ETF_CSV_URL)
-                raw_list = []
-                if "全星系" in s_choice:
-                    if not df_etf.empty: raw_list.extend(list(df_etf.itertuples(index=False, name=None)))
-                    selected_tickers = raw_list
-                    market_mode = "HK"
-                else:
-                    if s_choice in US_ETF_MAP:
-                        selected_tickers = [(t, s_choice) for t in US_ETF_MAP[s_choice]]
-                        market_mode = "US"
+            if st.session_state.target == 'US':
+                st.write("### 🇺🇸 選擇美股戰略名單：")
+                m = st.columns(5)
+                files = [("SP500_Equities.csv", "大藍籌"), ("Market_Focus.csv", "精選"), ("Industry_Focus.csv", "行業"), ("Core_Stocks.csv", "核心"), ("US_ETFs.csv", "美股ETF")]
+                for i, (f, name) in enumerate(files):
+                    if m[i].button(f"選定 {name}"): 
+                        st.session_state.active_file = f; st.success(f"✅ 已選定 {f}")
+                with c_btn:
+                    if st.session_state.scan_mode == 'STRONG':
+                        btn_w = st.button("📡 啟動雷達 (週線多頭)", use_container_width=True)
+                        btn_d = st.button("📡 日線多頭排順", use_container_width=True)
+                        if btn_w: btn_radar = True; st.session_state.run_mode = 'STRONG_WEEKLY'
+                        if btn_d: btn_radar = True; st.session_state.run_mode = 'STRONG_DAILY'
                     else:
-                        selected_tickers = list(df_etf[df_etf['Sector'] == s_choice].itertuples(index=False, name=None))
-                        market_mode = "HK"
+                        if st.button("📡 啟動雷達", use_container_width=True): 
+                            btn_radar = True; st.session_state.run_mode = st.session_state.scan_mode
 
-            if selected_tickers:
-                st.info(f"🚀 啟動極致穩定雷達 ({len(selected_tickers)} 隻) | 模式: {st.session_state.run_mode}...")
+            elif st.session_state.target == 'SINGLE':
+                st.write("### 🔍 個股自訂掃描：")
+                col1, col2 = st.columns([3, 1])
+                with col1: single_t = st.text_input("輸入股票代號 (例: NVDA, 0700.HK, TSLA)", "").upper().strip()
+                with col2:
+                    st.write("<br>", unsafe_allow_html=True)
+                    if st.session_state.scan_mode == 'STRONG':
+                        btn_w = st.button("📡 啟動雷達 (週線多頭)", use_container_width=True)
+                        btn_d = st.button("📡 日線多頭排順", use_container_width=True)
+                        if btn_w or btn_d:
+                            if single_t:
+                                selected_tickers = [(single_t, "自選個股")]
+                                btn_radar = True
+                                st.session_state.run_mode = 'STRONG_WEEKLY' if btn_w else 'STRONG_DAILY'
+                            else: st.warning("請先輸入代號！")
+                    else:
+                        if st.button("📡 立即分析此股", use_container_width=True): 
+                            if single_t:
+                                selected_tickers = [(single_t, "自選個股")]
+                                btn_radar = True
+                                st.session_state.run_mode = st.session_state.scan_mode
+                            else: st.warning("請先輸入代號！")
+
+            elif st.session_state.target == 'HK':
+                st.write("### 🇭🇰 港股板塊掃描 (包含全星系)：")
+                df_hk = fetch_github_list(HK_STOCK_CSV_URL)
+                hk_sectors = sorted(df_hk['Sector'].dropna().unique().tolist()) if not df_hk.empty else []
+                s_choice = st.selectbox("選擇範圍", ["🌐 啟動全星系大規模搜索"] + hk_sectors)
+                with c_btn:
+                    if st.session_state.scan_mode == 'STRONG':
+                        btn_w = st.button("📡 啟動雷達 (週線多頭)", use_container_width=True)
+                        btn_d = st.button("📡 日線多頭排順", use_container_width=True)
+                        if btn_w: btn_radar = True; st.session_state.run_mode = 'STRONG_WEEKLY'
+                        if btn_d: btn_radar = True; st.session_state.run_mode = 'STRONG_DAILY'
+                    else:
+                        if st.button("📡 啟動雷達", use_container_width=True): 
+                            btn_radar = True; st.session_state.run_mode = st.session_state.scan_mode
+
+            elif st.session_state.target == 'ETF':
+                st.write("### 📦 港股/美股 ETF 掃描 (包含全星系)：")
+                df_etf = fetch_github_list(HK_ETF_CSV_URL)
+                etf_sectors = sorted(df_etf['Sector'].dropna().unique().tolist()) if not df_etf.empty else []
+                s_choice = st.selectbox("選擇範圍", ["🌐 啟動全星系大規模搜索 (僅限港股 ETF)"] + etf_sectors + list(US_ETF_MAP.keys()))
+                with c_btn:
+                    if st.session_state.scan_mode == 'STRONG':
+                        btn_w = st.button("📡 啟動雷達 (週線多頭)", use_container_width=True)
+                        btn_d = st.button("📡 日線多頭排順", use_container_width=True)
+                        if btn_w: btn_radar = True; st.session_state.run_mode = 'STRONG_WEEKLY'
+                        if btn_d: btn_radar = True; st.session_state.run_mode = 'STRONG_DAILY'
+                    else:
+                        if st.button("📡 啟動雷達", use_container_width=True): 
+                            btn_radar = True; st.session_state.run_mode = st.session_state.scan_mode
+
+            # Load selected_tickers for normal mode
+            if btn_radar:
+                if st.session_state.target == 'SINGLE': market_mode = "US" if not selected_tickers[0][0].endswith(".HK") else "HK"
+                elif st.session_state.target == 'US' and hasattr(st.session_state, 'active_file'):
+                    try:
+                        df_csv = pd.read_csv(st.session_state.active_file)
+                        col = [c for c in df_csv.columns if c.lower() in ['ticker', 'symbol', '代號']][0]
+                        selected_tickers = [(t, "美股戰略") for t in df_csv[col].dropna().unique()]
+                        market_mode = "US"
+                    except: st.error("讀取 CSV 失敗，請檢查檔案是否存在。")
+                elif st.session_state.target == 'HK':
+                    df_hk = fetch_github_list(HK_STOCK_CSV_URL)
+                    if not df_hk.empty:
+                        if "全星系" in s_choice: selected_tickers = list(df_hk.itertuples(index=False, name=None))
+                        else: selected_tickers = list(df_hk[df_hk['Sector'] == s_choice].itertuples(index=False, name=None))
+                    market_mode = "HK"
+                elif st.session_state.target == 'ETF':
+                    df_etf = fetch_github_list(HK_ETF_CSV_URL)
+                    raw_list = []
+                    if "全星系" in s_choice:
+                        if not df_etf.empty: raw_list.extend(list(df_etf.itertuples(index=False, name=None)))
+                        selected_tickers = raw_list
+                        market_mode = "HK"
+                    else:
+                        if s_choice in US_ETF_MAP:
+                            selected_tickers = [(t, s_choice) for t in US_ETF_MAP[s_choice]]
+                            market_mode = "US"
+                        else:
+                            selected_tickers = list(df_etf[df_etf['Sector'] == s_choice].itertuples(index=False, name=None))
+                            market_mode = "HK"
+
+        # --- 共通的雷達掃描邏輯 ---
+        if btn_radar and selected_tickers:
+            st.info(f"🚀 啟動極致穩定雷達 ({len(selected_tickers)} 隻) | 模式: {st.session_state.run_mode}...")
+            
+            status_text = st.empty()
+            pb = st.progress(0)
+            
+            results = []; sl_list = []
+            is_single_mode = (st.session_state.target == 'SINGLE')
+            fetch_period = "5y" if st.session_state.run_mode == 'STRONG_WEEKLY' else "2y"
+            
+            for i, (t, sec) in enumerate(selected_tickers):
+                pb.progress((i+1)/len(selected_tickers))
+                status_text.markdown(f"**📡 正在實時分析:** `{t}` ({i+1}/{len(selected_tickers)})")
                 
-                status_text = st.empty()
-                pb = st.progress(0)
-                
-                results = []; sl_list = []
-                is_single_mode = (st.session_state.target == 'SINGLE')
-                fetch_period = "5y" if st.session_state.run_mode == 'STRONG_WEEKLY' else "2y"
-                
-                for i, (t, sec) in enumerate(selected_tickers):
-                    pb.progress((i+1)/len(selected_tickers))
-                    status_text.markdown(f"**📡 正在實時分析:** `{t}` ({i+1}/{len(selected_tickers)})")
-                    
+                try:
                     df = smart_fetch(t, period=fetch_period)
                     if not df.empty and len(df) > 200:
                         if is_ath_mode and (df['Close'].iloc[-1] / df['High'].tail(252).max()) < 0.93: 
@@ -344,7 +388,7 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
                             res_df = run_tianwai_feixian(df)
                             latest = res_df.iloc[-1]
                             if latest['天外飛仙_狀態'] > 0:
-                                status_txt = "🚀 起爆(1-3日)" if latest['天外飛仙_狀態'] == 1 else "🐢 沉底(4-10日)"
+                                status_txt = "🚀 黃金起爆 (1-3日)" if latest['天外飛仙_狀態'] == 1 else "🐢 沉底觀察 (4-10日)"
                                 results.append({
                                     'Ticker': t.replace(".HK", ""),
                                     'Sector': sec,
@@ -365,53 +409,57 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
                         else:
                             res = scan_dragon_logic(df, t, sec, market_mode, mode=st.session_state.run_mode, force_return=is_single_mode, vcp_52w=vcp_52w, vcp_ath=is_ath_mode)
                             if res: results.append(res)
+                except Exception as e: pass
+            
+            pb.empty()
+            status_text.empty()
+            
+            if results:
+                sector_counts = {}
+                for r in results:
+                    if not r.get('IsDead'):
+                        sec = r['Sector']
+                        sector_counts[sec] = sector_counts.get(sec, 0) + 1
                 
-                pb.empty()
-                status_text.empty()
+                results = sorted(results, key=lambda x: x['Score'], reverse=True)
+                for r in results:
+                    if not r.get('IsDead') and sector_counts.get(r['Sector'], 0) >= 3:
+                        if "📊" not in r['Icons']: r['Icons'] += " | 📊板塊共振"
                 
-                if results:
-                    sector_counts = {}
-                    for r in results:
-                        if not r.get('IsDead'):
-                            sec = r['Sector']
-                            sector_counts[sec] = sector_counts.get(sec, 0) + 1
-                    
-                    results = sorted(results, key=lambda x: x['Score'], reverse=True)
-                    for r in results:
-                        if not r.get('IsDead') and sector_counts.get(r['Sector'], 0) >= 3:
-                            if "📊" not in r['Icons']: r['Icons'] += " | 📊板塊共振"
-                    
-                    st.session_state.dragon_results = results
-                    st.session_state.sl_list = sl_list
-                    
-                    try:
-                        with open(MEMORY_FILE, 'w', encoding='utf-8') as f:
-                            json.dump({'results': results, 'sl_list': sl_list}, f, ensure_ascii=False)
-                    except Exception as e: st.error(f"儲存記憶失敗: {e}")
+                st.session_state.dragon_results = results
+                st.session_state.sl_list = sl_list
+                
+                try:
+                    with open(MEMORY_FILE, 'w', encoding='utf-8') as f:
+                        json.dump({'results': results, 'sl_list': sl_list}, f, ensure_ascii=False)
+                except Exception as e: st.error(f"儲存記憶失敗: {e}")
 
-                    if is_single_mode: st.session_state.force_chart_ticker = selected_tickers[0][0]
-                    
-                    st.success("✅ 穩定掃描完成！結果已自動封裝入記憶體，唔會再消失！")
-                    time.sleep(0.5)
-                    st.rerun() 
-                else: 
-                    if not is_single_mode: st.warning("💤 萬人坑內無生還者。")
+                if is_single_mode: st.session_state.force_chart_ticker = selected_tickers[0][0]
+                
+                st.success("✅ 穩定掃描完成！結果已自動封裝入記憶體，唔會再消失！")
+                time.sleep(0.5)
+                st.rerun() 
+            else: 
+                if not is_single_mode: st.warning("💤 萬人坑內無生還者。")
 
         if st.session_state.get('dragon_results'):
             if st.session_state.get('sl_list'):
                 st.markdown(f"<div class='bear-warning'>🛡️ 戰損置頂: {' | '.join(st.session_state.sl_list)} 跌穿 10-EMA！</div>", unsafe_allow_html=True)
             
             st.write("---")
-            col_f1, col_f2 = st.columns([1, 1])
-            with col_f1: show_n_shape_only = st.toggle("🔍 只顯示 🪃 N字突破 (今日/昨日剛破頂)")
-            with col_f2: show_n_test_only = st.toggle("🔍 只顯示 🎯 N字回測成功 (回踩關鍵位企穩)")
+            if st.session_state.scan_mode != 'TIANWAI':
+                col_f1, col_f2 = st.columns([1, 1])
+                with col_f1: show_n_shape_only = st.toggle("🔍 只顯示 🪃 N字突破 (今日/昨日剛破頂)")
+                with col_f2: show_n_test_only = st.toggle("🔍 只顯示 🎯 N字回測成功 (回踩關鍵位企穩)")
+            else:
+                show_n_shape_only, show_n_test_only = False, False
             
             st.write("---")
             for r in st.session_state.dragon_results:
                 if show_n_shape_only and "🪃" not in r['Icons']: continue 
                 if show_n_test_only and "🧱" not in r['Icons']: continue 
                 border_color = "#FF4B4B" if r.get('IsDead') else "#00FFCC"
-                # 完美套用圖片二黑底高密度排版
+                
                 st.markdown(f"""
                 <div class='dragon-card' style='border-left: 5px solid {border_color};'>
                     <div style='font-size:1.3rem;font-weight:bold;color:#FFFFFF;'>
