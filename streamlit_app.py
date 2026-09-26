@@ -1,15 +1,15 @@
-import streamlit as st 
-import yfinance as yf 
-import pandas as pd 
-import numpy as np 
-import plotly.graph_objects as go 
-from plotly.subplots import make_subplots 
+import streamlit as st
+import yfinance as yf
+import pandas as pd
+import numpy as np
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 from core_logic import scan_dragon_logic, smart_fetch, check_stop_loss
 import time
 import os
 import json
-import concurrent.futures  # 👴 爺爺新增：多線程加速引擎
-from Speed_defines_the_winner import run_tianwai_feixian  # 👴 爺爺新增：天外飛仙核心算法
+import concurrent.futures
+from Speed_defines_the_winner import run_tianwai_feixian
 
 # 💡 Streamlit 規定：set_page_config 必須作為全程式第一個運行的 Streamlit 指令
 st.set_page_config(page_title="龍魂神殿 5.0", layout="wide")
@@ -108,7 +108,7 @@ with st.sidebar:
         "請選擇核心操作模式:",
         [
             "🐉 龍魂神殿雷達系統", 
-            "✨ 天外飛仙 (極速起爆雷達)", # 👴 爺爺新增：第 6 掣
+            "✨ 天外飛仙 (極速起爆雷達)", 
             "📊 究極資產拔河龍虎榜", 
             "💰 大戶資金流透視 (福德金字塔)"
         ]
@@ -499,7 +499,6 @@ elif operation_mode == "✨ 天外飛仙 (極速起爆雷達)":
             # 封裝每一隻股票的處理函數，準備放進多線程
             def process_tf_ticker(ticker):
                 try:
-                    # 👴 爺爺已幫你在此改為 2y！確保 LLV(250) 唔會報錯！
                     df_hist = yf.download(ticker, period="2y", progress=False)
                     if len(df_hist) > 200:
                         if isinstance(df_hist.columns, pd.MultiIndex):
