@@ -10,12 +10,8 @@ import os
 import json
 from Speed_defines_the_winner import run_tianwai_feixian
 
-# 💡 Streamlit 規定：set_page_config 必須作為全程式第一個運行的 Streamlit 指令
 st.set_page_config(page_title="龍魂神殿 5.0", layout="wide")
 
-# ==========================================
-# 🌐 全局共享名單及字典 (供雷達與龍虎榜共同讀取)
-# ==========================================
 HK_STOCK_CSV_URL = "https://raw.githubusercontent.com/fukyanchiang/my-cosmos-vision/refs/heads/main/hk_stock.csv"
 HK_ETF_CSV_URL = "https://raw.githubusercontent.com/fukyanchiang/my-cosmos-vision/refs/heads/main/hk_etf.csv"
 
@@ -98,26 +94,19 @@ US_ETF_MAP = {
     "U5. 全球國家/地區": "EWY EWZ ILF EIS EWT TUR ECH EFNL EWC EWP EWH EWI EPOL EPU EWW THD VNM EWM EWA EWJ EWN EWS EWQ EZA EWU EWL SPY KSA EWD EWG UAE QAT EPHE FXI EIDO INDA".split()
 }
 
-# ==========================================
-# 🎛️ 側邊欄主控台
-# ==========================================
 with st.sidebar:
     st.markdown("### 🎛️ 系統主指揮中心")
     operation_mode = st.radio(
         "請選擇核心操作模式:",
         [
             "🐉 龍魂神殿雷達系統", 
-            "✨ 天外飛仙 (極速起爆雷達)", 
             "📊 究極資產拔河龍虎榜", 
             "💰 大戶資金流透視 (福德金字塔)"
         ]
     )
     st.markdown("---")
-    st.caption("👴 爺爺的操盤矩陣 V188.5")
+    st.caption("👴 爺爺的操盤矩陣 V188.6")
 
-# ==========================================
-# 🌌 模式一：龍魂雷達系統 (包含強勢股排列)
-# ==========================================
 if operation_mode == "🐉 龍魂神殿雷達系統":
     MEMORY_FILE = "dragon_memory.json"
     if 'dragon_results' not in st.session_state:
@@ -173,7 +162,7 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
 
     if st.session_state.page == 'HOME':
         st.markdown("<h1 style='text-align:center;font-size:4rem;margin-top:80px;color:#FFD700;'>🐲 龍魂戰略總部</h1>", unsafe_allow_html=True)
-        c1, c2, c3, c4 = st.columns(4)
+        c1, c2, c3, c4, c5 = st.columns(5)
         if c1.button("🐉 龍魂神殿 (普通掃描)"): 
             st.session_state.page = 'DRAGON'; st.session_state.scan_mode = 'NORMAL'
             st.session_state.dragon_results = []; st.session_state.sl_list = []; st.rerun()
@@ -186,11 +175,16 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
         if c4.button("🔥 強勢股排列"): 
             st.session_state.page = 'DRAGON'; st.session_state.scan_mode = 'STRONG'
             st.session_state.dragon_results = []; st.session_state.sl_list = []; st.rerun()
+        if c5.button("✨ 天外飛仙"): 
+            st.session_state.page = 'DRAGON'; st.session_state.scan_mode = 'TIANWAI'
+            st.session_state.dragon_results = []; st.session_state.sl_list = []; st.rerun()
 
     elif st.session_state.page == 'DRAGON':
         if st.session_state.scan_mode == 'STRONG': mode_display = "🔥 強勢股排列 (週線/日線多頭)"
         elif st.session_state.scan_mode == 'VCP': mode_display = "📈 VCP 高勝率獵龍"
+        elif st.session_state.scan_mode == 'TIANWAI': mode_display = "✨ 天外飛仙 (第 6 掣) 極速起爆雷達"
         else: mode_display = "🐉 龍魂神殿 5.0 旗艦雷達"
+        
         st.markdown(f"<h1 style='text-align:center; color:#00FFCC;'>{mode_display}</h1>", unsafe_allow_html=True)
         
         nav = st.columns(6)
@@ -223,6 +217,9 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
                     btn_d = st.button("📡 日線多頭排順", use_container_width=True)
                     if btn_w: btn_radar = True; st.session_state.run_mode = 'STRONG_WEEKLY'
                     if btn_d: btn_radar = True; st.session_state.run_mode = 'STRONG_DAILY'
+                elif st.session_state.scan_mode == 'TIANWAI':
+                    if st.button("✨ 啟動飛仙雷達", use_container_width=True): 
+                        btn_radar = True; st.session_state.run_mode = 'TIANWAI'
                 else:
                     if st.button("📡 啟動雷達", use_container_width=True): 
                         btn_radar = True; st.session_state.run_mode = st.session_state.scan_mode
@@ -241,6 +238,13 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
                             selected_tickers = [(single_t, "自選個股")]
                             btn_radar = True
                             st.session_state.run_mode = 'STRONG_WEEKLY' if btn_w else 'STRONG_DAILY'
+                        else: st.warning("請先輸入代號！")
+                elif st.session_state.scan_mode == 'TIANWAI':
+                    if st.button("✨ 啟動飛仙雷達", use_container_width=True): 
+                        if single_t:
+                            selected_tickers = [(single_t, "自選個股")]
+                            btn_radar = True
+                            st.session_state.run_mode = 'TIANWAI'
                         else: st.warning("請先輸入代號！")
                 else:
                     if st.button("📡 立即分析此股", use_container_width=True): 
@@ -261,6 +265,9 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
                     btn_d = st.button("📡 日線多頭排順", use_container_width=True)
                     if btn_w: btn_radar = True; st.session_state.run_mode = 'STRONG_WEEKLY'
                     if btn_d: btn_radar = True; st.session_state.run_mode = 'STRONG_DAILY'
+                elif st.session_state.scan_mode == 'TIANWAI':
+                    if st.button("✨ 啟動飛仙雷達", use_container_width=True): 
+                        btn_radar = True; st.session_state.run_mode = 'TIANWAI'
                 else:
                     if st.button("📡 啟動雷達", use_container_width=True): 
                         btn_radar = True; st.session_state.run_mode = st.session_state.scan_mode
@@ -276,6 +283,9 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
                     btn_d = st.button("📡 日線多頭排順", use_container_width=True)
                     if btn_w: btn_radar = True; st.session_state.run_mode = 'STRONG_WEEKLY'
                     if btn_d: btn_radar = True; st.session_state.run_mode = 'STRONG_DAILY'
+                elif st.session_state.scan_mode == 'TIANWAI':
+                    if st.button("✨ 啟動飛仙雷達", use_container_width=True): 
+                        btn_radar = True; st.session_state.run_mode = 'TIANWAI'
                 else:
                     if st.button("📡 啟動雷達", use_container_width=True): 
                         btn_radar = True; st.session_state.run_mode = st.session_state.scan_mode
@@ -325,13 +335,36 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
                     status_text.markdown(f"**📡 正在實時分析:** `{t}` ({i+1}/{len(selected_tickers)})")
                     
                     df = smart_fetch(t, period=fetch_period)
-                    if not df.empty:
+                    if not df.empty and len(df) > 200:
                         if is_ath_mode and (df['Close'].iloc[-1] / df['High'].tail(252).max()) < 0.93: 
                             if not is_single_mode: continue
                         if check_stop_loss(df): sl_list.append(t)
                         
-                        res = scan_dragon_logic(df, t, sec, market_mode, mode=st.session_state.run_mode, force_return=is_single_mode, vcp_52w=vcp_52w, vcp_ath=is_ath_mode)
-                        if res: results.append(res)
+                        if st.session_state.run_mode == 'TIANWAI':
+                            res_df = run_tianwai_feixian(df)
+                            latest = res_df.iloc[-1]
+                            if latest['天外飛仙_狀態'] > 0:
+                                status_txt = "🚀 起爆(1-3日)" if latest['天外飛仙_狀態'] == 1 else "🐢 沉底(4-10日)"
+                                results.append({
+                                    'Ticker': t.replace(".HK", ""),
+                                    'Sector': sec,
+                                    'Status': status_txt,
+                                    'Score': round(latest['霸王總分'], 1),
+                                    'RawPower': round(latest['Power'], 2),
+                                    'Penalty': 0,
+                                    'EMA10': round(latest['EMA10'], 2),
+                                    'Bias': round(latest['Bias'], 1),
+                                    'RS': round(latest['RS'], 1),
+                                    'EJ': round(latest['EJ'], 3),
+                                    'SE': round(latest['SE'], 2),
+                                    'Power': round(latest['Vol_Ratio'], 1),
+                                    'OBV': '狀態 1' if latest['天外飛仙_狀態'] == 1 else '狀態 2',
+                                    'Icons': latest.get('天外飛仙_標籤', ''),
+                                    'IsDead': False
+                                })
+                        else:
+                            res = scan_dragon_logic(df, t, sec, market_mode, mode=st.session_state.run_mode, force_return=is_single_mode, vcp_52w=vcp_52w, vcp_ath=is_ath_mode)
+                            if res: results.append(res)
                 
                 pb.empty()
                 status_text.empty()
@@ -346,7 +379,7 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
                     results = sorted(results, key=lambda x: x['Score'], reverse=True)
                     for r in results:
                         if not r.get('IsDead') and sector_counts.get(r['Sector'], 0) >= 3:
-                            if "📊" not in r['Icons']: r['Icons'] += " 📊"
+                            if "📊" not in r['Icons']: r['Icons'] += " | 📊板塊共振"
                     
                     st.session_state.dragon_results = results
                     st.session_state.sl_list = sl_list
@@ -378,9 +411,12 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
                 if show_n_shape_only and "🪃" not in r['Icons']: continue 
                 if show_n_test_only and "🧱" not in r['Icons']: continue 
                 border_color = "#FF4B4B" if r.get('IsDead') else "#00FFCC"
+                # 完美套用圖片二黑底高密度排版
                 st.markdown(f"""
                 <div class='dragon-card' style='border-left: 5px solid {border_color};'>
-                    <div style='font-size:1.4rem;font-weight:bold;'>{r['Status']} {r['Ticker']} <span style='color:#00FFCC;'>({r['Sector']})</span> {r['Icons']}</div>
+                    <div style='font-size:1.3rem;font-weight:bold;color:#FFFFFF;'>
+                        [{r['Status']}] {r['Ticker']} <span style='color:#00FFCC;'>({r['Sector']})</span> | <span style='color:#FFD700;'>{r['Icons']}</span>
+                    </div>
                     <div class='data-row'>
                         <b>戰術總分: {r['Score']}分</b> | 
                         <b style='color:#FF9900;'>原始戰力: {r.get('RawPower', 0)} 🔥</b> | 
@@ -444,135 +480,6 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
                 except Exception as e: st.error(f"繪圖出錯: {e}")
 
 # =========================================================================
-# ✨ 模式 1.5：天外飛仙 (極速起爆雷達) ── 👴 爺爺直連診斷修復版
-# =========================================================================
-elif operation_mode == "✨ 天外飛仙 (極速起爆雷達)":
-    st.markdown("<h1 style='text-align:center; color:#FFD700;'>✨ 天外飛仙 (第 6 掣) 極速起爆雷達</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align:center; color:#888;'>雙管齊下：支援全池過濾 ＋ 單股精準診斷測試</p>", unsafe_allow_html=True)
-    st.write("---")
-
-    # 定義 6 大戰區的對應表 (同時兼容大小寫檔名)
-    TF_POOLS = {
-        "🇺🇸 美股 - 焦點精選 (576隻)": ["Market_Focus.csv", "market_focus.csv"],
-        "🇺🇸 美股 - SP500大藍籌 (500隻)": ["SP500_Equities.csv", "sp500_equities.csv"],
-        "🇺🇸 美股 - 行業焦點 (1029隻)": ["Industry_Focus.csv", "industry_focus.csv"],
-        "📦 美股 - ETFs (~360隻)": ["US_ETFs.csv", "us_etfs.csv"],
-        "🇭🇰 港股 - 焦點個股 (659隻)": [HK_STOCK_CSV_URL],
-        "📦 港股 - ETFs (139隻)": [HK_ETF_CSV_URL]
-    }
-
-    st.markdown("### 🎯 測試診斷一：單股直接穿透測試 (請先測試 MU)")
-    col_single1, col_single2 = st.columns([3, 1])
-    with col_single1:
-        test_ticker = st.text_input("輸入測試股票代號 (預設: MU)：", "MU").upper().strip()
-    with col_single2:
-        st.write("<br>", unsafe_allow_html=True)
-        run_single_tf = st.button("🧪 單股直連分析", use_container_width=True)
-
-    if run_single_tf and test_ticker:
-        with st.spinner(f"正在直接讀取 {test_ticker} 並進行天外飛仙運算..."):
-            try:
-                df_single = smart_fetch(test_ticker, period="2y")
-                if df_single.empty:
-                    st.error(f"❌ 無法取得 {test_ticker} 數據，請檢查代號！")
-                else:
-                    st.info(f"📊 成功取得 {test_ticker} 過去 {len(df_single)} 個交易日數據！正在帶入 21 大引擎...")
-                    res_single = run_tianwai_feixian(df_single)
-                    latest_s = res_single.iloc[-1]
-                    
-                    st.write("---")
-                    st.markdown(f"### 🔍 {test_ticker} 診斷結果：")
-                    st.json({
-                        "股票代號": test_ticker,
-                        "天外飛仙狀態碼": int(latest_s['天外飛仙_狀態']),
-                        "狀態解讀": "🚀 黃金起爆 (1-3日)" if latest_s['天外飛仙_狀態'] == 1 else ("🐢 沉底觀察 (4-10日)" if latest_s['天外飛仙_狀態'] == 2 else "❌ 未觸發條件 (狀態碼 0)"),
-                        "霸王總分": float(latest_s['霸王總分']),
-                        "最新收市價": float(latest_s['Close'])
-                    })
-            except Exception as e:
-                st.error(f"💥 運算過程發生崩潰: {e}")
-
-    st.write("---")
-    st.markdown("### 📂 測試診斷二：全池大規模自動掃瞄")
-
-    col1, col2 = st.columns([3, 1])
-    with col1:
-        selected_pool = st.selectbox("📂 選擇天外飛仙掃瞄戰區：", list(TF_POOLS.keys()))
-    with col2:
-        st.write("<br>", unsafe_allow_html=True)
-        run_tf = st.button("✨ 啟動飛仙列陣", use_container_width=True, type="primary")
-
-    if run_tf:
-        tickers = []
-        possible_files = TF_POOLS[selected_pool]
-        
-        with st.spinner("正在尋找並讀取戰區名單..."):
-            df_list = pd.DataFrame()
-            for path in possible_files:
-                if path.startswith("http"):
-                    df_list = fetch_github_list(path)
-                else:
-                    if os.path.exists(path):
-                        try:
-                            df_list = pd.read_csv(path)
-                            break
-                        except: pass
-            
-            if not df_list.empty:
-                col_name = [c for c in df_list.columns if c.lower() in ['ticker', 'symbol', '代號', 'code']]
-                if col_name:
-                    tickers = df_list[col_name[0]].dropna().astype(str).tolist()
-                    if "港股" in selected_pool:
-                        tickers = [t.zfill(4) + ".HK" if not t.endswith(".HK") else t for t in tickers]
-
-        if not tickers:
-            st.error(f"⚠️ 無法載入股票名單！嘗試讀取 {possible_files} 皆失敗，請確認檔案已 Commit 上 GitHub！")
-        else:
-            st.success(f"🎯 成功鎖定 {len(tickers)} 隻標的！正在用最穩定引擎逐隻分析...")
-            
-            progress_bar = st.progress(0)
-            status_text = st.empty()
-            results = []
-            debug_errors = []
-
-            for i, t in enumerate(tickers):
-                progress_bar.progress((i+1)/len(tickers))
-                status_text.markdown(f"**📡 正在深度分析:** `{t}` ({i+1}/{len(tickers)})")
-                
-                try:
-                    df_hist = smart_fetch(t, period="2y")
-                    if not df_hist.empty and len(df_hist) > 100:
-                        res_df = run_tianwai_feixian(df_hist)
-                        latest = res_df.iloc[-1]
-                        
-                        if latest['天外飛仙_狀態'] > 0:
-                            results.append({
-                                "股票代號": t.replace(".HK", ""),
-                                "飛仙梯隊": "🚀 黃金起爆 (1-3日)" if latest['天外飛仙_狀態'] == 1 else "🐢 沉底觀察 (4-10日)",
-                                "狀態碼": latest['天外飛仙_狀態'],
-                                "霸王總分": latest['霸王總分']
-                            })
-                    else:
-                        if len(debug_errors) < 5: debug_errors.append(f"{t}: 數據為空或少於100天")
-                except Exception as e:
-                    if len(debug_errors) < 5: debug_errors.append(f"{t}: 算式報錯 ({e})")
-            
-            progress_bar.empty()
-            status_text.empty()
-            
-            if results:
-                st.success("✅ 天外飛仙佈陣完成！大戶真金白銀動向已鎖定！")
-                final_df = pd.DataFrame(results)
-                final_df = final_df.sort_values(by=['狀態碼', '霸王總分'], ascending=[True, False]).drop(columns=['狀態碼'])
-                final_df = final_df.reset_index(drop=True)
-                st.dataframe(final_df, use_container_width=True)
-            else:
-                st.warning("😭 報告統帥，今日此股票池無任何標的觸發天外飛仙！")
-                if debug_errors:
-                    with st.expander("🔍 點擊查看前 5 隻股票分析失敗原因（Debug 日誌）："):
-                        for err in debug_errors: st.write(f"- {err}")
-
-# =========================================================================
 # 💰 模式三：大戶資金流透視 (福德金字塔) (原封不動)
 # =========================================================================
 elif operation_mode == "📊 究極資產拔河龍虎榜":
@@ -582,7 +489,6 @@ elif operation_mode == "📊 究極資產拔河龍虎榜":
     st.markdown("<p style='text-align:center; color:#888;'>動態監控大戶資金移防，自動派發 19+2 大情報公仔 🦅🔋⚔️⚡</p>", unsafe_allow_html=True)
     st.write("---")
 
-    # 👑 爺爺完美更新：全新大滿貫 19+2 家傳秘笈說明書表格
     with st.expander("📖 爺爺的全公仔情報大滿貫說明書 (按此展開睇秘笈)", expanded=False):
         st.markdown("""
         <div style='background-color:#111111; padding: 20px; border-radius: 12px; border: 1px solid #333; line-height:1.8;'>
@@ -593,32 +499,6 @@ elif operation_mode == "📊 究極資產拔河龍虎榜":
                 <li><b>🦅 :</b> 長線王者！代表該股處於全市場 200 日長線回報嘅前 10%！</li>
                 <li><b>[1.5x 🔋] :</b> 動能增加，成交量大過平時 1.5 倍，主力引擎開始熱。</li>
                 <li><b>[3.0x 🔋🔋] :</b> 極致爆量！成交量大過平時 3 倍，大戶準備強力噴射！</li>
-            </ul>
-            <h3 style='color:#00FFCC;'>⚡ 價格異動與極短線行為（Price Action）</h3>
-            <ul style='color:#ccc; list-style-type: none; padding-left: 0;'>
-                <li><b>⚔️ [準破頂] :</b> 價格距離 52 週最高位不到 3%，隨時發動 N 字突破爆上！</li>
-                <li><b>🔥 [連續強勢] :</b> 排名比前兩日持續進步，資金熱度爆燈！</li>
-                <li><b>⚡ [GAP +X.X%] :</b> 今日開市跳空超過 +1.5%，有突發利好消息或利空！</li>
-            </ul>
-            <h3 style='color:#FF9900;'>🚨 爆升獵龍・四大核心加強指標（New Badges）</h3>
-            <ul style='color:#ccc; list-style-type: none; padding-left: 0;'>
-                <li><b>✨🆕 [黃金新星] :</b> 重磅新星！此股在過去 3 日內首度強力衝進異動榜，資金初次點火，黃金爆發力極強，頭 3 日高亮護航！</li>
-                <li><b>🦁 [雄獅收高] :</b> 陽燭收高，且收市價貼近全日最高位 30% 內，主力護盤由頭買到尾！</li>
-                <li><b>💣 [引爆在即] :</b> 過去 20 日波幅極度橫盤壓縮（Squeeze），平地一聲雷爆量啟動！</li>
-                <li><b>🥇 [金牌認證] :</b> 5 天絕對回報實質超過 +5%，剔除坑底死魚，具備超高含金量！</li>
-            </ul>
-            <h3 style='color:#BC13FE;'>🐉 共享神殿・九大隱藏資金籌碼（Dragon Core Hidden Icons）</h3>
-            <ul style='color:#ccc; list-style-type: none; padding-left: 0;'>
-                <li><b>📊 :</b> 板塊聚落！同版塊內有 3 隻或以上精英同時上榜異動，板塊風口形成，集體起飛！</li>
-                <li><b>🤐 (蓄勢) :</b> 布林通道與 ATR 雙重極致擠壓，隨時開啟變盤暴走。</li>
-                <li><b>🏎️ :</b> 秘法狀態機爆發後，RS 秘密能量在高位 cruise 巡航維持。</li>
-                <li><b>💰🔥 :</b> 錢流爆發！大單真金白銀瘋狂淨流入。</li>
-                <li><b>💰🤫 :</b> 暗中吸籌！主力資金喺極窄波幅入面偷偷低吸建倉。</li>
-                <li><b>💰🛡️ :</b> 強力護盤！股價下跌但大戶資金逆市狂流入，跌不破位嘅守護盾牌。</li>
-                <li><b>🧧 :</b> 鴻運當頭！淨錢流脈絡十日平均線首度轉正 / VCP 關鍵轉折點。</li>
-                <li><b>🐋 (X/10) :</b> 巨鯨痕跡！最近 10 日之內，大戶用巨額資金強力建倉日數。</li>
-                <li><b>🪃 :</b> N 字突破！打破歷史平台，第一或第二日剛突破頂峰！</li>
-                <li><b>💎/😱 :</b> 鑽石黃金坑 / 驚恐洗盤！粉紅爆缸後，主力在低位震倉洗盤，準備低吸。</li>
             </ul>
         </div>
         """, unsafe_allow_html=True)
