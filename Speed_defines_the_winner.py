@@ -3,7 +3,7 @@ import numpy as np
 
 def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     """
-    龍魂戰略總部 - 天外飛仙 (第 6 掣) Python 量化引擎 (防斷層修復版)
+    龍魂戰略總部 - 天外飛仙 (第 6 掣) Python 量化引擎 (黃金微調實戰版)
     """
     df = df.sort_index().copy()
     
@@ -14,7 +14,7 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     V = df['Volume']
 
     # ==========================================
-    # 基礎通達信函數 Python 向量化 (加入 min_periods=1 完美防斷層)
+    # 基礎通達信函數 Python 向量化
     # ==========================================
     def MA(s, n): return s.rolling(window=n, min_periods=1).mean()
     def EMA(s, n): return s.ewm(span=n, adjust=False).mean()
@@ -44,10 +44,10 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     MA50, MA150, MA200 = MA(C, 50), MA(C, 150), MA(C, 200)
 
     # ==========================================
-    # 基礎 STAGE 2 結構定義
+    # 基礎 STAGE 2 結構定義 (放寬至離底 20%)
     # ==========================================
     STAGE2 = ((C > MA50) & (C > MA150) & (MA50 > MA150) & (MA150 > MA200) & 
-              (MA200 > MA200.shift(20).bfill()) & (C > LLV(L, 250) * 1.3))
+              (MA200 > MA200.shift(20).bfill()) & (C > LLV(L, 250) * 1.2))
 
     # ==========================================
     # 硬條件 1: MACD 水上橙柱計時器
@@ -61,14 +61,14 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     DAYS_SINCE_MACD_ORANGE = BARSLAST(MACD_ORANGE_START)
 
     # ==========================================
-    # 硬條件 2: GRANDPA POWER 宏觀動能 > 0.5
+    # 硬條件 2: GRANDPA POWER 宏觀動能 (微調至 > 0.3)
     # ==========================================
     RS = 2 * C / MA(C, 63) + C / MA(C, 126) + C / MA(C, 189) + C / MA(C, 252)
     POWER = RS - 5
-    POWER_STRONG = POWER > 0.5
+    POWER_STRONG = POWER > 0.3
 
     # ==========================================
-    # 硬條件 3: TTM 橙柱雙確認
+    # 硬條件 3: TTM 橙柱雙確認 (允許 TTM 提早 7 日亮起)
     # ==========================================
     N_TTM = 20
     VAR1 = (HHV(H, N_TTM) + LLV(L, N_TTM)) / 2 + MA(C, N_TTM)
@@ -79,16 +79,17 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     IS_ORANGE_UP = (TTM_MOMENTUM >= 0) & TTM_STAGE2_ON & (TTM_MOMENTUM > TTM_MOMENTUM.shift(1).bfill())
     
     DAYS_SINCE_NOT_ORANGE = BARSLAST(~IS_ORANGE_UP)
-    NEW_ORANGE_AFTER_CROSS = IS_ORANGE_UP & (DAYS_SINCE_NOT_ORANGE <= DAYS_SINCE_MACD_ORANGE + 1)
+    # 允許 TTM 動能比 MACD 提早最多 7 日啟動
+    NEW_ORANGE_AFTER_CROSS = IS_ORANGE_UP & (DAYS_SINCE_NOT_ORANGE <= DAYS_SINCE_MACD_ORANGE + 7)
     HAS_ORANGE_IN_STAGE2 = NEW_ORANGE_AFTER_CROSS & STAGE2
 
     # ==========================================
-    # 雙梯隊時間窗口判斷 (天外飛仙 核心邏輯)
+    # 雙梯隊時間窗口判斷 (延長觀察期至 15 日)
     # ==========================================
     RAW_BASE_MATCH = STAGE2_WATER_ORANGE & POWER_STRONG & HAS_ORANGE_IN_STAGE2
     IS_HOT_WINDOW = RAW_BASE_MATCH & (DAYS_SINCE_MACD_ORANGE <= 2)
     IS_COOL_WINDOW = (STAGE2 & (DAYS_SINCE_MACD_ORANGE >= 3) & 
-                      (DAYS_SINCE_MACD_ORANGE <= 9) & (COUNT(RAW_BASE_MATCH, 10) > 0))
+                      (DAYS_SINCE_MACD_ORANGE <= 15) & (COUNT(RAW_BASE_MATCH, 20) > 0))
     
     BASE_MATCH = IS_HOT_WINDOW | IS_COOL_WINDOW
     
@@ -99,7 +100,7 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     # 21 大非必要加分引擎
     # ==========================================
     VOL_MA20 = MA(V, 20)
-    DAY_AMP = (H - L) / C.shift(1).bfill() * 100
+    DAY_AMP = (H - L) / (C.shift(1).bfill() + 1e-5) * 100
     AMP_SQUEEZE = DAY_AMP < (MA(DAY_AMP, 20) * 0.75)
     VOL_SQUEEZE = V < (VOL_MA20 * 0.75)
     TR_VAL = pd.concat([H - L, (H - C.shift(1).bfill()).abs(), (L - C.shift(1).bfill()).abs()], axis=1).max(axis=1)
@@ -114,7 +115,7 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     STOCK_DELTA = C - C.shift(1).bfill()
     DELTA_ACC = STOCK_DELTA - STOCK_DELTA.shift(1).bfill()
     DELTA_POWER = (DELTA_ACC > 0) & (C > O)
-    BETA_OK = (MA(TR_VAL, 14) / MA20) * 100 > 1.2
+    BETA_OK = (MA(TR_VAL, 14) / (MA20 + 1e-5)) * 100 > 1.2
     SPRING_READY = STAGE2 & WAS_SQUEEZED & BETA_OK
     SPRING_SIGNAL = SPRING_READY & INNER_POWER & DELTA_POWER
     CNT_SPRING = np.where(BASE_MATCH, COUNT(SPRING_SIGNAL & (~SPRING_SIGNAL.shift(1).fillna(False)), 5), 0)
@@ -124,7 +125,7 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     AMP_BIG = (HHV(H, 30) - LLV(L, 30)) / (LLV(L, 30) + 1e-5) * 100
     AMP_NARROW = (HHV(H, 8) - LLV(L, 8)) / (LLV(L, 8) + 1e-5) * 100
     VCP_READY = (AMP_NARROW <= AMP_BIG * 0.65) & (AMP_NARROW <= 10)
-    SURGE_MOM = (C / LLV(L, 40).shift(10).bfill()) > 1.9
+    SURGE_MOM = (C / (LLV(L, 40).shift(10).bfill() + 1e-5)) > 1.9
     FLAG_AMP = (HHV(H, 12) - LLV(L, 12)) / (LLV(L, 12) + 1e-5) * 100
     HTF_READY = VCP_STAGE2 & SURGE_MOM & (FLAG_AMP < 20)
     MAV20 = MA(V, 20)
@@ -137,21 +138,21 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     ONLY_HTF = IS_HTF & (~IS_BOTH)
     GATHERING = HTF_READY | VCP_READY
     RECENT_GATHER = COUNT(GATHERING, 5) >= 1
-    BIG_YANG = (C / C.shift(1).bfill()) > 1.04
+    BIG_YANG = (C / (C.shift(1).bfill() + 1e-5)) > 1.04
     REAL_BREAK = (C > RECENT_HIGH) & BIG_YANG
     DRAGON = REAL_BREAK & RECENT_GATHER & (~BREAKOUT)
     EX_MEM = COUNT(GATHERING, 15) >= 1
     NEW_HIGH_15 = C > HHV(H, 15).shift(1).bfill()
     IS_SNDK = NEW_HIGH_15 & EX_MEM & (~BREAKOUT) & (~DRAGON)
     NEW_HIGH_20 = C > HHV(H, 20).shift(1).bfill()
-    SINGLE_SURGE = (C / C.shift(1).bfill()) > 1.05
+    SINGLE_SURGE = (C / (C.shift(1).bfill() + 1e-5)) > 1.05
     IS_ULTIMATE = VCP_STAGE2 & EX_MEM & NEW_HIGH_20 & SINGLE_SURGE & (~BREAKOUT)
     PARABOLIC_TREND = (C > MA20) & (MA20 > MA50)
-    RECENT_SURGE = (C / LLV(L, 30).shift(5).bfill()) > 1.5
-    TODAY_STRONG_BREAK = (C > HHV(H, 10).shift(1).bfill()) & (C > O) & ((C / C.shift(1).bfill()) > 1.03)
+    RECENT_SURGE = (C / (LLV(L, 30).shift(5).bfill() + 1e-5)) > 1.5
+    TODAY_STRONG_BREAK = (C > HHV(H, 10).shift(1).bfill()) & (C > O) & ((C / (C.shift(1).bfill() + 1e-5)) > 1.03)
     IS_PARABOLIC = (PARABOLIC_TREND & RECENT_SURGE & TODAY_STRONG_BREAK & 
                     (~BREAKOUT) & (~IS_ULTIMATE) & (~IS_SNDK) & (~DRAGON))
-    N_YANG_COND = ((C / C.shift(1).bfill()) >= 1.04) & (C > O)
+    N_YANG_COND = ((C / (C.shift(1).bfill() + 1e-5)) >= 1.04) & (C > O)
     N_PREV_DAYS = BARSLAST(N_YANG_COND).shift(1).fillna(0) + 1
     N_TARGET_HIGH = H.shift(N_PREV_DAYS.astype(int)).bfill()
     N_BREAK = (N_PREV_DAYS <= 20) & (C > N_TARGET_HIGH) & (C.shift(1).bfill() <= N_TARGET_HIGH) & (C > O)
@@ -248,8 +249,8 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     PZ_LOWER = PZ_MID - 2.5 * PZ_STD
     PZ_ATR = MA(TR_VAL, 20)
     PZ_EXTREME = TR_VAL > PZ_ATR * 2
-    PZ_RANGE = ((PZ_UPPER - PZ_LOWER) / PZ_MID * 100) < MA((PZ_UPPER - PZ_LOWER) / PZ_MID * 100, 50)
-    PZ_FORCE = (C - PZ_MID) / PZ_STD * 100
+    PZ_RANGE = ((PZ_UPPER - PZ_LOWER) / (PZ_MID + 1e-5) * 100) < MA((PZ_UPPER - PZ_LOWER) / (PZ_MID + 1e-5) * 100, 50)
+    PZ_FORCE = (C - PZ_MID) / (PZ_STD + 1e-5) * 100
     PZ_E1 = EMA(PZ_FORCE, 13)
     PZ_E2 = EMA(PZ_E1, 13)
     PZ_SIG = 2 * PZ_E1 - PZ_E2
@@ -277,15 +278,15 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
 
     NX_STAGE2 = (COUNT(C > MA150, 3) > 0) & (MA50 > MA150) & (MA150 > MA150.shift(10).bfill())
     NX_RAW = (V > MA(V, 20) * 1.5) & ((H - L) > MA(H - L, 20) * 1.5)
-    NX_SAFE = NX_STAGE2 & (COUNT(V < MA(V, 20), 10) > 0) & NX_RAW & (C >= O) & ((H - C.shift(1).bfill())/C.shift(1).bfill()*100 > 4.0)
+    NX_SAFE = NX_STAGE2 & (COUNT(V < MA(V, 20), 10) > 0) & NX_RAW & (C >= O) & ((H - C.shift(1).bfill())/(C.shift(1).bfill() + 1e-5)*100 > 4.0)
     CNT_NX_BUY_SAFE = np.where(BASE_MATCH, COUNT(NX_SAFE, 3), 0)
 
-    VSA_DEV60 = (C - MA(C, 60)) / MA(C, 60) * 100
+    VSA_DEV60 = (C - MA(C, 60)) / (MA(C, 60) + 1e-5) * 100
     VSA_START = (V > MA(V, 20) * 1.5) & (C > O) & ((C - O).abs() > MA((C - O).abs(), 20)) & (VSA_DEV60 <= 15)
     CNT_VSA_START = np.where(BASE_MATCH, COUNT(VSA_START, 4), 0)
 
     TF_UPPER = MA(V, 20) + 2.0 * STD(V, 20)
-    TF_FIRE = (V > TF_UPPER) & (V > MA(V, 60) * 1.9) & ((C - C.shift(1).bfill()).abs() / C.shift(1).bfill() * 100 > 2.0) & (C > O) & (VSA_DEV60 <= 15)
+    TF_FIRE = (V > TF_UPPER) & (V > MA(V, 60) * 1.9) & ((C - C.shift(1).bfill()).abs() / (C.shift(1).bfill() + 1e-5) * 100 > 2.0) & (C > O) & (VSA_DEV60 <= 15)
     CNT_TF_FIRE = np.where(BASE_MATCH, COUNT(TF_FIRE, 4), 0)
 
     SV19_STATE = np.where((C > MA20) & (MA20 > MA50) & (MA50 > MA200), 1, 3)
@@ -294,8 +295,8 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     CNT_S19_GREEN = np.where(BASE_MATCH, COUNT(SV19_BUY_GREEN, 6), 0)
 
     TFM_V3 = H - L
-    TFM_BUY = np.where(TFM_V3 > 0, V * (C - L) / TFM_V3, 0)
-    TFM_SELL = np.where(TFM_V3 > 0, V * (H - C) / TFM_V3, 0)
+    TFM_BUY = np.where(TFM_V3 > 0, V * (C - L) / (TFM_V3 + 1e-5), 0)
+    TFM_SELL = np.where(TFM_V3 > 0, V * (H - C) / (TFM_V3 + 1e-5), 0)
     TFM_SUM_BUY = pd.Series(TFM_BUY, index=df.index).rolling(5, min_periods=1).sum()
     TFM_SUM_SELL = pd.Series(TFM_SELL, index=df.index).rolling(5, min_periods=1).sum()
     TFM_WIN = (TFM_SUM_BUY / (TFM_SUM_BUY + TFM_SUM_SELL + 1e-5)) > 0.65
