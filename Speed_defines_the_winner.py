@@ -3,7 +3,7 @@ import numpy as np
 
 def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     """
-    龍魂戰略總部 - 天外飛仙 (第 6 掣) Python 量化引擎 (黃金微調實戰版)
+    龍魂戰略總部 - 天外飛仙 (第 6 掣) Python 量化引擎 (解鎖時間差限制版)
     """
     df = df.sort_index().copy()
     
@@ -35,6 +35,7 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     def FORCAST(S, N):
         w = np.arange(1, N + 1) - (N + 1) / 2.0
         w2_sum = np.sum(w ** 2)
+        if w2_sum == 0: return S
         slope_num = sum(w[i] * S.shift(N - 1 - i).bfill() for i in range(N))
         slope = slope_num / w2_sum
         return S.rolling(N, min_periods=1).mean() + slope * (N - 1) / 2.0
@@ -44,52 +45,45 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     MA50, MA150, MA200 = MA(C, 50), MA(C, 150), MA(C, 200)
 
     # ==========================================
-    # 基礎 STAGE 2 結構定義 (放寬至離底 20%)
+    # 1. 基礎 STAGE 2 結構定義 (放寬離底 15%)
     # ==========================================
-    STAGE2 = ((C > MA50) & (C > MA150) & (MA50 > MA150) & (MA150 > MA200) & 
-              (MA200 > MA200.shift(20).bfill()) & (C > LLV(L, 250) * 1.2))
+    STAGE2 = ((C > MA50) & (MA50 > MA150) & (MA150 > MA200) & 
+              (C > LLV(L, 250) * 1.15))
 
     # ==========================================
-    # 硬條件 1: MACD 水上橙柱計時器
+    # 2. MACD 水上橙柱計時器
     # ==========================================
     DIF = EMA(C, 12) - EMA(C, 26)
     DEA = EMA(DIF, 9)
     MACD_VAL = (DIF - DEA) * 2
-
-    STAGE2_WATER_ORANGE = STAGE2 & (MACD_VAL >= 0) & (DIF > 0) & (DEA > 0)
+    STAGE2_WATER_ORANGE = (MACD_VAL > 0) & (DIF > 0) & (DEA > 0)
     MACD_ORANGE_START = STAGE2_WATER_ORANGE & (~STAGE2_WATER_ORANGE.shift(1).fillna(False))
     DAYS_SINCE_MACD_ORANGE = BARSLAST(MACD_ORANGE_START)
 
     # ==========================================
-    # 硬條件 2: GRANDPA POWER 宏觀動能 (微調至 > 0.3)
+    # 3. GRANDPA POWER 宏觀動能
     # ==========================================
     RS = 2 * C / MA(C, 63) + C / MA(C, 126) + C / MA(C, 189) + C / MA(C, 252)
     POWER = RS - 5
-    POWER_STRONG = POWER > 0.3
+    POWER_STRONG = POWER > 0.2
 
     # ==========================================
-    # 硬條件 3: TTM 橙柱雙確認 (允許 TTM 提早 7 日亮起)
+    # 4. TTM 橙柱雙確認 (徹底移除時間差限制)
     # ==========================================
     N_TTM = 20
     VAR1 = (HHV(H, N_TTM) + LLV(L, N_TTM)) / 2 + MA(C, N_TTM)
     TTM_MOMENTUM = FORCAST(C - VAR1 / 2, N_TTM)
-    
-    TTM_PRICE_HOLD = COUNT(C > MA150, 3) > 0
-    TTM_STAGE2_ON = TTM_PRICE_HOLD & (MA50 > MA150) & (MA150 > MA150.shift(10).bfill())
-    IS_ORANGE_UP = (TTM_MOMENTUM >= 0) & TTM_STAGE2_ON & (TTM_MOMENTUM > TTM_MOMENTUM.shift(1).bfill())
-    
-    DAYS_SINCE_NOT_ORANGE = BARSLAST(~IS_ORANGE_UP)
-    # 允許 TTM 動能比 MACD 提早最多 7 日啟動
-    NEW_ORANGE_AFTER_CROSS = IS_ORANGE_UP & (DAYS_SINCE_NOT_ORANGE <= DAYS_SINCE_MACD_ORANGE + 7)
-    HAS_ORANGE_IN_STAGE2 = NEW_ORANGE_AFTER_CROSS & STAGE2
+    IS_ORANGE_UP = (TTM_MOMENTUM > 0) & (TTM_MOMENTUM > TTM_MOMENTUM.shift(1).bfill())
 
     # ==========================================
-    # 雙梯隊時間窗口判斷 (延長觀察期至 15 日)
+    # 雙梯隊時間窗口判斷 (天外飛仙 核心直球邏輯)
     # ==========================================
-    RAW_BASE_MATCH = STAGE2_WATER_ORANGE & POWER_STRONG & HAS_ORANGE_IN_STAGE2
-    IS_HOT_WINDOW = RAW_BASE_MATCH & (DAYS_SINCE_MACD_ORANGE <= 2)
-    IS_COOL_WINDOW = (STAGE2 & (DAYS_SINCE_MACD_ORANGE >= 3) & 
-                      (DAYS_SINCE_MACD_ORANGE <= 15) & (COUNT(RAW_BASE_MATCH, 20) > 0))
+    # 只要四大條件當下同時滿足，即屬合格候選！
+    IS_VALID_SETUP = STAGE2 & STAGE2_WATER_ORANGE & IS_ORANGE_UP & POWER_STRONG
+
+    # 按 MACD 亮起日數分梯隊：
+    IS_HOT_WINDOW = IS_VALID_SETUP & (DAYS_SINCE_MACD_ORANGE <= 3)
+    IS_COOL_WINDOW = IS_VALID_SETUP & (DAYS_SINCE_MACD_ORANGE >= 4) & (DAYS_SINCE_MACD_ORANGE <= 15)
     
     BASE_MATCH = IS_HOT_WINDOW | IS_COOL_WINDOW
     
