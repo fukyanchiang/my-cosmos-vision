@@ -499,8 +499,8 @@ elif operation_mode == "✨ 天外飛仙 (極速起爆雷達)":
             # 封裝每一隻股票的處理函數，準備放進多線程
             def process_tf_ticker(ticker):
                 try:
-                    # 使用 yfinance 取 1 年日線資料確保 200 日線運作
-                    df_hist = yf.download(ticker, period="1y", progress=False)
+                    # 👴 爺爺已幫你在此改為 2y！確保 LLV(250) 唔會報錯！
+                    df_hist = yf.download(ticker, period="2y", progress=False)
                     if len(df_hist) > 200:
                         if isinstance(df_hist.columns, pd.MultiIndex):
                             df_hist.columns = df_hist.columns.droplevel(1)
