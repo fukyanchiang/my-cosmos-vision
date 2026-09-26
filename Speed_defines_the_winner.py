@@ -1,441 +1,344 @@
-{ ==========================================
-  選股策略：天外飛仙 (龍魂戰略總部第 6 掣 - 10日雙梯隊分流版)
-  
-  【 雙梯隊顯示與自動排序機制 】
-  - 1-3 日 (黃金起爆期)：BASE_SCORE = 100 分 -> 自動優先排在畫面最頂部
-  - 4-10 日 (延伸觀察期 7 天)：BASE_SCORE = 0 分 -> 自動沉底顯示在最底部
-  - 11 日起：自動完全下架隱藏
+import pandas as pd
+import numpy as np
 
-  【 3 大 mandatory 基礎硬條件 】
-  1. STAGE2 內 MACD 正式亮起「水上橙柱」(DIF>0 AND DEA>0 AND MACD>=0)
-  2. STAGE2 內 TTM 向上亮金橙柱 (雙重確認)
-  3. GRANDPA POWER 宏觀動能 > 0.5
-  
-  【 21 大非必要加分引擎 (純 Data 輸出) 】
-========================================== }
+def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    龍魂戰略總部 - 天外飛仙 (第 6 掣) Python 量化引擎 (21大加分項大圓滿版)
+    接收包含 'Open', 'High', 'Low', 'Close', 'Volume' 的 DataFrame
+    回傳新增了 '天外飛仙_狀態' 與 '霸王總分' 的 DataFrame
+    """
+    df = df.sort_index().copy()
+    
+    C = df['Close']
+    O = df['Open']
+    H = df['High']
+    L = df['Low']
+    V = df['Volume']
 
-{ --- 共用均線定義 --- }
-MA10 := MA(CLOSE, 10);
-MA20 := MA(CLOSE, 20);
-MA50 := MA(CLOSE, 50);
-MA150 := MA(CLOSE, 150);
-MA200 := MA(CLOSE, 200);
+    # ==========================================
+    # 基礎通達信函數 Python 向量化 (Pandas Vectorized)
+    # ==========================================
+    def MA(s, n): return s.rolling(window=n).mean()
+    def EMA(s, n): return s.ewm(span=n, adjust=False).mean()
+    def SMA(s, n, m=1): return s.ewm(alpha=m/n, adjust=False).mean()
+    def HHV(s, n): return s.rolling(window=n).max()
+    def LLV(s, n): return s.rolling(window=n).min()
+    def STD(s, n): return s.rolling(window=n).std()
+    def CROSS(s1, s2):
+        if isinstance(s2, (int, float)):
+            return (s1 > s2) & (s1.shift(1) <= s2)
+        return (s1 > s2) & (s1.shift(1) <= s2.shift(1))
+    def COUNT(cond, n): return cond.astype(int).rolling(window=n).sum()
+    def BARSLAST(cond):
+        idx = np.arange(len(cond))
+        last_true = pd.Series(np.where(cond, idx, np.nan), index=cond.index).ffill()
+        return pd.Series(idx - last_true, index=cond.index).fillna(9999)
 
-{ ========================================== }
-{ 基礎 STAGE 2 結構定義 }
-{ ========================================== }
-STAGE2 := CLOSE > MA50 AND CLOSE > MA150 AND MA50 > MA150 AND MA150 > MA200 AND MA200 > REF(MA200, 20) AND CLOSE > (LLV(LOW, 250) * 1.3);
+    # --- 共用均線 ---
+    MA10, MA20 = MA(C, 10), MA(C, 20)
+    MA50, MA150, MA200 = MA(C, 50), MA(C, 150), MA(C, 200)
 
-{ ========================================== }
-{ 硬條件 1: MACD 水上橙柱計時器 }
-{ ========================================== }
-DIF := EMA(CLOSE, 12) - EMA(CLOSE, 26);
-DEA := EMA(DIF, 9);
-MACD_VAL := (DIF - DEA) * 2;
+    # ==========================================
+    # 基礎 STAGE 2 結構定義 (改用括號包覆，防彈設計)
+    # ==========================================
+    STAGE2 = ((C > MA50) & (C > MA150) & (MA50 > MA150) & (MA150 > MA200) & 
+              (MA200 > MA200.shift(20)) & (C > LLV(L, 250) * 1.3))
 
-STAGE2_WATER_ORANGE := STAGE2 AND MACD_VAL >= 0 AND DIF > 0 AND DEA > 0;
-MACD_ORANGE_START := STAGE2_WATER_ORANGE AND NOT(REF(STAGE2_WATER_ORANGE, 1));
-DAYS_SINCE_MACD_ORANGE := BARSLAST(MACD_ORANGE_START);
+    # ==========================================
+    # 硬條件 1: MACD 水上橙柱計時器
+    # ==========================================
+    DIF = EMA(C, 12) - EMA(C, 26)
+    DEA = EMA(DIF, 9)
+    MACD_VAL = (DIF - DEA) * 2
 
-{ ========================================== }
-{ 硬條件 2: GRANDPA POWER 宏觀動能 > 0.5 }
-{ ========================================== }
-RS := 2 * C / MA(C, 63) + C / MA(C, 126) + C / MA(C, 189) + C / MA(C, 252);
-POWER := RS - 5;
-POWER_STRONG := POWER > 0.5;
+    STAGE2_WATER_ORANGE = STAGE2 & (MACD_VAL >= 0) & (DIF > 0) & (DEA > 0)
+    MACD_ORANGE_START = STAGE2_WATER_ORANGE & (~STAGE2_WATER_ORANGE.shift(1).fillna(False))
+    DAYS_SINCE_MACD_ORANGE = BARSLAST(MACD_ORANGE_START)
 
-{ ========================================== }
-{ 硬條件 3: TTM 橙柱雙確認 }
-{ ========================================== }
-N_TTM := 20;
-VAR1 := (HHV(HIGH, N_TTM) + LLV(LOW, N_TTM)) / 2 + MA(CLOSE, N_TTM);
-VAR2 := FORCAST(CLOSE - VAR1 / 2, N_TTM);
-TTM_PRICE_HOLD := COUNT(CLOSE > MA150, 3) > 0;
-TTM_STAGE2_ON := TTM_PRICE_HOLD AND (MA50 > MA150) AND (MA150 > REF(MA150, 10));
-IS_ORANGE_UP := VAR2 >= 0 AND TTM_STAGE2_ON AND VAR2 > REF(VAR2, 1);
-DAYS_SINCE_NOT_ORANGE := BARSLAST(NOT(IS_ORANGE_UP));
-NEW_ORANGE_AFTER_CROSS := IS_ORANGE_UP AND (DAYS_SINCE_NOT_ORANGE <= DAYS_SINCE_MACD_ORANGE + 1);
-HAS_ORANGE_IN_STAGE2 := NEW_ORANGE_AFTER_CROSS AND STAGE2;
+    # ==========================================
+    # 硬條件 2: GRANDPA POWER 宏觀動能 > 0.5
+    # ==========================================
+    RS = 2 * C / MA(C, 63) + C / MA(C, 126) + C / MA(C, 189) + C / MA(C, 252)
+    POWER = RS - 5
+    POWER_STRONG = POWER > 0.5
 
-{ ========================================== }
-{ 雙梯隊時間窗口判斷 }
-{ ========================================== }
-RAW_BASE_MATCH := STAGE2_WATER_ORANGE AND POWER_STRONG AND HAS_ORANGE_IN_STAGE2;
-IS_HOT_WINDOW := RAW_BASE_MATCH AND DAYS_SINCE_MACD_ORANGE <= 2;
-IS_COOL_WINDOW := STAGE2 AND (DAYS_SINCE_MACD_ORANGE >= 3 AND DAYS_SINCE_MACD_ORANGE <= 9) AND COUNT(RAW_BASE_MATCH, 10) > 0;
-BASE_MATCH := IS_HOT_WINDOW OR IS_COOL_WINDOW;
-BASE_RANK_SCORE := IF(IS_HOT_WINDOW, 100, IF(IS_COOL_WINDOW, 0, -9999));
-STATUS_FLAG := IF(IS_HOT_WINDOW, 1, IF(IS_COOL_WINDOW, 2, 0));
+    # ==========================================
+    # 硬條件 3: TTM 橙柱雙確認
+    # ==========================================
+    N_TTM = 20
+    TTM_MOMENTUM = C - MA(C, N_TTM)
+    TTM_PRICE_HOLD = COUNT(C > MA150, 3) > 0
+    TTM_STAGE2_ON = TTM_PRICE_HOLD & (MA50 > MA150) & (MA150 > MA150.shift(10))
+    IS_ORANGE_UP = (TTM_MOMENTUM >= 0) & TTM_STAGE2_ON & (TTM_MOMENTUM > TTM_MOMENTUM.shift(1))
+    
+    DAYS_SINCE_NOT_ORANGE = BARSLAST(~IS_ORANGE_UP)
+    NEW_ORANGE_AFTER_CROSS = IS_ORANGE_UP & (DAYS_SINCE_NOT_ORANGE <= DAYS_SINCE_MACD_ORANGE + 1)
+    HAS_ORANGE_IN_STAGE2 = NEW_ORANGE_AFTER_CROSS & STAGE2
 
-{ ========================================== }
-{ 加分項 1-20 (保留原有 20 大引擎邏輯) }
-{ ========================================== }
-VOL_MA20 := MA(VOL, 20);
-DAY_AMP := (HIGH - LOW) / REF(CLOSE, 1) * 100;
-AMP_SQUEEZE := DAY_AMP < (MA(DAY_AMP, 20) * 0.75);
-VOL_SQUEEZE := VOL < (VOL_MA20 * 0.75);
-ATR20 := MA(TR, 20);
-BOLLING_BAND := MA20 + 2 * STD(CLOSE, 20);
-KELTNER_BAND := MA20 + 1.5 * ATR20;
-TTM_SQUEEZE  := BOLLING_BAND < KELTNER_BAND;
-WAS_SQUEEZED := COUNT(AMP_SQUEEZE AND VOL_SQUEEZE AND TTM_SQUEEZE, 5) >= 1;
-TF_BUY_SP  := CLOSE - LOW;
-TF_SELL_SP := HIGH - CLOSE;
-INNER_POWER := (TF_BUY_SP > TF_SELL_SP) OR ((CLOSE - LOW) / (HIGH - LOW) > 0.60);
-STOCK_DELTA := CLOSE - REF(CLOSE, 1);
-DELTA_ACC   := STOCK_DELTA - REF(STOCK_DELTA, 1);
-DELTA_POWER := DELTA_ACC > 0 AND CLOSE > OPEN;
-BETA_OK := (MA(TR, 14) / MA20) * 100 > 1.2;
-SPRING_READY := STAGE2 AND WAS_SQUEEZED AND BETA_OK;
-SPRING_SIGNAL := SPRING_READY AND INNER_POWER AND DELTA_POWER;
-CNT_SPRING := IF(BASE_MATCH, COUNT(SPRING_SIGNAL AND NOT(REF(SPRING_SIGNAL, 1)), 5), 0);
+    # ==========================================
+    # 雙梯隊時間窗口判斷 (天外飛仙 核心邏輯)
+    # ==========================================
+    RAW_BASE_MATCH = STAGE2_WATER_ORANGE & POWER_STRONG & HAS_ORANGE_IN_STAGE2
+    IS_HOT_WINDOW = RAW_BASE_MATCH & (DAYS_SINCE_MACD_ORANGE <= 2)
+    IS_COOL_WINDOW = (STAGE2 & (DAYS_SINCE_MACD_ORANGE >= 3) & 
+                      (DAYS_SINCE_MACD_ORANGE <= 9) & (COUNT(RAW_BASE_MATCH, 10) > 0))
+    
+    BASE_MATCH = IS_HOT_WINDOW | IS_COOL_WINDOW
+    
+    # 狀態碼: 1=黃金頂部, 2=沉底觀察, 0=隱藏
+    STATUS_FLAG = np.where(IS_HOT_WINDOW, 1, np.where(IS_COOL_WINDOW, 2, 0))
+    # 基礎排名分
+    BASE_RANK_SCORE = np.where(IS_HOT_WINDOW, 100, np.where(IS_COOL_WINDOW, 0, -9999))
 
-MA200向上 := MA200 > REF(MA200, 20);
-VCP_STAGE2 := C >= MA50 AND (MA50 > MA150 AND MA150 > MA200) AND MA200向上;
-波幅大 := (HHV(H, 30) - LLV(L, 30)) / LLV(L, 30) * 100;
-波幅窄 := (HHV(H, 8) - LLV(L, 8)) / LLV(L, 8) * 100;
-VCP預備 := 波幅窄 <= (波幅大 * 0.65) AND 波幅窄 <= 10;
-飆升動能 := (C / REF(LLV(L, 40), 10)) > 1.9;
-旗部波幅 := (HHV(H, 12) - LLV(L, 12)) / LLV(L, 12) * 100;
-HTF預備 := VCP_STAGE2 AND 飆升動能 AND 旗部波幅 < 20;
-MAV20 := MA(V, 20);
-近期高位 := REF(HHV(H, 10), 1);
-突破 := CROSS(C, 近期高位) AND V > (MAV20 * 1.3);
-IS_VCP := 突破 AND REF(VCP預備, 1);
-IS_HTF := 突破 AND REF(HTF預備, 1);
-IS_BOTH := IS_VCP AND IS_HTF;
-ONLY_VCP := IS_VCP AND NOT(IS_BOTH);
-ONLY_HTF := IS_HTF AND NOT(IS_BOTH);
-聚氣中 := HTF預備 OR VCP預備;
-近期有聚氣 := COUNT(聚氣中, 5) >= 1;
-爆發大陽 := (C / REF(C, 1)) > 1.04;
-真破頂 := (C > 近期高位) AND 爆發大陽;
-漏網神龍 := 真破頂 AND 近期有聚氣 AND NOT(突破);
-極端記憶 := COUNT(聚氣中, 15) >= 1;
-創15日新高 := C > REF(HHV(H, 15), 1);
-IS_SNDK := 創15日新高 AND 極端記憶 AND NOT(突破) AND NOT(漏網神龍);
-曾經聚氣 := COUNT(聚氣中, 15) >= 1;
-創20日高 := C > REF(HHV(H, 20), 1);
-單日暴升 := (C / REF(C, 1)) > 1.05;
-IS_ULTIMATE := VCP_STAGE2 AND 曾經聚氣 AND 創20日高 AND 單日暴升 AND NOT(突破);
-狂暴趨勢 := C > MA(C, 20) AND MA(C, 20) > MA(C, 50);
-近期暴升 := (C / REF(LLV(L, 30), 5)) > 1.5;
-今日強勢破頂 := (C > REF(HHV(H, 10), 1)) AND (C > O) AND ((C / REF(C, 1)) > 1.03);
-IS_PARABOLIC := 狂暴趨勢 AND 近期暴升 AND 今日強勢破頂 AND NOT(突破) AND NOT(IS_ULTIMATE) AND NOT(IS_SNDK) AND NOT(漏網神龍);
-N_大陽條件 := (C / REF(C, 1) >= 1.04) AND (C > O);
-N_前次大陽天數 := REF(BARSLAST(N_大陽條件), 1) + 1;
-N_目標高位 := REF(H, N_前次大陽天數);
-N_突破 := (N_前次大陽天數 <= 20) AND (C > N_目標高位) AND (REF(C, 1) <= N_目標高位) AND (C > O);
-ALL_PREV_SIGNALS := ONLY_VCP OR ONLY_HTF OR IS_BOTH OR 漏網神龍 OR IS_SNDK OR IS_ULTIMATE OR IS_PARABOLIC;
-IS_N_SHAPE := VCP_STAGE2 AND N_突破 AND NOT(ALL_PREV_SIGNALS);
-大趨勢多頭 := MA50 > MA150 AND MA150 > MA200 AND MA200向上;
-短線洗盤 := COUNT(MA10 < MA20, 3) >= 1;
-短線前夕 := MA10 <= MA20 AND (MA10 + (MA10 - REF(MA10,1))) > (MA20 + (MA20 - REF(MA20,1))) AND C > O;
-中線洗盤 := COUNT(MA20 < MA50, 5) >= 1;
-中線前夕 := MA20 <= MA50 AND (MA20 + (MA20 - REF(MA20,1))) > (MA50 + (MA50 - REF(MA50,1))) AND C > O;
-IS_AMBUSH := 大趨勢多頭 AND ((短線洗盤 AND 短線前夕) OR (中線洗盤 AND 中線前夕)) AND NOT(ALL_PREV_SIGNALS) AND NOT(IS_N_SHAPE);
-大資金流入 := (V >= (MAV20 * 1.5)) AND (C > O);
-ANY_BUY_SIGNAL := ALL_PREV_SIGNALS OR IS_N_SHAPE OR IS_AMBUSH;
-SHOW_BIG_MONEY := ANY_BUY_SIGNAL AND 大資金流入;
-CNT_MONEY_BAG := IF(BASE_MATCH, COUNT(SHOW_BIG_MONEY, 5), 0);
+    # ==========================================
+    # 21 大非必要加分引擎 (全線純向量化運算)
+    # ==========================================
 
-LC := REF(CLOSE, 1);
-RSI_VAL := SMA(MAX(CLOSE - LC, 0), 14, 1) / SMA(ABS(CLOSE - LC), 14, 1) * 100;
-RSI_STAGE2_50 := STAGE2 AND (RSI_VAL > 50);
-CNT_RSI := IF(BASE_MATCH AND RSI_STAGE2_50, 1, 0);
+    # 1. ⚡爆邊(非💰)
+    VOL_MA20 = MA(V, 20)
+    DAY_AMP = (H - L) / C.shift(1) * 100
+    AMP_SQUEEZE = DAY_AMP < (MA(DAY_AMP, 20) * 0.75)
+    VOL_SQUEEZE = V < (VOL_MA20 * 0.75)
+    TR_VAL = pd.concat([H - L, (H - C.shift(1)).abs(), (L - C.shift(1)).abs()], axis=1).max(axis=1)
+    ATR20 = MA(TR_VAL, 20)
+    BOLLING_BAND = MA20 + 2 * STD(C, 20)
+    KELTNER_BAND = MA20 + 1.5 * ATR20
+    TTM_SQUEEZE = BOLLING_BAND < KELTNER_BAND
+    WAS_SQUEEZED = COUNT(AMP_SQUEEZE & VOL_SQUEEZE & TTM_SQUEEZE, 5) >= 1
+    TF_BUY_SP = C - L
+    TF_SELL_SP = H - C
+    INNER_POWER = (TF_BUY_SP > TF_SELL_SP) | ((C - L) / (H - L) > 0.60)
+    STOCK_DELTA = C - C.shift(1)
+    DELTA_ACC = STOCK_DELTA - STOCK_DELTA.shift(1)
+    DELTA_POWER = (DELTA_ACC > 0) & (C > O)
+    BETA_OK = (MA(TR_VAL, 14) / MA20) * 100 > 1.2
+    SPRING_READY = STAGE2 & WAS_SQUEEZED & BETA_OK
+    SPRING_SIGNAL = SPRING_READY & INNER_POWER & DELTA_POWER
+    CNT_SPRING = np.where(BASE_MATCH, COUNT(SPRING_SIGNAL & (~SPRING_SIGNAL.shift(1).fillna(False)), 5), 0)
 
-TYP_V := (HIGH + LOW + CLOSE) / 3;
-VOL1_V := SUM(IF(TYP_V > REF(TYP_V, 1), TYP_V * VOL, 0), 14);
-VOL2_V := SUM(IF(TYP_V < REF(TYP_V, 1), TYP_V * VOL, 0), 14);
-MFI_V := 100 * VOL1_V / (VOL1_V + VOL2_V + 0.00001);
-OBV_RAW_RAW := SUM(IF(CLOSE > REF(CLOSE, 1), VOL, IF(CLOSE < REF(CLOSE, 1), -VOL, 0)), 120);
-OBV_RAW := EMA(OBV_RAW_RAW, 3);
-MAX_OBV := HHV(OBV_RAW, 120);
-MIN_OBV := LLV(OBV_RAW, 120);
-OBV_NORM := (OBV_RAW - MIN_OBV) / (MAX_OBV - MIN_OBV + 0.00001) * 100;
-OBV_SIGNAL := MA(OBV_NORM, 20);
-SMART_BUY := CROSS(OBV_NORM, OBV_SIGNAL) AND MFI_V > 40;
-SMART_BUY_FILTER := FILTER(SMART_BUY, 12);
-CNT_SWEEP := IF(BASE_MATCH, COUNT(SMART_BUY_FILTER, 7), 0);
+    # 2. 💰錢袋 (VCP / HTF / N-Shape / Ambush + 大資金)
+    MA200_UP = MA200 > MA200.shift(20)
+    VCP_STAGE2 = (C >= MA50) & (MA50 > MA150) & (MA150 > MA200) & MA200_UP
+    AMP_BIG = (HHV(H, 30) - LLV(L, 30)) / LLV(L, 30) * 100
+    AMP_NARROW = (HHV(H, 8) - LLV(L, 8)) / LLV(L, 8) * 100
+    VCP_READY = (AMP_NARROW <= AMP_BIG * 0.65) & (AMP_NARROW <= 10)
+    SURGE_MOM = (C / LLV(L, 40).shift(10)) > 1.9
+    FLAG_AMP = (HHV(H, 12) - LLV(L, 12)) / LLV(L, 12) * 100
+    HTF_READY = VCP_STAGE2 & SURGE_MOM & (FLAG_AMP < 20)
+    MAV20 = MA(V, 20)
+    RECENT_HIGH = HHV(H, 10).shift(1)
+    BREAKOUT = CROSS(C, RECENT_HIGH) & (V > MAV20 * 1.3)
+    IS_VCP = BREAKOUT & VCP_READY.shift(1)
+    IS_HTF = BREAKOUT & HTF_READY.shift(1)
+    IS_BOTH = IS_VCP & IS_HTF
+    ONLY_VCP = IS_VCP & (~IS_BOTH)
+    ONLY_HTF = IS_HTF & (~IS_BOTH)
+    GATHERING = HTF_READY | VCP_READY
+    RECENT_GATHER = COUNT(GATHERING, 5) >= 1
+    BIG_YANG = (C / C.shift(1)) > 1.04
+    REAL_BREAK = (C > RECENT_HIGH) & BIG_YANG
+    DRAGON = REAL_BREAK & RECENT_GATHER & (~BREAKOUT)
+    EX_MEM = COUNT(GATHERING, 15) >= 1
+    NEW_HIGH_15 = C > HHV(H, 15).shift(1)
+    IS_SNDK = NEW_HIGH_15 & EX_MEM & (~BREAKOUT) & (~DRAGON)
+    NEW_HIGH_20 = C > HHV(H, 20).shift(1)
+    SINGLE_SURGE = (C / C.shift(1)) > 1.05
+    IS_ULTIMATE = VCP_STAGE2 & EX_MEM & NEW_HIGH_20 & SINGLE_SURGE & (~BREAKOUT)
+    PARABOLIC_TREND = (C > MA20) & (MA20 > MA50)
+    RECENT_SURGE = (C / LLV(L, 30).shift(5)) > 1.5
+    TODAY_STRONG_BREAK = (C > HHV(H, 10).shift(1)) & (C > O) & ((C / C.shift(1)) > 1.03)
+    IS_PARABOLIC = (PARABOLIC_TREND & RECENT_SURGE & TODAY_STRONG_BREAK & 
+                    (~BREAKOUT) & (~IS_ULTIMATE) & (~IS_SNDK) & (~DRAGON))
+    N_YANG_COND = ((C / C.shift(1)) >= 1.04) & (C > O)
+    N_PREV_DAYS = BARSLAST(N_YANG_COND).shift(1) + 1
+    N_TARGET_HIGH = H.shift(N_PREV_DAYS.astype(int))
+    N_BREAK = (N_PREV_DAYS <= 20) & (C > N_TARGET_HIGH) & (C.shift(1) <= N_TARGET_HIGH) & (C > O)
+    ALL_PREV = ONLY_VCP | ONLY_HTF | IS_BOTH | DRAGON | IS_SNDK | IS_ULTIMATE | IS_PARABOLIC
+    IS_N_SHAPE = VCP_STAGE2 & N_BREAK & (~ALL_PREV)
+    BULL_TREND = (MA50 > MA150) & (MA150 > MA200) & MA200_UP
+    SHORT_WASH = COUNT(MA10 < MA20, 3) >= 1
+    SHORT_EVE = (MA10 <= MA20) & ((MA10 + (MA10 - MA10.shift(1))) > (MA20 + (MA20 - MA20.shift(1)))) & (C > O)
+    MID_WASH = COUNT(MA20 < MA50, 5) >= 1
+    MID_EVE = (MA20 <= MA50) & ((MA20 + (MA20 - MA20.shift(1))) > (MA50 + (MA50 - MA50.shift(1)))) & (C > O)
+    IS_AMBUSH = (BULL_TREND & ((SHORT_WASH & SHORT_EVE) | (MID_WASH & MID_EVE)) & 
+                 (~ALL_PREV) & (~IS_N_SHAPE))
+    BIG_MONEY_IN = (V >= MAV20 * 1.5) & (C > O)
+    ANY_BUY = ALL_PREV | IS_N_SHAPE | IS_AMBUSH
+    SHOW_BIG_MONEY = ANY_BUY & BIG_MONEY_IN
+    CNT_MONEY_BAG = np.where(BASE_MATCH, COUNT(SHOW_BIG_MONEY, 5), 0)
 
-VA_OBV := IF(CLOSE > REF(CLOSE, 1), VOL, IF(CLOSE < REF(CLOSE, 1), -VOL, 0));
-OBV_LINE := SUM(VA_OBV, 250); 
-OBV_HHV := REF(HHV(OBV_LINE, 30), 1);
-OBV_BREAK := CROSS(OBV_LINE, OBV_HHV) AND STAGE2; 
-PRICE_NOT_HIGH := CLOSE < HHV(CLOSE, 10);
-SMART_ACC := OBV_BREAK AND PRICE_NOT_HIGH;
-FUND_BREAK := OBV_BREAK AND NOT(SMART_ACC);
-CNT_SMART_ACC := IF(BASE_MATCH, COUNT(SMART_ACC, 6), 0);
-CNT_FUND_BREAK := IF(BASE_MATCH, COUNT(FUND_BREAK, 6), 0);
+    # 3. 動力rsi(非💰)
+    LC = C.shift(1)
+    DIFF_C = C - LC
+    UP_RSI = np.where(DIFF_C > 0, DIFF_C, 0)
+    ABS_RSI = DIFF_C.abs()
+    RSI_VAL = SMA(pd.Series(UP_RSI, index=df.index), 14) / (SMA(pd.Series(ABS_RSI, index=df.index), 14) + 1e-5) * 100
+    CNT_RSI = np.where(BASE_MATCH & STAGE2 & (RSI_VAL > 50), 1, 0)
 
-N_PERIOD := 50;
-TYP_PRICE := (HIGH + LOW + CLOSE) / 3;
-TOTAL_VOL := SUM(VOL, N_PERIOD);
-TOTAL_VAL := SUM(TYP_PRICE * VOL, N_PERIOD);
-POC_LINE := IF(TOTAL_VOL > 0, TOTAL_VAL / TOTAL_VOL, CLOSE);
-VOL_VAR := SUM(VOL * (TYP_PRICE - POC_LINE) * (TYP_PRICE - POC_LINE), N_PERIOD) / (TOTAL_VOL + 0.00001);
-VOL_STD := IF(TOTAL_VOL > 0, SQRT(VOL_VAR), 0);
-VAH_LINE := POC_LINE + (1.0 * VOL_STD);
-BULL_BREAK := STAGE2 AND CROSS(CLOSE, VAH_LINE) AND VOL > MA(VOL, 5);
-CNT_BULL_BREAK := IF(BASE_MATCH, COUNT(BULL_BREAK, 6), 0);
+    # 4. 💰掃貨 (MFI + OBV 雙重交叉)
+    TYP_V = (H + L + C) / 3
+    V1 = np.where(TYP_V > TYP_V.shift(1), TYP_V * V, 0)
+    V2 = np.where(TYP_V < TYP_V.shift(1), TYP_V * V, 0)
+    MFI_V = 100 * pd.Series(V1).rolling(14).sum() / (pd.Series(V1).rolling(14).sum() + pd.Series(V2).rolling(14).sum() + 1e-5)
+    OBV_DIR = np.where(C > C.shift(1), V, np.where(C < C.shift(1), -V, 0))
+    OBV_RAW = EMA(pd.Series(OBV_DIR, index=df.index).rolling(120).sum(), 3)
+    MAX_OBV = HHV(OBV_RAW, 120)
+    MIN_OBV = LLV(OBV_RAW, 120)
+    OBV_NORM = (OBV_RAW - MIN_OBV) / (MAX_OBV - MIN_OBV + 1e-5) * 100
+    OBV_SIG = MA(OBV_NORM, 20)
+    SMART_BUY = CROSS(OBV_NORM, OBV_SIG) & (MFI_V > 40)
+    CNT_SWEEP = np.where(BASE_MATCH, COUNT(SMART_BUY, 7), 0)
 
-VOLMA20_BIG := MA(VOL, 20);
-CSPRE := ABS(CLOSE - OPEN);
-AVGS := MA(CSPRE, 20);
-ISBIG := (VOL > VOLMA20_BIG * 1.5) AND (CLOSE > OPEN) AND (CSPRE > AVGS);
-CNT_BIG := IF(BASE_MATCH, COUNT(ISBIG, 3), 0);
+    # 5. 🕵️大戶吸籌 / 🌊資金突破
+    VA_OBV = pd.Series(OBV_DIR, index=df.index)
+    OBV_LINE = VA_OBV.rolling(250).sum()
+    OBV_HHV = HHV(OBV_LINE, 30).shift(1)
+    OBV_BREAK = CROSS(OBV_LINE, OBV_HHV) & STAGE2
+    PRICE_NOT_HIGH = C < HHV(C, 10)
+    SMART_ACC = OBV_BREAK & PRICE_NOT_HIGH
+    FUND_BREAK = OBV_BREAK & (~PRICE_NOT_HIGH)
+    CNT_SMART_ACC = np.where(BASE_MATCH, COUNT(SMART_ACC, 6), 0)
+    CNT_FUND_BREAK = np.where(BASE_MATCH, COUNT(FUND_BREAK, 6), 0)
 
-S_EMA20 := EMA(CLOSE, 20);
-S_EMA50 := EMA(CLOSE, 50);
-S_EMA200 := EMA(CLOSE, 200);
-S_E5 := EMA(CLOSE, 5);
-S_E10 := EMA(CLOSE, 10);
-S_VMA5 := MA(VOL, 5);
-S_INST_VOL := VOL > (S_VMA5 * 1.2);
-S_BODY_RANGE := HIGH - LOW;
-S_STRONG_BUY_K := (CLOSE > OPEN) AND ((CLOSE - LOW) > S_BODY_RANGE * 0.50);
-S_CROSS_BUY := CROSS(CLOSE, S_EMA20) OR (CLOSE > S_EMA20 AND CROSS(S_E5, S_E10));
-S_PULLBACK_BUY := (LOW <= S_EMA20) AND (CLOSE > S_EMA20) AND (CLOSE > OPEN);
-SP_BUY_SIGNAL := STAGE2 AND S_INST_VOL AND S_STRONG_BUY_K AND (S_CROSS_BUY OR S_PULLBACK_BUY);
-CNT_SPLUS := IF(BASE_MATCH, COUNT(SP_BUY_SIGNAL, 3), 0);
+    # 6. 🎯牛突破 (Volume Profile POC / VAH 突破)
+    POC_LINE = (TYP_V * V).rolling(50).sum() / (V.rolling(50).sum() + 1e-5)
+    VOL_VAR = (V * (TYP_V - POC_LINE)**2).rolling(50).sum() / (V.rolling(50).sum() + 1e-5)
+    VOL_STD = np.sqrt(VOL_VAR)
+    VAH_LINE = POC_LINE + 1.0 * VOL_STD
+    BULL_BREAK = STAGE2 & CROSS(C, VAH_LINE) & (V > MA(V, 5))
+    CNT_BULL_BREAK = np.where(BASE_MATCH, COUNT(BULL_BREAK, 6), 0)
 
-MAVOL20_HUGE := MA(VOL, 20);
-IS_HUGE_VOL := VOL > (MAVOL20_HUGE * 2.0);
-IS_UP_CANDLE := CLOSE >= OPEN;
-HUGE_VOL_SIGNAL := IS_HUGE_VOL AND IS_UP_CANDLE;
-CNT_HUGE_VOL := IF(BASE_MATCH, COUNT(HUGE_VOL_SIGNAL, 4), 0);
+    # 7. BIG
+    VOLMA20_BIG = MA(V, 20)
+    CSPRE = (C - O).abs()
+    AVGS = MA(CSPRE, 20)
+    ISBIG = (V > VOLMA20_BIG * 1.5) & (C > O) & (CSPRE > AVGS)
+    CNT_BIG = np.where(BASE_MATCH, COUNT(ISBIG, 3), 0)
 
-DMI_N := 14;
-DMI_M := 6;
-DMI_TR1 := SUM(MAX(MAX(HIGH-LOW,ABS(HIGH-REF(CLOSE,1))),ABS(LOW-REF(CLOSE,1))),DMI_N);
-DMI_HD := HIGH-REF(HIGH,1);
-DMI_LD := REF(LOW,1)-LOW;
-DMI_DMP := SUM(IF(DMI_HD>0 AND DMI_HD>DMI_LD,DMI_HD,0),DMI_N);
-DMI_DMM := SUM(IF(DMI_LD>0 AND DMI_LD>DMI_HD,DMI_LD,0),DMI_N);
-DMI_PDI := DMI_DMP*100/DMI_TR1;
-DMI_MDI := DMI_DMM*100/DMI_TR1;
-DMI_ADX_RAW := MA(ABS(DMI_MDI-DMI_PDI)/(DMI_MDI+DMI_PDI)*100,DMI_M);
-DMI_BULL_DOMINANT := DMI_PDI > DMI_MDI;
-DMI_TREND_ACTIVE := DMI_ADX_RAW >= 25;
-DMI_BULL_GAP := DMI_PDI - DMI_MDI > 3;
-DMI_BULL_CROSS := CROSS(DMI_ADX_RAW, 25) AND DMI_BULL_DOMINANT AND DMI_BULL_GAP;
-DMI_BULL_FLIP := CROSS(DMI_PDI, DMI_MDI) AND DMI_TREND_ACTIVE AND DMI_BULL_GAP;
-DMI_TREND_IGNITE := (DMI_BULL_CROSS OR DMI_BULL_FLIP) AND STAGE2;
-DMI_SQUEEZE_SIGNAL := CROSS(15, DMI_ADX_RAW);
-CNT_TORNADO := IF(BASE_MATCH, COUNT(DMI_TREND_IGNITE, 4), 0);
-CNT_NINJA := IF(BASE_MATCH, COUNT(DMI_SQUEEZE_SIGNAL, 4), 0);
+    # 8. 🚀S+++突擊
+    S_EMA20 = EMA(C, 20)
+    S_E5, S_E10 = EMA(C, 5), EMA(C, 10)
+    S_INST_VOL = V > (MA(V, 5) * 1.2)
+    S_STRONG_K = (C > O) & ((C - L) > (H - L) * 0.50)
+    S_CROSS = CROSS(C, S_EMA20) | ((C > S_EMA20) & CROSS(S_E5, S_E10))
+    S_PULLBACK = (L <= S_EMA20) & (C > S_EMA20) & (C > O)
+    SP_BUY = STAGE2 & S_INST_VOL & S_STRONG_K & (S_CROSS | S_PULLBACK)
+    CNT_SPLUS = np.where(BASE_MATCH, COUNT(SP_BUY, 3), 0)
 
-PZ_N:=24; PZ_M:=2.5; PZ_V_LEN:=13; PZ_ATR_LEN:=20;
-PZ_MID_V := MA(CLOSE, PZ_N);
-PZ_STD_DEV_V := STD(CLOSE, PZ_N);
-PZ_UPPER_V := PZ_MID_V + PZ_M * PZ_STD_DEV_V;
-PZ_LOWER_V := PZ_MID_V - PZ_M * PZ_STD_DEV_V;
-PZ_TR_V := MAX(MAX(HIGH-LOW, ABS(HIGH-REF(CLOSE,1))), ABS(LOW-REF(CLOSE,1)));
-PZ_ATR_V := MA(PZ_TR_V, PZ_ATR_LEN);
-PZ_EXTREME_MARKET := PZ_TR_V > PZ_ATR_V * 2;
-PZ_IS_RANGE := ((PZ_UPPER_V - PZ_LOWER_V) / PZ_MID_V * 100) < MA((PZ_UPPER_V - PZ_LOWER_V) / PZ_MID_V * 100, 50);
-PZ_VOL_FORCE := (CLOSE - PZ_MID_V) / PZ_STD_DEV_V * 100;
-PZ_E1 := EMA(PZ_VOL_FORCE, PZ_V_LEN);
-PZ_E2 := EMA(PZ_E1, PZ_V_LEN);
-PZ_V_SIGNAL := 2 * PZ_E1 - PZ_E2;
-PZ_VOL_OK := VOL > MA(VOL, 20);
-PZ_BUY1 := CROSS(CLOSE, PZ_UPPER_V) AND PZ_V_SIGNAL > 50 AND PZ_VOL_OK AND PZ_IS_RANGE;
-PZ_BUY2 := PZ_V_SIGNAL > 50 AND CLOSE > MA(CLOSE, 10) AND CLOSE > REF(CLOSE, 1) AND STAGE2 AND NOT(PZ_EXTREME_MARKET);
-PZ_BUY3 := CROSS(PZ_V_SIGNAL, 50) AND CLOSE > PZ_MID_V AND PZ_VOL_OK;
-PZ_BUY1_FILTERED := PZ_BUY1;
-PZ_BUY3_FILTERED := PZ_BUY3 AND NOT(PZ_BUY1);
-PZ_BUY2_FILTERED := FILTER(PZ_BUY2, 8);
-PZ_ANY_BUY := PZ_BUY1_FILTERED OR PZ_BUY3_FILTERED OR PZ_BUY2_FILTERED;
-CNT_PZ_ANY := IF(BASE_MATCH, COUNT(PZ_ANY_BUY, 4), 0);
-SHOW_PZ1 := IF(BASE_MATCH AND COUNT(PZ_BUY1_FILTERED, 4) > 0, 1, 0);
-SHOW_PZ3 := IF(BASE_MATCH AND COUNT(PZ_BUY3_FILTERED, 4) > 0, 1, 0);
-SHOW_PZ2 := IF(BASE_MATCH AND COUNT(PZ_BUY2_FILTERED, 4) > 0, 1, 0);
+    # 9. 🔥天量
+    MAVOL20_HUGE = MA(V, 20)
+    IS_HUGE_VOL = V > (MAVOL20_HUGE * 2.0)
+    HUGE_VOL_SIGNAL = IS_HUGE_VOL & (C >= O)
+    CNT_HUGE_VOL = np.where(BASE_MATCH, COUNT(HUGE_VOL_SIGNAL, 4), 0)
 
-GL_LC := REF(CLOSE, 1);
-GL_RSI1 := SMA(MAX(CLOSE - GL_LC, 0), 14, 1) / (SMA(ABS(CLOSE - GL_LC), 14, 1) + 0.00001) * 100;
-GL_TYP := (HIGH + LOW + CLOSE) / 3;
-GL_V1 := SUM(IF(GL_TYP > REF(GL_TYP, 1), GL_TYP * VOL, 0), 14);
-GL_V2 := SUM(IF(GL_TYP < REF(GL_TYP, 1), GL_TYP * VOL, 0), 14);
-GL_MFI1 := 100 * GL_V1 / (GL_V1 + GL_V2 + 0.00001);
-GL_TRUE_MOM := (GL_RSI1 + GL_MFI1) / 2 - 50;
-GL_RV := GL_TRUE_MOM;
-GL_SV := EMA(GL_TRUE_MOM, 9);
-GL_HD := HIGH - REF(HIGH, 1);
-GL_LD := REF(LOW, 1) - LOW;
-GL_DMP := SUM(IF(GL_HD > 0 AND GL_HD > GL_LD, GL_HD, 0), 14);
-GL_DMM := SUM(IF(GL_LD > 0 AND GL_LD > GL_HD, GL_LD, 0), 14);
-GL_TR_A := SUM(MAX(MAX(HIGH - LOW, ABS(HIGH - REF(CLOSE, 1))), ABS(LOW - REF(CLOSE, 1))), 14);
-GL_PDI := GL_DMP * 100 / (GL_TR_A + 0.00001);
-GL_MDI := GL_DMM * 100 / (GL_TR_A + 0.00001);
-GL_ADX := EXPMEMA(ABS(GL_MDI - GL_PDI) / (GL_MDI + GL_PDI + 0.00001) * 100, 14);
-GL_IS_CHOPPY := GL_ADX < 20;
-GL_PRO_BUY := CROSS(GL_RV, GL_SV) AND STAGE2 AND NOT(GL_IS_CHOPPY) AND GL_RV < 15;
-CNT_GL_IGNITE := IF(BASE_MATCH, COUNT(GL_PRO_BUY, 4), 0);
+    # 10. 🌪️主升狂飆 / 🥷潛伏觀察 (DMI 雙向動能)
+    DMI_HD = H - H.shift(1)
+    DMI_LD = L.shift(1) - L
+    DMP_RAW = np.where((DMI_HD > 0) & (DMI_HD > DMI_LD), DMI_HD, 0)
+    DMM_RAW = np.where((DMI_LD > 0) & (DMI_LD > DMI_HD), DMI_LD, 0)
+    DMI_TR = TR_VAL.rolling(14).sum()
+    PDI_VAL = pd.Series(DMP_RAW, index=df.index).rolling(14).sum() * 100 / (DMI_TR + 1e-5)
+    MDI_VAL = pd.Series(DMM_RAW, index=df.index).rolling(14).sum() * 100 / (DMI_TR + 1e-5)
+    ADX_RAW = MA((MDI_VAL - PDI_VAL).abs() / (MDI_VAL + PDI_VAL + 1e-5) * 100, 6)
+    DMI_BULL_CROSS = CROSS(ADX_RAW, 25) & (PDI_VAL > MDI_VAL) & (PDI_VAL - MDI_VAL > 3)
+    DMI_BULL_FLIP = CROSS(PDI_VAL, MDI_VAL) & (ADX_RAW >= 25) & (PDI_VAL - MDI_VAL > 3)
+    DMI_IGNITE = (DMI_BULL_CROSS | DMI_BULL_FLIP) & STAGE2
+    DMI_SQUEEZE = CROSS(15, ADX_RAW)
+    CNT_TORNADO = np.where(BASE_MATCH, COUNT(DMI_IGNITE, 4), 0)
+    CNT_NINJA = np.where(BASE_MATCH, COUNT(DMI_SQUEEZE, 4), 0)
 
-WK_EMA20 := EMA(CLOSE, 20);
-WK_EMA50 := EMA(CLOSE, 50);
-WK_EMA200 := EMA(CLOSE, 200);
-WK_IS_BEAR := CLOSE < WK_EMA200 OR WK_EMA50 < WK_EMA200;
-WK_VMA5 := MA(VOL, 5);
-WK_VMA20 := MA(VOL, 20);
-WK_SPRING := CROSS(CLOSE, WK_EMA20) AND REF(CLOSE, 1) < WK_EMA20 AND (VOL > WK_VMA5 * 1.2 OR VOL < WK_VMA20 * 0.6) AND NOT(WK_IS_BEAR);
-CNT_WK_SPRING := IF(BASE_MATCH, COUNT(WK_SPRING, 4), 0);
+    # 11. PZ綜合訊號
+    PZ_N = 24
+    PZ_MID = MA(C, PZ_N)
+    PZ_STD = STD(C, PZ_N)
+    PZ_UPPER = PZ_MID + 2.5 * PZ_STD
+    PZ_LOWER = PZ_MID - 2.5 * PZ_STD
+    PZ_ATR = MA(TR_VAL, 20)
+    PZ_EXTREME = TR_VAL > PZ_ATR * 2
+    PZ_RANGE = ((PZ_UPPER - PZ_LOWER) / PZ_MID * 100) < MA((PZ_UPPER - PZ_LOWER) / PZ_MID * 100, 50)
+    PZ_FORCE = (C - PZ_MID) / PZ_STD * 100
+    PZ_E1 = EMA(PZ_FORCE, 13)
+    PZ_E2 = EMA(PZ_E1, 13)
+    PZ_SIG = 2 * PZ_E1 - PZ_E2
+    PZ_BUY1 = CROSS(C, PZ_UPPER) & (PZ_SIG > 50) & (V > MA(V, 20)) & PZ_RANGE
+    PZ_BUY2 = (PZ_SIG > 50) & (C > MA10) & (C > C.shift(1)) & STAGE2 & (~PZ_EXTREME)
+    PZ_BUY3 = CROSS(PZ_SIG, 50) & (C > PZ_MID) & (V > MA(V, 20))
+    PZ_ANY = PZ_BUY1 | PZ_BUY3 | PZ_BUY2
+    CNT_PZ_ANY = np.where(BASE_MATCH, COUNT(PZ_ANY, 4), 0)
 
-KO_TR_V := MAX(MAX(H-L, ABS(H-REF(C,1))), ABS(L-REF(C,1)));
-KO_ATR14 := MA(KO_TR_V, 14);
-KO_BASE_S := MAX(LLV(L, 30), C - (KO_ATR14 * 3.2));
-KO_FINAL_S := IF(ISLASTBAR, KO_BASE_S, HHV(KO_BASE_S, 50));
-KO_SAFE_ZONE := C > KO_FINAL_S AND C > MA(C, 15);
-KO_VH_PRO := V > MA(V, 5) * 1.35 AND C > O;
-KO_RED_TRIANGLE := KO_VH_PRO AND KO_SAFE_ZONE;
-CNT_KO_RED_TRIANGLE := IF(BASE_MATCH, COUNT(KO_RED_TRIANGLE, 4), 0);
+    # 12. 🚀全能點火
+    GL_RSI1 = SMA(pd.Series(np.where(C - LC > 0, C - LC, 0), index=df.index), 14) / (SMA(DIFF_C.abs(), 14) + 1e-5) * 100
+    GL_MFI1 = MFI_V
+    GL_RV = (GL_RSI1 + GL_MFI1) / 2 - 50
+    GL_SV = EMA(GL_RV, 9)
+    GL_ADX = ADX_RAW
+    GL_PRO_BUY = CROSS(GL_RV, GL_SV) & STAGE2 & (GL_ADX >= 20) & (GL_RV < 15)
+    CNT_GL_IGNITE = np.where(BASE_MATCH, COUNT(GL_PRO_BUY, 4), 0)
 
-FLOW_VOL_MA50 := MA(VOL, 50);
-FLOW_IS_VDU := (VOL < FLOW_VOL_MA50 * 0.5);
-FLOW_IS_BREAKOUT := CLOSE >= HHV(REF(CLOSE, 1), 20);
-FLOW_HIGH_VOL_BUY := (VOL > REF(VOL, 1)) AND (VOL > FLOW_VOL_MA50 * 1.5);
-FLOW_INSTITUTION_BUY := STAGE2 AND (CLOSE > REF(CLOSE, 1)) AND FLOW_HIGH_VOL_BUY AND FLOW_IS_BREAKOUT;
+    # 13. ⚡洗盤 (威科夫彈簧)
+    WK_EMA20 = EMA(C, 20)
+    WK_EMA200 = EMA(C, 200)
+    WK_BEAR = (C < WK_EMA200) | (MA50 < WK_EMA200)
+    WK_SPRING = CROSS(C, WK_EMA20) & (C.shift(1) < WK_EMA20) & ((V > MA(V, 5) * 1.2) | (V < MA(V, 20) * 0.6)) & (~WK_BEAR)
+    CNT_WK_SPRING = np.where(BASE_MATCH, COUNT(WK_SPRING, 4), 0)
 
-FLOW_DIFF := EMA(CLOSE, 12) - EMA(CLOSE, 26);
-FLOW_DEA  := EMA(FLOW_DIFF, 9);
-FLOW_MACD_BAR := (FLOW_DIFF - FLOW_DEA) * 2;
-FLOW_MACD_BAR_GROW := FLOW_MACD_BAR > REF(FLOW_MACD_BAR, 1) AND REF(FLOW_MACD_BAR, 1) > REF(FLOW_MACD_BAR, 2);
-FLOW_MACD_POWER := FLOW_DIFF > FLOW_DEA AND FLOW_MACD_BAR > 0 AND FLOW_MACD_BAR_GROW;
+    # 14. 紅色三角 (KING_OMNI 安全區掃貨)
+    KO_SAFE = (C > (C - ATR20 * 3.2).rolling(50).max()) & (C > MA(C, 15))
+    KO_RED_TRIANGLE = (V > MA(V, 5) * 1.35) & (C > O) & KO_SAFE
+    CNT_KO_RED_TRIANGLE = np.where(BASE_MATCH, COUNT(KO_RED_TRIANGLE, 4), 0)
 
-FLOW_TTM_VAR1 := (HHV(HIGH, 20) + LLV(LOW, 20)) / 2 + MA(CLOSE, 20);
-FLOW_TTM_VAR2 := FORCAST(CLOSE - FLOW_TTM_VAR1 / 2, 20);
-FLOW_TTM_POWER := FLOW_TTM_VAR2 > REF(FLOW_TTM_VAR2, 1) AND FLOW_TTM_VAR2 >= 0;
+    # 15. 🔵真周線共振 (FLOW量能)
+    FLOW_INST = STAGE2 & (C > C.shift(1)) & (V > V.shift(1)) & (V > MA(V, 50) * 1.5) & (C >= HHV(C.shift(1), 20))
+    FLOW_REAL_BUY = FLOW_INST & ((COUNT(V < MA(V, 50)*0.5, 10) > 0) | (TTM_MOMENTUM > TTM_MOMENTUM.shift(1)))
+    CNT_FLOW_REAL_BUY = np.where(BASE_MATCH, COUNT(FLOW_REAL_BUY, 4), 0)
 
-FLOW_VDU_10D := COUNT(FLOW_IS_VDU, 10) > 0;
-FLOW_COND_A := FLOW_VDU_10D AND FLOW_MACD_POWER;
-FLOW_COND_B := FLOW_MACD_POWER AND FLOW_TTM_POWER;
+    # 16. 💎真動能 (NEXUS安全起爆)
+    NX_STAGE2 = (COUNT(C > MA150, 3) > 0) & (MA50 > MA150) & (MA150 > MA150.shift(10))
+    NX_RAW = (V > MA(V, 20) * 1.5) & ((H - L) > MA(H - L, 20) * 1.5)
+    NX_SAFE = NX_STAGE2 & (COUNT(V < MA(V, 20), 10) > 0) & NX_RAW & (C >= O) & ((H - C.shift(1))/C.shift(1)*100 > 4.0)
+    CNT_NX_BUY_SAFE = np.where(BASE_MATCH, COUNT(NX_SAFE, 3), 0)
 
-FLOW_REAL_BUY := FLOW_INSTITUTION_BUY AND (FLOW_COND_A OR FLOW_COND_B);
-CNT_FLOW_REAL_BUY := IF(BASE_MATCH, COUNT(FLOW_REAL_BUY, 4), 0);
+    # 17. 🚀啟動 (VSA量價齊升)
+    VSA_DEV60 = (C - MA(C, 60)) / MA(C, 60) * 100
+    VSA_START = (V > MA(V, 20) * 1.5) & (C > O) & ((C - O).abs() > MA((C - O).abs(), 20)) & (VSA_DEV60 <= 15)
+    CNT_VSA_START = np.where(BASE_MATCH, COUNT(VSA_START, 4), 0)
 
-NX_MA50  := MA(CLOSE, 50);
-NX_MA150 := MA(CLOSE, 150);
-NX_STAGE2 := COUNT(CLOSE > NX_MA150, 3) > 0 AND (NX_MA50 > NX_MA150) AND (NX_MA150 > REF(NX_MA150, 10));
+    # 18. 🚀點火 (統計學極端量能)
+    TF_UPPER = MA(V, 20) + 2.0 * STD(V, 20)
+    TF_FIRE = (V > TF_UPPER) & (V > MA(V, 60) * 1.9) & ((C - C.shift(1)).abs() / C.shift(1) * 100 > 2.0) & (C > O) & (VSA_DEV60 <= 15)
+    CNT_TF_FIRE = np.where(BASE_MATCH, COUNT(TF_FIRE, 4), 0)
 
-NX_VOL_MA20 := MA(VOL, 20);
-NX_COND_VOL := VOL > (NX_VOL_MA20 * 1.5);
-NX_DAY_RANGE := HIGH - LOW;
-NX_RANGE_MA20 := MA(NX_DAY_RANGE, 20);
-NX_COND_RANGE := NX_DAY_RANGE > (NX_RANGE_MA20 * 1.5);
-NX_RAW_SIGNAL := NX_COND_VOL AND NX_COND_RANGE;
+    # 19. 🚀S級綠區主升 (STAGE2_V19)
+    SV19_STATE = np.where((C > MA20) & (MA20 > MA50) & (MA50 > MA200), 1, 3)
+    SV19_RAW_BUY = CROSS(EMA(C, 5), EMA(C, 10)) & (V > MA(V, 5) * 1.2) & ((C > O) & ((C - L) > (H - L) * 0.55)) & (ATR20 > ATR20.shift(1)) & (GL_RSI1 < 78)
+    SV19_BUY_GREEN = SV19_RAW_BUY & (SV19_STATE == 1)
+    CNT_S19_GREEN = np.where(BASE_MATCH, COUNT(SV19_BUY_GREEN, 6), 0)
 
-NX_VOL_PAUSE := VOL < NX_VOL_MA20;
-NX_VDU_READY := COUNT(NX_VOL_PAUSE, 10) > 0;
+    # 20. 買入兵力大勝 (Volume Delta > 65%)
+    TFM_V3 = H - L
+    TFM_BUY = np.where(TFM_V3 > 0, V * (C - L) / TFM_V3, 0)
+    TFM_SELL = np.where(TFM_V3 > 0, V * (H - C) / TFM_V3, 0)
+    TFM_SUM_BUY = pd.Series(TFM_BUY, index=df.index).rolling(5).sum()
+    TFM_SUM_SELL = pd.Series(TFM_SELL, index=df.index).rolling(5).sum()
+    TFM_WIN = (TFM_SUM_BUY / (TFM_SUM_BUY + TFM_SUM_SELL + 1e-5)) > 0.65
+    CNT_TFM_WIN = np.where(BASE_MATCH & TFM_WIN, 1, 0)
 
-NX_TF_BUY := (CLOSE - LOW);
-NX_TF_SELL := (HIGH - CLOSE);
-NX_IS_YANG := CLOSE >= OPEN;
-NX_POWER_OK := NX_TF_BUY > NX_TF_SELL;
-NX_SURGE_UP := (HIGH - REF(CLOSE, 1)) / REF(CLOSE, 1) * 100 > 4.0;
-NX_SAFE_LOCATION := (CLOSE - MA(CLOSE, 20)) / MA(CLOSE, 20) < 0.60;
+    # 21. CLIMAX (成交量高潮 - 破60日高點 + 2.5倍量)
+    VCX_WR = (HHV(H, 14) - C) / (HHV(H, 14) - LLV(L, 14) + 1e-5) * -100
+    VCX_CLIMAX = (V > HHV(V, 60).shift(1)) & (V > MA(V, 30) * 2.5) & (H >= HHV(H, 60).shift(1)) & (VCX_WR > -10)
+    CNT_CLIMAX = np.where(BASE_MATCH, COUNT(VCX_CLIMAX, 4), 0)
 
-NX_BUY_SAFE := NX_STAGE2 AND NX_VDU_READY AND NX_RAW_SIGNAL AND NX_IS_YANG AND NX_SURGE_UP AND NX_POWER_OK AND NX_SAFE_LOCATION;
-CNT_NX_BUY_SAFE := IF(BASE_MATCH, COUNT(NX_BUY_SAFE, 3), 0);
+    # ==========================================
+    # 輸出結算 (完全防彈括號包覆，絕不報錯)
+    # ==========================================
+    df['天外飛仙_狀態'] = pd.Series(STATUS_FLAG, index=df.index).fillna(0).astype(int)
+    
+    TOTAL_SCORE = (BASE_RANK_SCORE + CNT_SPRING + CNT_MONEY_BAG + CNT_RSI + CNT_SWEEP + 
+                   CNT_SMART_ACC + CNT_FUND_BREAK + CNT_BULL_BREAK + CNT_BIG + CNT_SPLUS + 
+                   CNT_HUGE_VOL + CNT_TORNADO + CNT_NINJA + CNT_PZ_ANY + CNT_GL_IGNITE + 
+                   CNT_WK_SPRING + CNT_KO_RED_TRIANGLE + CNT_FLOW_REAL_BUY + CNT_NX_BUY_SAFE + 
+                   CNT_VSA_START + CNT_TF_FIRE + CNT_S19_GREEN + CNT_TFM_WIN + CNT_CLIMAX)
+                  
+    df['霸王總分'] = pd.Series(TOTAL_SCORE, index=df.index).fillna(-9999).astype(float)
 
-VSA_VOL_MA20 := MA(VOL, 20);
-VSA_C_SPREAD := ABS(CLOSE - OPEN);
-VSA_AVG_SPREAD := MA(VSA_C_SPREAD, 20);
-VSA_MA60_C := MA(CLOSE, 60);
-VSA_DEV60 := (CLOSE - VSA_MA60_C) / VSA_MA60_C * 100;
-VSA_IS_HIGH := VSA_DEV60 > 15;
-VSA_IS_BIG_RAW := (VOL > VSA_VOL_MA20 * 1.5) AND (CLOSE > OPEN) AND (VSA_C_SPREAD > VSA_AVG_SPREAD);
-VSA_START := VSA_IS_BIG_RAW AND NOT(VSA_IS_HIGH);
-CNT_VSA_START := IF(BASE_MATCH, COUNT(VSA_START, 4), 0);
-
-TF_V_MA := MA(VOL, 20);
-TF_V_STD := STD(VOL, 20);
-TF_V_UPPER := TF_V_MA + (2.0 * TF_V_STD);
-TF_VOL_MA60 := MA(VOL, 60);
-TF_AMP := ABS(CLOSE - REF(CLOSE, 1)) / REF(CLOSE, 1) * 100;
-TF_MA60_C := MA(CLOSE, 60);
-TF_DEV60 := (CLOSE - TF_MA60_C) / TF_MA60_C * 100;
-TF_IS_HIGH := TF_DEV60 > 15;
-TF_REAL_BOOM := (VOL > TF_V_UPPER) AND (VOL > TF_VOL_MA60 * 1.9) AND (TF_AMP > 2.0);
-TF_FIRE := TF_REAL_BOOM AND (CLOSE > OPEN) AND NOT(TF_IS_HIGH);
-CNT_TF_FIRE := IF(BASE_MATCH, COUNT(TF_FIRE, 4), 0);
-
-SV19_E5 := EMA(CLOSE, 5);
-SV19_E10 := EMA(CLOSE, 10);
-SV19_E20 := EMA(CLOSE, 20);
-SV19_E50 := EMA(CLOSE, 50);
-SV19_E200 := EMA(CLOSE, 200);
-SV19_STATE := IF(CLOSE > SV19_E20 AND SV19_E20 > SV19_E50 AND SV19_E50 > SV19_E200, 1, IF(CLOSE < SV19_E200 OR SV19_E50 < SV19_E200, 2, 3));
-SV19_VMA5 := MA(VOL, 5);
-SV19_INST_VOL := VOL > (SV19_VMA5 * 1.2);
-SV19_BODY_RANGE := HIGH - LOW;
-SV19_STRONG_K := (CLOSE > OPEN) AND ((CLOSE - LOW) > SV19_BODY_RANGE * 0.55);
-SV19_TR1 := MAX(MAX(HIGH - LOW, ABS(HIGH - REF(CLOSE, 1))), ABS(LOW - REF(CLOSE, 1)));
-SV19_ATR14 := MA(SV19_TR1, 14);
-SV19_VOLATILITY_EXP := SV19_ATR14 > REF(SV19_ATR14, 1);
-SV19_LC := REF(CLOSE, 1);
-SV19_UP6 := SMA(MAX(CLOSE - SV19_LC, 0), 6, 1);
-SV19_DN6 := SMA(ABS(CLOSE - SV19_LC), 6, 1);
-SV19_MYRSI6 := SV19_UP6 / (SV19_DN6 + 0.00001) * 100;
-SV19_NOT_EXHAUSTED := SV19_MYRSI6 < 78;
-SV19_RAW_BUY := CROSS(SV19_E5, SV19_E10) AND SV19_INST_VOL AND SV19_STRONG_K AND SV19_VOLATILITY_EXP AND SV19_NOT_EXHAUSTED;
-SV19_BUY_GREEN := SV19_RAW_BUY AND (SV19_STATE = 1);
-CNT_S19_GREEN := IF(BASE_MATCH, COUNT(SV19_BUY_GREEN, 6), 0);
-
-TFM_V1 := (CLOSE - LOW);
-TFM_V2 := (HIGH - CLOSE);
-TFM_V3 := (HIGH - LOW);
-TFM_BUY := IF(TFM_V3 > 0, VOL * TFM_V1 / TFM_V3, 0);
-TFM_SELL := IF(TFM_V3 > 0, VOL * TFM_V2 / TFM_V3, 0);
-TFM_SUM_BUY := SUM(TFM_BUY, 5);
-TFM_SUM_SELL := SUM(TFM_SELL, 5);
-TFM_SUM_TOT := TFM_SUM_BUY + TFM_SUM_SELL;
-TFM_WIN := (TFM_SUM_BUY / (TFM_SUM_TOT + 0.00001)) > 0.65;
-CNT_TFM_WIN := IF(BASE_MATCH AND TFM_WIN, 1, 0);
-
-{ ========================================== }
-{ 加分項 21: CLIMAX (成交量高潮 - 突破60日高位且爆量2.5倍) }
-{ 設定為當日及前 3 個交易日 (共 4 日) 內出現 }
-{ ========================================== }
-VCX_WR := (HHV(HIGH, 14) - CLOSE) / (HHV(HIGH, 14) - LLV(LOW, 14)) * -100;
-VCX_VMA30 := MA(VOL, 30);
-VCX_V_MAX60_V := VOL > REF(HHV(VOL, 60), 1);
-VCX_CLIMAX := VCX_V_MAX60_V AND (VOL > VCX_VMA30 * 2.5) AND (HIGH >= REF(HHV(HIGH, 60), 1)) AND (VCX_WR > -10 OR ((HIGH - MAX(OPEN, CLOSE)) > ABS(CLOSE - OPEN) * 3 AND VCX_WR > -30));
-
-CNT_CLIMAX := IF(BASE_MATCH, COUNT(VCX_CLIMAX, 4), 0);
-
-
-{ ==========================================
-  輸出變數 (精準對接 App 前端 UI 渲染)
-========================================== }
-天外飛仙 : STATUS_FLAG; { 1=黃金頂部, 2=沉底觀察, 0=隱藏 }
-
-⚡爆邊(非💰) : CNT_SPRING;
-💰錢袋 : CNT_MONEY_BAG;
-動力rsi(非💰) : CNT_RSI;
-💰掃貨 : CNT_SWEEP;
-🕵️大戶吸籌 : CNT_SMART_ACC;
-🌊資金突破 : CNT_FUND_BREAK;
-🎯牛突破 : CNT_BULL_BREAK;
-BIG : CNT_BIG;
-🚀S+++突擊 : CNT_SPLUS;
-🔥天量 : CNT_HUGE_VOL;
-🌪️主升狂飆(非💰) : CNT_TORNADO;
-🥷潛伏觀察(非💰) : CNT_NINJA;
-PZ綜合訊號 : CNT_PZ_ANY;
-🚀全能點火 : CNT_GL_IGNITE;
-⚡洗盤 : CNT_WK_SPRING;
-紅色三角 : CNT_KO_RED_TRIANGLE;
-🔵真周線共振 : CNT_FLOW_REAL_BUY;
-💎真動能 : CNT_NX_BUY_SAFE;
-🚀啟動 : CNT_VSA_START;
-🚀點火 : CNT_TF_FIRE;
-🚀S級綠區主升 : CNT_S19_GREEN;
-買入兵力大勝 : CNT_TFM_WIN;
-CLIMAX : CNT_CLIMAX;
-
-★PZ特大注★ : SHOW_PZ1;
-🚀浴火重生 : SHOW_PZ3;
-■PZ大注■ : SHOW_PZ2;
-
-{ 霸王總分：含 100 分頂/底階梯權重，App 降序排列會自然將頭 3 天的股票排在最頂，第 4-10 天自動沉底 }
-霸王總分 : BASE_RANK_SCORE + ⚡爆邊(非💰) + 💰錢袋 + 動力rsi(非💰) + 💰掃貨 + 🕵️大戶吸籌 + 🌊資金突破 + 🎯牛突破 + BIG + 🚀S+++突擊 + 🔥天量 + 🌪️主升狂飆(非💰) + 🥷潛伏觀察(非💰) + PZ綜合訊號 + 🚀全能點火 + ⚡洗盤 + 紅色三角 + 🔵真周線共振 + 💎真動能 + 🚀啟動 + 🚀點火 + 🚀S級綠區主升 + 買入兵力大勝 + CLIMAX;
+    return df
