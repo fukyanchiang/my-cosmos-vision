@@ -3,7 +3,7 @@ import numpy as np
 
 def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     """
-    龍魂戰略總部 - 天外飛仙 (第 6 掣) Python 量化引擎 (徹底除錯・萬無一失版)
+    龍魂戰略總部 - 天外飛仙 (第 6 掣) Python 量化引擎 (終極補回 GL_RV 除錯版)
     """
     df = df.sort_index().copy()
     
@@ -18,7 +18,7 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     V = df['Volume']
 
     # ==========================================
-    # 基礎通達信函數 Python 向量化 (徹底防彈版)
+    # 基礎通達信函數 Python 向量化
     # ==========================================
     def MA(s, n): return s.rolling(window=n, min_periods=1).mean()
     def EMA(s, n): return s.ewm(span=n, adjust=False).mean()
@@ -27,7 +27,6 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     def LLV(s, n): return s.rolling(window=n, min_periods=1).min()
     def STD(s, n): return s.rolling(window=n, min_periods=1).std()
     
-    # 防彈 CROSS: 確保整數與數列可以安全交叉
     def CROSS(s1, s2):
         if isinstance(s1, (int, float)): s1 = pd.Series(s1, index=df.index)
         if isinstance(s2, (int, float)): s2 = pd.Series(s2, index=df.index)
@@ -55,12 +54,12 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     MA50, MA150, MA200 = MA(C, 50), MA(C, 150), MA(C, 200)
 
     # ==========================================
-    # 1. 暴力直球版 STAGE 2 (只要均線健康向好)
+    # 1. 暴力直球版 STAGE 2
     # ==========================================
     STAGE2 = (C > MA150) & (MA50 >= MA150)
 
     # ==========================================
-    # 2. 暴力直球版 MACD 水上橙柱 (只要柱體 > 0)
+    # 2. 暴力直球版 MACD 水上橙柱
     # ==========================================
     DIF = EMA(C, 12) - EMA(C, 26)
     DEA = EMA(DIF, 9)
@@ -85,11 +84,10 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     IS_TTM_ORANGE = TTM_MOMENTUM > 0.0
 
     # ==========================================
-    # 四神合一：只要當下全數滿足，即刻納入候選名單！
+    # 四神合一
     # ==========================================
     BASE_MATCH = STAGE2 & IS_MACD_ORANGE & IS_TTM_ORANGE & POWER_STRONG
     
-    # 梯隊分流
     IS_HOT_WINDOW = BASE_MATCH & (DAYS_SINCE_MACD <= 5)
     IS_COOL_WINDOW = BASE_MATCH & (DAYS_SINCE_MACD > 5)
     
@@ -97,7 +95,7 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     BASE_RANK_SCORE = np.where(IS_HOT_WINDOW, 100, np.where(IS_COOL_WINDOW, 0, -9999))
 
     # ==========================================
-    # 21 大非必要加分引擎 (負責排序高低)
+    # 21 大非必要加分引擎
     # ==========================================
     VOL_MA20 = MA(V, 20)
     DAY_AMP = (H - L) / (C.shift(1).bfill() + 1e-5) * 100
@@ -154,7 +152,6 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     TODAY_STRONG_BREAK = (C > HHV(H, 10).shift(1).bfill()) & (C > O) & ((C / (C.shift(1).bfill() + 1e-5)) > 1.03)
     IS_PARABOLIC = (PARABOLIC_TREND & RECENT_SURGE & TODAY_STRONG_BREAK & (~BREAKOUT) & (~IS_ULTIMATE) & (~IS_SNDK) & (~DRAGON))
     
-    # 🚨 終極修復 N字突破 Bug: 用 np.where 配合 ffill，完全捨棄 .shift(Series) 的致命操作！
     N_YANG_COND = ((C / (C.shift(1).bfill() + 1e-5)) >= 1.04) & (C > O)
     N_PREV_DAYS = BARSLAST(N_YANG_COND).shift(1).fillna(0) + 1
     N_TARGET_HIGH = pd.Series(np.where(N_YANG_COND, H, np.nan), index=df.index).ffill().shift(1).bfill()
@@ -265,6 +262,11 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     PZ_ANY = PZ_BUY1 | PZ_BUY3 | PZ_BUY2
     CNT_PZ_ANY = np.where(BASE_MATCH, COUNT(PZ_ANY, 4), 0)
 
+    # 👴 爺爺補回的 GL_RV 與 GL_SV 定義！
+    GL_RSI1 = SMA(pd.Series(np.where(C - LC > 0, C - LC, 0), index=df.index), 14) / (SMA(DIFF_C.abs(), 14) + 1e-5) * 100
+    GL_MFI1 = MFI_V
+    GL_RV = (GL_RSI1 + GL_MFI1) / 2 - 50
+    GL_SV = EMA(GL_RV, 9)
     GL_PRO_BUY = CROSS(GL_RV, GL_SV) & STAGE2 & (ADX_RAW >= 20) & (GL_RV < 15)
     CNT_GL_IGNITE = np.where(BASE_MATCH, COUNT(GL_PRO_BUY, 4), 0)
 
