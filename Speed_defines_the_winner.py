@@ -3,7 +3,7 @@ import numpy as np
 
 def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     """
-    龍魂戰略總部 - 天外飛仙 (第 6 掣) Python 量化引擎 (解鎖時間差限制版)
+    龍魂戰略總部 - 天外飛仙 (第 6 掣) Python 量化引擎 (終極解鎖・暴力直球版)
     """
     df = df.sort_index().copy()
     
@@ -45,53 +45,49 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     MA50, MA150, MA200 = MA(C, 50), MA(C, 150), MA(C, 200)
 
     # ==========================================
-    # 1. 基礎 STAGE 2 結構定義 (放寬離底 15%)
+    # 1. 終極解鎖版 STAGE 2 (只要均線多頭排列)
     # ==========================================
-    STAGE2 = ((C > MA50) & (MA50 > MA150) & (MA150 > MA200) & 
-              (C > LLV(L, 250) * 1.15))
+    STAGE2 = (C > MA50) & (MA50 > MA150) & (MA150 > MA200)
 
     # ==========================================
-    # 2. MACD 水上橙柱計時器
+    # 2. 終極解鎖版 MACD 水上橙柱 (只要柱體大過0，DIF大過0)
     # ==========================================
     DIF = EMA(C, 12) - EMA(C, 26)
     DEA = EMA(DIF, 9)
     MACD_VAL = (DIF - DEA) * 2
-    STAGE2_WATER_ORANGE = (MACD_VAL > 0) & (DIF > 0) & (DEA > 0)
-    MACD_ORANGE_START = STAGE2_WATER_ORANGE & (~STAGE2_WATER_ORANGE.shift(1).fillna(False))
-    DAYS_SINCE_MACD_ORANGE = BARSLAST(MACD_ORANGE_START)
+    IS_MACD_ORANGE = (MACD_VAL > 0) & (DIF > 0)
+    
+    MACD_CROSS_UP = IS_MACD_ORANGE & (~IS_MACD_ORANGE.shift(1).fillna(False))
+    DAYS_SINCE_MACD = BARSLAST(MACD_CROSS_UP)
 
     # ==========================================
-    # 3. GRANDPA POWER 宏觀動能
+    # 3. 終極解鎖版 GRANDPA POWER (只要 > 0)
     # ==========================================
     RS = 2 * C / MA(C, 63) + C / MA(C, 126) + C / MA(C, 189) + C / MA(C, 252)
-    POWER = RS - 5
-    POWER_STRONG = POWER > 0.2
+    POWER_STRONG = (RS - 5) > 0.0
 
     # ==========================================
-    # 4. TTM 橙柱雙確認 (徹底移除時間差限制)
+    # 4. 終極解鎖版 TTM 橙柱 (只要大於0，不強求每日遞增)
     # ==========================================
     N_TTM = 20
     VAR1 = (HHV(H, N_TTM) + LLV(L, N_TTM)) / 2 + MA(C, N_TTM)
     TTM_MOMENTUM = FORCAST(C - VAR1 / 2, N_TTM)
-    IS_ORANGE_UP = (TTM_MOMENTUM > 0) & (TTM_MOMENTUM > TTM_MOMENTUM.shift(1).bfill())
+    IS_TTM_ORANGE = TTM_MOMENTUM > 0
 
     # ==========================================
-    # 雙梯隊時間窗口判斷 (天外飛仙 核心直球邏輯)
+    # 四神合一：只要當下全數滿足，即刻納入候選名單！
     # ==========================================
-    # 只要四大條件當下同時滿足，即屬合格候選！
-    IS_VALID_SETUP = STAGE2 & STAGE2_WATER_ORANGE & IS_ORANGE_UP & POWER_STRONG
-
-    # 按 MACD 亮起日數分梯隊：
-    IS_HOT_WINDOW = IS_VALID_SETUP & (DAYS_SINCE_MACD_ORANGE <= 3)
-    IS_COOL_WINDOW = IS_VALID_SETUP & (DAYS_SINCE_MACD_ORANGE >= 4) & (DAYS_SINCE_MACD_ORANGE <= 15)
+    BASE_MATCH = STAGE2 & IS_MACD_ORANGE & IS_TTM_ORANGE & POWER_STRONG
     
-    BASE_MATCH = IS_HOT_WINDOW | IS_COOL_WINDOW
+    # 梯隊分流 (5日內為黃金起爆，5日以上為沉底觀察)
+    IS_HOT_WINDOW = BASE_MATCH & (DAYS_SINCE_MACD <= 5)
+    IS_COOL_WINDOW = BASE_MATCH & (DAYS_SINCE_MACD > 5)
     
     STATUS_FLAG = np.where(IS_HOT_WINDOW, 1, np.where(IS_COOL_WINDOW, 2, 0))
     BASE_RANK_SCORE = np.where(IS_HOT_WINDOW, 100, np.where(IS_COOL_WINDOW, 0, -9999))
 
     # ==========================================
-    # 21 大非必要加分引擎
+    # 21 大非必要加分引擎 (負責排序高低，完全不影響入選)
     # ==========================================
     VOL_MA20 = MA(V, 20)
     DAY_AMP = (H - L) / (C.shift(1).bfill() + 1e-5) * 100
