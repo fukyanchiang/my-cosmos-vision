@@ -3,11 +3,10 @@ import numpy as np
 
 def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     """
-    龍魂戰略總部 - 天外飛仙 (第 6 掣) Python 量化引擎 (終極補回 GL_RV 除錯版)
+    龍魂戰略總部 - 天外飛仙 (第 6 掣) Python 量化引擎 (3天黃金窗口大圓滿版)
     """
     df = df.sort_index().copy()
     
-    # 徹底清洗 YFinance 缺失數據 (NaN)
     df.ffill(inplace=True)
     df.bfill(inplace=True)
     
@@ -17,9 +16,6 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     L = df['Low']
     V = df['Volume']
 
-    # ==========================================
-    # 基礎通達信函數 Python 向量化
-    # ==========================================
     def MA(s, n): return s.rolling(window=n, min_periods=1).mean()
     def EMA(s, n): return s.ewm(span=n, adjust=False).mean()
     def SMA(s, n, m=1): return s.ewm(alpha=m/n, adjust=False).mean()
@@ -49,50 +45,43 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
         slope = slope_num / w2_sum
         return S.rolling(N, min_periods=1).mean() + slope * (N - 1) / 2.0
 
-    # --- 共用均線 ---
     MA10, MA20 = MA(C, 10), MA(C, 20)
     MA50, MA150, MA200 = MA(C, 50), MA(C, 150), MA(C, 200)
 
     # ==========================================
-    # 1. 暴力直球版 STAGE 2
+    # 3大必要條件 (還原起爆設定)
     # ==========================================
-    STAGE2 = (C > MA150) & (MA50 >= MA150)
+    STAGE2 = (C > MA50) & (MA50 > MA150) & (MA150 > MA200)
 
-    # ==========================================
-    # 2. 暴力直球版 MACD 水上橙柱
-    # ==========================================
     DIF = EMA(C, 12) - EMA(C, 26)
     DEA = EMA(DIF, 9)
     MACD_VAL = (DIF - DEA) * 2
-    IS_MACD_ORANGE = (MACD_VAL > 0) & (DIF > -0.05) 
-    
-    MACD_CROSS_UP = IS_MACD_ORANGE & (~IS_MACD_ORANGE.shift(1).fillna(False))
-    DAYS_SINCE_MACD = BARSLAST(MACD_CROSS_UP)
+    STAGE2_WATER_ORANGE = (MACD_VAL > 0) & (DIF > 0) & (DEA > 0)
+    MACD_ORANGE_START = STAGE2_WATER_ORANGE & (~STAGE2_WATER_ORANGE.shift(1).fillna(False))
+    DAYS_SINCE_MACD_ORANGE = BARSLAST(MACD_ORANGE_START)
 
-    # ==========================================
-    # 3. 暴力直球版 GRANDPA POWER
-    # ==========================================
     RS = 2 * C / MA(C, 63) + C / MA(C, 126) + C / MA(C, 189) + C / MA(C, 252)
-    POWER_STRONG = (RS - 5) > 0.0
+    POWER = RS - 5
+    POWER_STRONG = POWER > 0.5
 
-    # ==========================================
-    # 4. 暴力直球版 TTM 橙柱
-    # ==========================================
     N_TTM = 20
     VAR1 = (HHV(H, N_TTM) + LLV(L, N_TTM)) / 2 + MA(C, N_TTM)
     TTM_MOMENTUM = FORCAST(C - VAR1 / 2, N_TTM)
-    IS_TTM_ORANGE = TTM_MOMENTUM > 0.0
+    IS_TTM_ORANGE = (TTM_MOMENTUM > 0) & (TTM_MOMENTUM > TTM_MOMENTUM.shift(1).bfill())
 
     # ==========================================
-    # 四神合一
+    # 雙梯隊時間窗口判斷 (3天黃金起爆 / 4-10天沉底)
     # ==========================================
-    BASE_MATCH = STAGE2 & IS_MACD_ORANGE & IS_TTM_ORANGE & POWER_STRONG
+    # 第 1 天 (起爆當日)
+    DAY1_COND = (DAYS_SINCE_MACD_ORANGE == 0) & IS_TTM_ORANGE & POWER_STRONG & STAGE2
+    # 第 2-3 天 (確認延伸)
+    DAY23_COND = (DAYS_SINCE_MACD_ORANGE.isin([1, 2])) & IS_TTM_ORANGE & POWER_STRONG & STAGE2
     
-    IS_HOT_WINDOW = BASE_MATCH & (DAYS_SINCE_MACD <= 5)
-    IS_COOL_WINDOW = BASE_MATCH & (DAYS_SINCE_MACD > 5)
+    IS_HOT_WINDOW = DAY1_COND | DAY23_COND
+    # 第 4-10 天 (沉底過濾：只要求 Stage 2，在最底顯示多7個交易日)
+    IS_COOL_WINDOW = (DAYS_SINCE_MACD_ORANGE >= 3) & (DAYS_SINCE_MACD_ORANGE <= 9) & STAGE2
     
-    STATUS_FLAG = np.where(IS_HOT_WINDOW, 1, np.where(IS_COOL_WINDOW, 2, 0))
-    BASE_RANK_SCORE = np.where(IS_HOT_WINDOW, 100, np.where(IS_COOL_WINDOW, 0, -9999))
+    BASE_MATCH = IS_HOT_WINDOW | IS_COOL_WINDOW
 
     # ==========================================
     # 21 大非必要加分引擎
@@ -117,7 +106,6 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     BETA_OK = (MA(TR_VAL, 14) / (MA20 + 1e-5)) * 100 > 1.2
     SPRING_READY = STAGE2 & WAS_SQUEEZED & BETA_OK
     SPRING_SIGNAL = SPRING_READY & INNER_POWER & DELTA_POWER
-    CNT_SPRING = np.where(BASE_MATCH, COUNT(SPRING_SIGNAL & (~SPRING_SIGNAL.shift(1).fillna(False)), 5), 0)
 
     MA200_UP = MA200 > MA200.shift(20).bfill()
     VCP_STAGE2 = (C >= MA50) & (MA50 > MA150) & (MA150 > MA200) & MA200_UP
@@ -169,14 +157,12 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     BIG_MONEY_IN = (V >= MAV20 * 1.5) & (C > O)
     ANY_BUY = ALL_PREV | IS_N_SHAPE | IS_AMBUSH
     SHOW_BIG_MONEY = ANY_BUY & BIG_MONEY_IN
-    CNT_MONEY_BAG = np.where(BASE_MATCH, COUNT(SHOW_BIG_MONEY, 5), 0)
 
     LC = C.shift(1).bfill()
     DIFF_C = C - LC
     UP_RSI = np.where(DIFF_C > 0, DIFF_C, 0)
     ABS_RSI = DIFF_C.abs()
     RSI_VAL = SMA(pd.Series(UP_RSI, index=df.index), 14) / (SMA(pd.Series(ABS_RSI, index=df.index), 14) + 1e-5) * 100
-    CNT_RSI = np.where(BASE_MATCH & STAGE2 & (RSI_VAL > 50), 1, 0)
 
     TYP_V = (H + L + C) / 3
     V1 = pd.Series(np.where(TYP_V > TYP_V.shift(1).bfill(), TYP_V * V, 0), index=df.index)
@@ -190,7 +176,6 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     OBV_NORM = (OBV_RAW - MIN_OBV) / (MAX_OBV - MIN_OBV + 1e-5) * 100
     OBV_SIG = MA(OBV_NORM, 20)
     SMART_BUY = CROSS(OBV_NORM, OBV_SIG) & (MFI_V > 40)
-    CNT_SWEEP = np.where(BASE_MATCH, COUNT(SMART_BUY, 7), 0)
 
     VA_OBV = pd.Series(OBV_DIR, index=df.index)
     OBV_LINE = VA_OBV.rolling(250, min_periods=1).sum()
@@ -199,21 +184,17 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     PRICE_NOT_HIGH = C < HHV(C, 10)
     SMART_ACC = OBV_BREAK & PRICE_NOT_HIGH
     FUND_BREAK = OBV_BREAK & (~PRICE_NOT_HIGH)
-    CNT_SMART_ACC = np.where(BASE_MATCH, COUNT(SMART_ACC, 6), 0)
-    CNT_FUND_BREAK = np.where(BASE_MATCH, COUNT(FUND_BREAK, 6), 0)
 
     POC_LINE = (TYP_V * V).rolling(50, min_periods=1).sum() / (V.rolling(50, min_periods=1).sum() + 1e-5)
     VOL_VAR = (V * (TYP_V - POC_LINE)**2).rolling(50, min_periods=1).sum() / (V.rolling(50, min_periods=1).sum() + 1e-5)
     VOL_STD = np.sqrt(VOL_VAR)
     VAH_LINE = POC_LINE + 1.0 * VOL_STD
     BULL_BREAK = STAGE2 & CROSS(C, VAH_LINE) & (V > MA(V, 5))
-    CNT_BULL_BREAK = np.where(BASE_MATCH, COUNT(BULL_BREAK, 6), 0)
 
     VOLMA20_BIG = MA(V, 20)
     CSPRE = (C - O).abs()
     AVGS = MA(CSPRE, 20)
     ISBIG = (V > VOLMA20_BIG * 1.5) & (C > O) & (CSPRE > AVGS)
-    CNT_BIG = np.where(BASE_MATCH, COUNT(ISBIG, 3), 0)
 
     S_EMA20 = EMA(C, 20)
     S_E5, S_E10 = EMA(C, 5), EMA(C, 10)
@@ -222,12 +203,10 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     S_CROSS = CROSS(C, S_EMA20) | ((C > S_EMA20) & CROSS(S_E5, S_E10))
     S_PULLBACK = (L <= S_EMA20) & (C > S_EMA20) & (C > O)
     SP_BUY = STAGE2 & S_INST_VOL & S_STRONG_K & (S_CROSS | S_PULLBACK)
-    CNT_SPLUS = np.where(BASE_MATCH, COUNT(SP_BUY, 3), 0)
 
     MAVOL20_HUGE = MA(V, 20)
     IS_HUGE_VOL = V > (MAVOL20_HUGE * 2.0)
     HUGE_VOL_SIGNAL = IS_HUGE_VOL & (C >= O)
-    CNT_HUGE_VOL = np.where(BASE_MATCH, COUNT(HUGE_VOL_SIGNAL, 4), 0)
 
     DMI_HD = H - H.shift(1).bfill()
     DMI_LD = L.shift(1).bfill() - L
@@ -241,8 +220,6 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     DMI_BULL_FLIP = CROSS(PDI_VAL, MDI_VAL) & (ADX_RAW >= 25) & (PDI_VAL - MDI_VAL > 3)
     DMI_IGNITE = (DMI_BULL_CROSS | DMI_BULL_FLIP) & STAGE2
     DMI_SQUEEZE = CROSS(15, ADX_RAW)
-    CNT_TORNADO = np.where(BASE_MATCH, COUNT(DMI_IGNITE, 4), 0)
-    CNT_NINJA = np.where(BASE_MATCH, COUNT(DMI_SQUEEZE, 4), 0)
 
     PZ_N = 24
     PZ_MID = MA(C, PZ_N)
@@ -259,47 +236,36 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     PZ_BUY1 = CROSS(C, PZ_UPPER) & (PZ_SIG > 50) & (V > MA(V, 20)) & PZ_RANGE
     PZ_BUY2 = (PZ_SIG > 50) & (C > MA10) & (C > C.shift(1).bfill()) & STAGE2 & (~PZ_EXTREME)
     PZ_BUY3 = CROSS(PZ_SIG, 50) & (C > PZ_MID) & (V > MA(V, 20))
-    PZ_ANY = PZ_BUY1 | PZ_BUY3 | PZ_BUY2
-    CNT_PZ_ANY = np.where(BASE_MATCH, COUNT(PZ_ANY, 4), 0)
 
-    # 👴 爺爺補回的 GL_RV 與 GL_SV 定義！
     GL_RSI1 = SMA(pd.Series(np.where(C - LC > 0, C - LC, 0), index=df.index), 14) / (SMA(DIFF_C.abs(), 14) + 1e-5) * 100
     GL_MFI1 = MFI_V
     GL_RV = (GL_RSI1 + GL_MFI1) / 2 - 50
     GL_SV = EMA(GL_RV, 9)
     GL_PRO_BUY = CROSS(GL_RV, GL_SV) & STAGE2 & (ADX_RAW >= 20) & (GL_RV < 15)
-    CNT_GL_IGNITE = np.where(BASE_MATCH, COUNT(GL_PRO_BUY, 4), 0)
 
     WK_EMA200 = EMA(C, 200)
     WK_BEAR = (C < WK_EMA200) | (MA50 < WK_EMA200)
     WK_SPRING = CROSS(C, S_EMA20) & (C.shift(1).bfill() < S_EMA20) & ((V > MA(V, 5) * 1.2) | (V < MA(V, 20) * 0.6)) & (~WK_BEAR)
-    CNT_WK_SPRING = np.where(BASE_MATCH, COUNT(WK_SPRING, 4), 0)
 
     KO_SAFE = (C > (C - ATR20 * 3.2).rolling(50, min_periods=1).max()) & (C > MA(C, 15))
     KO_RED_TRIANGLE = (V > MA(V, 5) * 1.35) & (C > O) & KO_SAFE
-    CNT_KO_RED_TRIANGLE = np.where(BASE_MATCH, COUNT(KO_RED_TRIANGLE, 4), 0)
 
     FLOW_INST = STAGE2 & (C > C.shift(1).bfill()) & (V > V.shift(1).bfill()) & (V > MA(V, 50) * 1.5) & (C >= HHV(C.shift(1).bfill(), 20))
     FLOW_REAL_BUY = FLOW_INST & ((COUNT(V < MA(V, 50)*0.5, 10) > 0) | (TTM_MOMENTUM > TTM_MOMENTUM.shift(1).bfill()))
-    CNT_FLOW_REAL_BUY = np.where(BASE_MATCH, COUNT(FLOW_REAL_BUY, 4), 0)
 
     NX_STAGE2 = (COUNT(C > MA150, 3) > 0) & (MA50 > MA150) & (MA150 > MA150.shift(10).bfill())
     NX_RAW = (V > MA(V, 20) * 1.5) & ((H - L) > MA(H - L, 20) * 1.5)
     NX_SAFE = NX_STAGE2 & (COUNT(V < MA(V, 20), 10) > 0) & NX_RAW & (C >= O) & ((H - C.shift(1).bfill())/(C.shift(1).bfill() + 1e-5)*100 > 4.0)
-    CNT_NX_BUY_SAFE = np.where(BASE_MATCH, COUNT(NX_SAFE, 3), 0)
 
     VSA_DEV60 = (C - MA(C, 60)) / (MA(C, 60) + 1e-5) * 100
     VSA_START = (V > MA(V, 20) * 1.5) & (C > O) & ((C - O).abs() > MA((C - O).abs(), 20)) & (VSA_DEV60 <= 15)
-    CNT_VSA_START = np.where(BASE_MATCH, COUNT(VSA_START, 4), 0)
 
     TF_UPPER = MA(V, 20) + 2.0 * STD(V, 20)
     TF_FIRE = (V > TF_UPPER) & (V > MA(V, 60) * 1.9) & ((C - C.shift(1).bfill()).abs() / (C.shift(1).bfill() + 1e-5) * 100 > 2.0) & (C > O) & (VSA_DEV60 <= 15)
-    CNT_TF_FIRE = np.where(BASE_MATCH, COUNT(TF_FIRE, 4), 0)
 
     SV19_STATE = np.where((C > MA20) & (MA20 > MA50) & (MA50 > MA200), 1, 3)
     SV19_RAW_BUY = CROSS(EMA(C, 5), EMA(C, 10)) & (V > MA(V, 5) * 1.2) & ((C > O) & ((C - L) > (H - L) * 0.55)) & (ATR20 > ATR20.shift(1).bfill()) & (RSI_VAL < 78)
     SV19_BUY_GREEN = SV19_RAW_BUY & (SV19_STATE == 1)
-    CNT_S19_GREEN = np.where(BASE_MATCH, COUNT(SV19_BUY_GREEN, 6), 0)
 
     TFM_V3 = H - L
     TFM_BUY = pd.Series(np.where(TFM_V3 > 0, V * (C - L) / (TFM_V3 + 1e-5), 0), index=df.index)
@@ -307,23 +273,61 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     TFM_SUM_BUY = TFM_BUY.rolling(5, min_periods=1).sum()
     TFM_SUM_SELL = TFM_SELL.rolling(5, min_periods=1).sum()
     TFM_WIN = (TFM_SUM_BUY / (TFM_SUM_BUY + TFM_SUM_SELL + 1e-5)) > 0.65
-    CNT_TFM_WIN = np.where(BASE_MATCH & TFM_WIN, 1, 0)
 
     VCX_WR = (HHV(H, 14) - C) / (HHV(H, 14) - LLV(L, 14) + 1e-5) * -100
     VCX_CLIMAX = (V > HHV(V, 60).shift(1).bfill()) & (V > MA(V, 30) * 2.5) & (H >= HHV(H, 60).shift(1).bfill()) & (VCX_WR > -10)
-    CNT_CLIMAX = np.where(BASE_MATCH, COUNT(VCX_CLIMAX, 4), 0)
 
     # ==========================================
-    # 輸出結算
+    # 組裝 21 項非必要標籤 (全名還原，排序輸出)
     # ==========================================
-    df['天外飛仙_狀態'] = pd.Series(STATUS_FLAG, index=df.index).fillna(0).astype(int)
+    tags = []
+    if SPRING_SIGNAL.iloc[-1]: tags.append("⚡爆邊(非💰)")
+    if SHOW_BIG_MONEY.iloc[-1]: tags.append("💰錢袋")
+    if RSI_VAL.iloc[-1] > 50: tags.append("動力rsi(非💰)")
+    if SMART_BUY.iloc[-1]: tags.append("💰掃貨")
+    if SMART_ACC.iloc[-1]: tags.append("🕵️大戶吸籌")
+    if FUND_BREAK.iloc[-1]: tags.append("🌊資金突破")
+    if BULL_BREAK.iloc[-1]: tags.append("🎯牛突破")
+    if ISBIG.iloc[-1]: tags.append("BIG")
+    if SP_BUY.iloc[-1]: tags.append("🚀S+++突擊")
+    if HUGE_VOL_SIGNAL.iloc[-1]: tags.append("🔥天量")
+    if DMI_IGNITE.iloc[-1]: tags.append("🌪️主升狂飆(非💰)")
+    if DMI_SQUEEZE.iloc[-1]: tags.append("🥷潛伏觀察(非💰)")
+    if PZ_BUY1.iloc[-1] or PZ_BUY2.iloc[-1] or PZ_BUY3.iloc[-1]: tags.append("PZ綜合訊號")
+    if GL_PRO_BUY.iloc[-1]: tags.append("🚀全能點火")
+    if WK_SPRING.iloc[-1]: tags.append("⚡洗盤")
+    if KO_RED_TRIANGLE.iloc[-1]: tags.append("紅色三角")
+    if FLOW_REAL_BUY.iloc[-1]: tags.append("🔵真周線共振")
+    if NX_SAFE.iloc[-1]: tags.append("💎真動能")
+    if VSA_START.iloc[-1]: tags.append("🚀啟動")
+    if TF_FIRE.iloc[-1]: tags.append("🚀點火")
+    if SV19_BUY_GREEN.iloc[-1]: tags.append("🚀S級綠區主升")
+    if TFM_WIN.iloc[-1]: tags.append("買入兵力大勝")
+    if VCX_CLIMAX.iloc[-1]: tags.append("CLIMAX")
+    if PZ_BUY3.iloc[-1]: tags.append("★PZ特大注★")
+    if PZ_BUY2.iloc[-1]: tags.append("🚀浴火重生")
+    if PZ_BUY1.iloc[-1]: tags.append("■PZ大注■")
     
-    TOTAL_SCORE = (BASE_RANK_SCORE + CNT_SPRING + CNT_MONEY_BAG + CNT_RSI + CNT_SWEEP + 
-                   CNT_SMART_ACC + CNT_FUND_BREAK + CNT_BULL_BREAK + CNT_BIG + CNT_SPLUS + 
-                   CNT_HUGE_VOL + CNT_TORNADO + CNT_NINJA + CNT_PZ_ANY + CNT_GL_IGNITE + 
-                   CNT_WK_SPRING + CNT_KO_RED_TRIANGLE + CNT_FLOW_REAL_BUY + CNT_NX_BUY_SAFE + 
-                   CNT_VSA_START + CNT_TF_FIRE + CNT_S19_GREEN + CNT_TFM_WIN + CNT_CLIMAX)
-                  
+    tags_str = " | ".join(tags) if tags else ""
+
+    # ==========================================
+    # 封裝傳送給 streamlit_app.py
+    # ==========================================
+    df['天外飛仙_狀態'] = pd.Series(np.where(IS_HOT_WINDOW, 1, np.where(IS_COOL_WINDOW, 2, 0)), index=df.index).fillna(0).astype(int)
+    
+    TOTAL_SCORE = np.where(IS_HOT_WINDOW, 100, np.where(IS_COOL_WINDOW, 0, -9999)) + (len(tags) * 10)
     df['霸王總分'] = pd.Series(TOTAL_SCORE, index=df.index).fillna(-9999).astype(float)
+    
+    # 確保不會 KeyError
+    if len(df) > 0:
+        df.at[df.index[-1], '天外飛仙_標籤'] = tags_str
+        
+    df['Power'] = POWER
+    df['EMA10'] = MA10
+    df['Bias'] = (C - MA20) / (MA20 + 1e-5) * 100
+    df['RS'] = RS
+    df['EJ'] = TTM_MOMENTUM
+    df['SE'] = MACD_VAL
+    df['Vol_Ratio'] = V / (VOL_MA20 + 1e-5)
 
     return df
