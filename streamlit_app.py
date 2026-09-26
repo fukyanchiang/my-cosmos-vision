@@ -1,14 +1,13 @@
-import streamlit as st
-import yfinance as yf
-import pandas as pd
-import numpy as np
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
+import streamlit as st 
+import yfinance as yf 
+import pandas as pd 
+import numpy as np 
+import plotly.graph_objects as go 
+from plotly.subplots import make_subplots 
 from core_logic import scan_dragon_logic, smart_fetch, check_stop_loss
 import time
 import os
 import json
-import concurrent.futures
 from Speed_defines_the_winner import run_tianwai_feixian
 
 # 💡 Streamlit 規定：set_page_config 必須作為全程式第一個運行的 Streamlit 指令
@@ -490,48 +489,32 @@ elif operation_mode == "✨ 天外飛仙 (極速起爆雷達)":
         if not tickers:
             st.error("⚠️ 無法載入股票名單，請檢查檔案是否存在或欄位名稱！")
         else:
-            st.success(f"🎯 成功鎖定 {len(tickers)} 隻目標！正在啟動 15 線程極速多核運算...")
+            st.success(f"🎯 成功鎖定 {len(tickers)} 隻目標！正在啟動極致穩定雷達運算...")
             
             progress_bar = st.progress(0)
             status_text = st.empty()
             results = []
 
-            # 封裝每一隻股票的處理函數，準備放進多線程
-            def process_tf_ticker(ticker):
+            # 👴 爺爺的終極修復：放棄多線程，改用最穩定嘅 smart_fetch 單線程迴圈！
+            for i, t in enumerate(tickers):
+                progress_bar.progress((i+1)/len(tickers))
+                status_text.markdown(f"**📡 正在實時分析:** `{t}` ({i+1}/{len(tickers)})")
+                
                 try:
-                    df_hist = yf.download(ticker, period="2y", progress=False)
-                    if len(df_hist) > 200:
-                        if isinstance(df_hist.columns, pd.MultiIndex):
-                            df_hist.columns = df_hist.columns.droplevel(1)
-                        df_hist.dropna(inplace=True)
-                        
-                        # 調用 Speed_defines_the_winner 裡面的天外飛仙算法
+                    df_hist = smart_fetch(t, period="2y")
+                    if not df_hist.empty and len(df_hist) > 200:
                         res_df = run_tianwai_feixian(df_hist)
                         latest = res_df.iloc[-1]
                         
                         if latest['天外飛仙_狀態'] > 0:
-                            return {
-                                "股票代號": ticker.replace(".HK", ""),
+                            results.append({
+                                "股票代號": t.replace(".HK", ""),
                                 "飛仙梯隊": "🚀 黃金起爆 (1-3日)" if latest['天外飛仙_狀態'] == 1 else "🐢 沉底觀察 (4-10日)",
                                 "狀態碼": latest['天外飛仙_狀態'],
                                 "霸王總分": latest['霸王總分']
-                            }
-                except:
+                            })
+                except Exception as e:
                     pass
-                return None
-
-            # 👴 爺爺的秘密武器：15 線程併發加速，極速秒殺 500 隻股票！
-            completed = 0
-            with concurrent.futures.ThreadPoolExecutor(max_workers=15) as executor:
-                futures = {executor.submit(process_tf_ticker, t): t for t in tickers}
-                for future in concurrent.futures.as_completed(futures):
-                    completed += 1
-                    status_text.markdown(f"**📡 正在深度運算:** `{futures[future]}` ({completed}/{len(tickers)})")
-                    progress_bar.progress(completed / len(tickers))
-                    
-                    res = future.result()
-                    if res:
-                        results.append(res)
             
             progress_bar.empty()
             status_text.empty()
@@ -539,7 +522,6 @@ elif operation_mode == "✨ 天外飛仙 (極速起爆雷達)":
             if results:
                 st.success("✅ 天外飛仙佈陣完成！大戶真金白銀動向已鎖定！")
                 final_df = pd.DataFrame(results)
-                # 排序邏輯：先按梯隊 (1排上面, 2排下面)，再按霸王分數降冪排列
                 final_df = final_df.sort_values(by=['狀態碼', '霸王總分'], ascending=[True, False]).drop(columns=['狀態碼'])
                 final_df = final_df.reset_index(drop=True)
                 st.dataframe(final_df, use_container_width=True)
