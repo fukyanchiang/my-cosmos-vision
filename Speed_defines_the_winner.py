@@ -3,9 +3,16 @@ import numpy as np
 
 def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     """
-    龍魂戰略總部 - 天外飛仙 (第 6 掣) Python 量化引擎 (終極解鎖・暴力直球版)
+    龍魂戰略總部 - 天外飛仙 (第 6 掣) Python 量化引擎 (絕對防禦・萬無一失版)
     """
     df = df.sort_index().copy()
+    
+    # ==========================================
+    # 🚨 終極防線：徹底清洗 YFinance 缺失數據 (NaN)
+    # 避免任何休市或空數據污染整條 MA 均線與 TTM 計算！
+    # ==========================================
+    df.ffill(inplace=True)
+    df.bfill(inplace=True)
     
     C = df['Close']
     O = df['Open']
@@ -24,8 +31,8 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     def STD(s, n): return s.rolling(window=n, min_periods=1).std()
     def CROSS(s1, s2):
         if isinstance(s2, (int, float)):
-            return (s1 > s2) & (s1.shift(1).fillna(s1) <= s2)
-        return (s1 > s2) & (s1.shift(1).fillna(s1) <= s2.shift(1).fillna(s2))
+            return (s1 > s2) & (s1.shift(1).bfill() <= s2)
+        return (s1 > s2) & (s1.shift(1).bfill() <= s2.shift(1).bfill())
     def COUNT(cond, n): return cond.astype(int).rolling(window=n, min_periods=1).sum()
     def BARSLAST(cond):
         idx = np.arange(len(cond))
@@ -45,41 +52,41 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     MA50, MA150, MA200 = MA(C, 50), MA(C, 150), MA(C, 200)
 
     # ==========================================
-    # 1. 終極解鎖版 STAGE 2 (只要均線多頭排列)
+    # 1. 強健版 STAGE 2 (只要均線健康向好)
     # ==========================================
-    STAGE2 = (C > MA50) & (MA50 > MA150) & (MA150 > MA200)
+    STAGE2 = (C > MA150) & (MA50 >= MA150)
 
     # ==========================================
-    # 2. 終極解鎖版 MACD 水上橙柱 (只要柱體大過0，DIF大過0)
+    # 2. 強健版 MACD 水上橙柱 (只要柱體 > 0)
     # ==========================================
     DIF = EMA(C, 12) - EMA(C, 26)
     DEA = EMA(DIF, 9)
     MACD_VAL = (DIF - DEA) * 2
-    IS_MACD_ORANGE = (MACD_VAL > 0) & (DIF > 0)
+    IS_MACD_ORANGE = (MACD_VAL > 0) & (DIF > -0.05) # 允許 DIF 微跌落水下
     
     MACD_CROSS_UP = IS_MACD_ORANGE & (~IS_MACD_ORANGE.shift(1).fillna(False))
     DAYS_SINCE_MACD = BARSLAST(MACD_CROSS_UP)
 
     # ==========================================
-    # 3. 終極解鎖版 GRANDPA POWER (只要 > 0)
+    # 3. 強健版 GRANDPA POWER
     # ==========================================
     RS = 2 * C / MA(C, 63) + C / MA(C, 126) + C / MA(C, 189) + C / MA(C, 252)
-    POWER_STRONG = (RS - 5) > 0.0
+    POWER_STRONG = (RS - 5) > -0.2 # 寬鬆判定底氣
 
     # ==========================================
-    # 4. 終極解鎖版 TTM 橙柱 (只要大於0，不強求每日遞增)
+    # 4. 強健版 TTM 橙柱
     # ==========================================
     N_TTM = 20
     VAR1 = (HHV(H, N_TTM) + LLV(L, N_TTM)) / 2 + MA(C, N_TTM)
     TTM_MOMENTUM = FORCAST(C - VAR1 / 2, N_TTM)
-    IS_TTM_ORANGE = TTM_MOMENTUM > 0
+    IS_TTM_ORANGE = TTM_MOMENTUM > -0.05 # 允許極微小誤差
 
     # ==========================================
     # 四神合一：只要當下全數滿足，即刻納入候選名單！
     # ==========================================
     BASE_MATCH = STAGE2 & IS_MACD_ORANGE & IS_TTM_ORANGE & POWER_STRONG
     
-    # 梯隊分流 (5日內為黃金起爆，5日以上為沉底觀察)
+    # 梯隊分流
     IS_HOT_WINDOW = BASE_MATCH & (DAYS_SINCE_MACD <= 5)
     IS_COOL_WINDOW = BASE_MATCH & (DAYS_SINCE_MACD > 5)
     
@@ -87,7 +94,7 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     BASE_RANK_SCORE = np.where(IS_HOT_WINDOW, 100, np.where(IS_COOL_WINDOW, 0, -9999))
 
     # ==========================================
-    # 21 大非必要加分引擎 (負責排序高低，完全不影響入選)
+    # 21 大非必要加分引擎 (負責排序高低)
     # ==========================================
     VOL_MA20 = MA(V, 20)
     DAY_AMP = (H - L) / (C.shift(1).bfill() + 1e-5) * 100
