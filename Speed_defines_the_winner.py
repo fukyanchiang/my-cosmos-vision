@@ -3,14 +3,11 @@ import numpy as np
 
 def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     """
-    龍魂戰略總部 - 天外飛仙 (第 6 掣) Python 量化引擎 (絕對防禦・萬無一失版)
+    龍魂戰略總部 - 天外飛仙 (第 6 掣) Python 量化引擎 (徹底除錯・萬無一失版)
     """
     df = df.sort_index().copy()
     
-    # ==========================================
-    # 🚨 終極防線：徹底清洗 YFinance 缺失數據 (NaN)
-    # 避免任何休市或空數據污染整條 MA 均線與 TTM 計算！
-    # ==========================================
+    # 徹底清洗 YFinance 缺失數據 (NaN)
     df.ffill(inplace=True)
     df.bfill(inplace=True)
     
@@ -21,7 +18,7 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     V = df['Volume']
 
     # ==========================================
-    # 基礎通達信函數 Python 向量化
+    # 基礎通達信函數 Python 向量化 (徹底防彈版)
     # ==========================================
     def MA(s, n): return s.rolling(window=n, min_periods=1).mean()
     def EMA(s, n): return s.ewm(span=n, adjust=False).mean()
@@ -29,11 +26,15 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     def HHV(s, n): return s.rolling(window=n, min_periods=1).max()
     def LLV(s, n): return s.rolling(window=n, min_periods=1).min()
     def STD(s, n): return s.rolling(window=n, min_periods=1).std()
+    
+    # 防彈 CROSS: 確保整數與數列可以安全交叉
     def CROSS(s1, s2):
-        if isinstance(s2, (int, float)):
-            return (s1 > s2) & (s1.shift(1).bfill() <= s2)
+        if isinstance(s1, (int, float)): s1 = pd.Series(s1, index=df.index)
+        if isinstance(s2, (int, float)): s2 = pd.Series(s2, index=df.index)
         return (s1 > s2) & (s1.shift(1).bfill() <= s2.shift(1).bfill())
+        
     def COUNT(cond, n): return cond.astype(int).rolling(window=n, min_periods=1).sum()
+    
     def BARSLAST(cond):
         idx = np.arange(len(cond))
         last_true = pd.Series(np.where(cond, idx, np.nan), index=cond.index).ffill()
@@ -43,7 +44,9 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
         w = np.arange(1, N + 1) - (N + 1) / 2.0
         w2_sum = np.sum(w ** 2)
         if w2_sum == 0: return S
-        slope_num = sum(w[i] * S.shift(N - 1 - i).bfill() for i in range(N))
+        slope_num = pd.Series(0.0, index=S.index)
+        for i in range(N):
+            slope_num += w[i] * S.shift(N - 1 - i).bfill()
         slope = slope_num / w2_sum
         return S.rolling(N, min_periods=1).mean() + slope * (N - 1) / 2.0
 
@@ -52,34 +55,34 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     MA50, MA150, MA200 = MA(C, 50), MA(C, 150), MA(C, 200)
 
     # ==========================================
-    # 1. 強健版 STAGE 2 (只要均線健康向好)
+    # 1. 暴力直球版 STAGE 2 (只要均線健康向好)
     # ==========================================
     STAGE2 = (C > MA150) & (MA50 >= MA150)
 
     # ==========================================
-    # 2. 強健版 MACD 水上橙柱 (只要柱體 > 0)
+    # 2. 暴力直球版 MACD 水上橙柱 (只要柱體 > 0)
     # ==========================================
     DIF = EMA(C, 12) - EMA(C, 26)
     DEA = EMA(DIF, 9)
     MACD_VAL = (DIF - DEA) * 2
-    IS_MACD_ORANGE = (MACD_VAL > 0) & (DIF > -0.05) # 允許 DIF 微跌落水下
+    IS_MACD_ORANGE = (MACD_VAL > 0) & (DIF > -0.05) 
     
     MACD_CROSS_UP = IS_MACD_ORANGE & (~IS_MACD_ORANGE.shift(1).fillna(False))
     DAYS_SINCE_MACD = BARSLAST(MACD_CROSS_UP)
 
     # ==========================================
-    # 3. 強健版 GRANDPA POWER
+    # 3. 暴力直球版 GRANDPA POWER
     # ==========================================
     RS = 2 * C / MA(C, 63) + C / MA(C, 126) + C / MA(C, 189) + C / MA(C, 252)
-    POWER_STRONG = (RS - 5) > -0.2 # 寬鬆判定底氣
+    POWER_STRONG = (RS - 5) > 0.0
 
     # ==========================================
-    # 4. 強健版 TTM 橙柱
+    # 4. 暴力直球版 TTM 橙柱
     # ==========================================
     N_TTM = 20
     VAR1 = (HHV(H, N_TTM) + LLV(L, N_TTM)) / 2 + MA(C, N_TTM)
     TTM_MOMENTUM = FORCAST(C - VAR1 / 2, N_TTM)
-    IS_TTM_ORANGE = TTM_MOMENTUM > -0.05 # 允許極微小誤差
+    IS_TTM_ORANGE = TTM_MOMENTUM > 0.0
 
     # ==========================================
     # 四神合一：只要當下全數滿足，即刻納入候選名單！
@@ -106,6 +109,7 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     KELTNER_BAND = MA20 + 1.5 * ATR20
     TTM_SQUEEZE = BOLLING_BAND < KELTNER_BAND
     WAS_SQUEEZED = COUNT(AMP_SQUEEZE & VOL_SQUEEZE & TTM_SQUEEZE, 5) >= 1
+    
     TF_BUY_SP = C - L
     TF_SELL_SP = H - C
     INNER_POWER = (TF_BUY_SP > TF_SELL_SP) | ((C - L) / (H - L + 1e-5) > 0.60)
@@ -128,6 +132,7 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     MAV20 = MA(V, 20)
     RECENT_HIGH = HHV(H, 10).shift(1).bfill()
     BREAKOUT = CROSS(C, RECENT_HIGH) & (V > MAV20 * 1.3)
+    
     IS_VCP = BREAKOUT & VCP_READY.shift(1).fillna(False)
     IS_HTF = BREAKOUT & HTF_READY.shift(1).fillna(False)
     IS_BOTH = IS_VCP & IS_HTF
@@ -147,21 +152,23 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     PARABOLIC_TREND = (C > MA20) & (MA20 > MA50)
     RECENT_SURGE = (C / (LLV(L, 30).shift(5).bfill() + 1e-5)) > 1.5
     TODAY_STRONG_BREAK = (C > HHV(H, 10).shift(1).bfill()) & (C > O) & ((C / (C.shift(1).bfill() + 1e-5)) > 1.03)
-    IS_PARABOLIC = (PARABOLIC_TREND & RECENT_SURGE & TODAY_STRONG_BREAK & 
-                    (~BREAKOUT) & (~IS_ULTIMATE) & (~IS_SNDK) & (~DRAGON))
+    IS_PARABOLIC = (PARABOLIC_TREND & RECENT_SURGE & TODAY_STRONG_BREAK & (~BREAKOUT) & (~IS_ULTIMATE) & (~IS_SNDK) & (~DRAGON))
+    
+    # 🚨 終極修復 N字突破 Bug: 用 np.where 配合 ffill，完全捨棄 .shift(Series) 的致命操作！
     N_YANG_COND = ((C / (C.shift(1).bfill() + 1e-5)) >= 1.04) & (C > O)
     N_PREV_DAYS = BARSLAST(N_YANG_COND).shift(1).fillna(0) + 1
-    N_TARGET_HIGH = H.shift(N_PREV_DAYS.astype(int)).bfill()
+    N_TARGET_HIGH = pd.Series(np.where(N_YANG_COND, H, np.nan), index=df.index).ffill().shift(1).bfill()
     N_BREAK = (N_PREV_DAYS <= 20) & (C > N_TARGET_HIGH) & (C.shift(1).bfill() <= N_TARGET_HIGH) & (C > O)
+    
     ALL_PREV = ONLY_VCP | ONLY_HTF | IS_BOTH | DRAGON | IS_SNDK | IS_ULTIMATE | IS_PARABOLIC
     IS_N_SHAPE = VCP_STAGE2 & N_BREAK & (~ALL_PREV)
+    
     BULL_TREND = (MA50 > MA150) & (MA150 > MA200) & MA200_UP
     SHORT_WASH = COUNT(MA10 < MA20, 3) >= 1
     SHORT_EVE = (MA10 <= MA20) & ((MA10 + (MA10 - MA10.shift(1).bfill())) > (MA20 + (MA20 - MA20.shift(1).bfill()))) & (C > O)
     MID_WASH = COUNT(MA20 < MA50, 5) >= 1
     MID_EVE = (MA20 <= MA50) & ((MA20 + (MA20 - MA20.shift(1).bfill())) > (MA50 + (MA50 - MA50.shift(1).bfill()))) & (C > O)
-    IS_AMBUSH = (BULL_TREND & ((SHORT_WASH & SHORT_EVE) | (MID_WASH & MID_EVE)) & 
-                 (~ALL_PREV) & (~IS_N_SHAPE))
+    IS_AMBUSH = (BULL_TREND & ((SHORT_WASH & SHORT_EVE) | (MID_WASH & MID_EVE)) & (~ALL_PREV) & (~IS_N_SHAPE))
     BIG_MONEY_IN = (V >= MAV20 * 1.5) & (C > O)
     ANY_BUY = ALL_PREV | IS_N_SHAPE | IS_AMBUSH
     SHOW_BIG_MONEY = ANY_BUY & BIG_MONEY_IN
@@ -175,9 +182,10 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     CNT_RSI = np.where(BASE_MATCH & STAGE2 & (RSI_VAL > 50), 1, 0)
 
     TYP_V = (H + L + C) / 3
-    V1 = np.where(TYP_V > TYP_V.shift(1).bfill(), TYP_V * V, 0)
-    V2 = np.where(TYP_V < TYP_V.shift(1).bfill(), TYP_V * V, 0)
-    MFI_V = 100 * pd.Series(V1).rolling(14, min_periods=1).sum() / (pd.Series(V1).rolling(14, min_periods=1).sum() + pd.Series(V2).rolling(14, min_periods=1).sum() + 1e-5)
+    V1 = pd.Series(np.where(TYP_V > TYP_V.shift(1).bfill(), TYP_V * V, 0), index=df.index)
+    V2 = pd.Series(np.where(TYP_V < TYP_V.shift(1).bfill(), TYP_V * V, 0), index=df.index)
+    MFI_V = 100 * V1.rolling(14, min_periods=1).sum() / (V1.rolling(14, min_periods=1).sum() + V2.rolling(14, min_periods=1).sum() + 1e-5)
+    
     OBV_DIR = np.where(C > C.shift(1).bfill(), V, np.where(C < C.shift(1).bfill(), -V, 0))
     OBV_RAW = EMA(pd.Series(OBV_DIR, index=df.index).rolling(120, min_periods=1).sum(), 3)
     MAX_OBV = HHV(OBV_RAW, 120)
@@ -226,11 +234,11 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
 
     DMI_HD = H - H.shift(1).bfill()
     DMI_LD = L.shift(1).bfill() - L
-    DMP_RAW = np.where((DMI_HD > 0) & (DMI_HD > DMI_LD), DMI_HD, 0)
-    DMM_RAW = np.where((DMI_LD > 0) & (DMI_LD > DMI_HD), DMI_LD, 0)
+    DMP_RAW = pd.Series(np.where((DMI_HD > 0) & (DMI_HD > DMI_LD), DMI_HD, 0), index=df.index)
+    DMM_RAW = pd.Series(np.where((DMI_LD > 0) & (DMI_LD > DMI_HD), DMI_LD, 0), index=df.index)
     DMI_TR = TR_VAL.rolling(14, min_periods=1).sum()
-    PDI_VAL = pd.Series(DMP_RAW, index=df.index).rolling(14, min_periods=1).sum() * 100 / (DMI_TR + 1e-5)
-    MDI_VAL = pd.Series(DMM_RAW, index=df.index).rolling(14, min_periods=1).sum() * 100 / (DMI_TR + 1e-5)
+    PDI_VAL = DMP_RAW.rolling(14, min_periods=1).sum() * 100 / (DMI_TR + 1e-5)
+    MDI_VAL = DMM_RAW.rolling(14, min_periods=1).sum() * 100 / (DMI_TR + 1e-5)
     ADX_RAW = MA((MDI_VAL - PDI_VAL).abs() / (MDI_VAL + PDI_VAL + 1e-5) * 100, 6)
     DMI_BULL_CROSS = CROSS(ADX_RAW, 25) & (PDI_VAL > MDI_VAL) & (PDI_VAL - MDI_VAL > 3)
     DMI_BULL_FLIP = CROSS(PDI_VAL, MDI_VAL) & (ADX_RAW >= 25) & (PDI_VAL - MDI_VAL > 3)
@@ -292,10 +300,10 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     CNT_S19_GREEN = np.where(BASE_MATCH, COUNT(SV19_BUY_GREEN, 6), 0)
 
     TFM_V3 = H - L
-    TFM_BUY = np.where(TFM_V3 > 0, V * (C - L) / (TFM_V3 + 1e-5), 0)
-    TFM_SELL = np.where(TFM_V3 > 0, V * (H - C) / (TFM_V3 + 1e-5), 0)
-    TFM_SUM_BUY = pd.Series(TFM_BUY, index=df.index).rolling(5, min_periods=1).sum()
-    TFM_SUM_SELL = pd.Series(TFM_SELL, index=df.index).rolling(5, min_periods=1).sum()
+    TFM_BUY = pd.Series(np.where(TFM_V3 > 0, V * (C - L) / (TFM_V3 + 1e-5), 0), index=df.index)
+    TFM_SELL = pd.Series(np.where(TFM_V3 > 0, V * (H - C) / (TFM_V3 + 1e-5), 0), index=df.index)
+    TFM_SUM_BUY = TFM_BUY.rolling(5, min_periods=1).sum()
+    TFM_SUM_SELL = TFM_SELL.rolling(5, min_periods=1).sum()
     TFM_WIN = (TFM_SUM_BUY / (TFM_SUM_BUY + TFM_SUM_SELL + 1e-5)) > 0.65
     CNT_TFM_WIN = np.where(BASE_MATCH & TFM_WIN, 1, 0)
 
