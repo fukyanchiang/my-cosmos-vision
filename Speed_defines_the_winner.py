@@ -3,11 +3,11 @@ import numpy as np
 
 def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     """
-    龍魂戰略總部 - 天外飛仙 (第 6 掣) Python 量化引擎 (雙線絕對水上終極防禦版)
+    龍魂戰略總部 - 天外飛仙 (第 6 掣) Python 量化引擎 (絶対的水上・極限防衛版)
     """
     df = df.sort_index().copy()
     
-    # 徹底清洗 YFinance 缺失數據 (NaN)
+    # データのクレンジング (欠損値の穴埋め)
     df.ffill(inplace=True)
     df.bfill(inplace=True)
     
@@ -18,7 +18,7 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     V = df['Volume']
 
     # ==========================================
-    # 基礎通達信函數 Python 向量化
+    # 基礎指標のベクトル化計算関数
     # ==========================================
     def MA(s, n): return s.rolling(window=n, min_periods=1).mean()
     def EMA(s, n): return s.ewm(span=n, adjust=False).mean()
@@ -53,9 +53,9 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     MA50, MA150, MA200 = MA(C, 50), MA(C, 150), MA(C, 200)
 
     # ==========================================
-    # 核心條件運算
+    # コア条件の計算
     # ==========================================
-    # 1. Stage 2 (底盤)
+    # 1. Stage 2 (トレンドの土台)
     STAGE2 = (C > MA50) & (MA50 > MA150) & (MA150 > MA200)
 
     # 2. MACD
@@ -63,7 +63,7 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     DEA = EMA(DIF, 9)
     MACD_VAL = (DIF - DEA) * 2
 
-    # 3. Grandpa Power (只計算並顯示)
+    # 3. Grandpa Power (参考値として計算・表示のみ)
     RS = 2 * C / MA(C, 63) + C / MA(C, 126) + C / MA(C, 189) + C / MA(C, 252)
     POWER = RS - 5
 
@@ -73,31 +73,31 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     TTM_MOMENTUM = FORCAST(C - VAR1 / 2, N_TTM)
 
     # ==========================================
-    # 🚨 全新計時系統：雙線絕對水上防護
+    # 🚨 完全なる水上防衛ロジック
     # ==========================================
-    # 乖孫鐵律：「其中一條係負數都唔要！」
-    # 每一日都必須滿足絕對水上橙柱！(MACD柱 > 0 且 DIF > 0 且 DEA > 0)
-    IS_MACD_ORANGE_ABSOLUTE = (MACD_VAL > 0) & (DIF > 0) & (DEA > 0)
+    # YFinanceの微細なデータズレによる「フェイク合格」を防ぐため、
+    # DIFとDEAが微小な浮動小数点誤差(0.001)を超えており、かつDIFが上向きであることを必須とする
+    IS_MACD_ORANGE_ABSOLUTE = (MACD_VAL > 0) & (DIF > 0.001) & (DEA > 0.001) & (DIF > DIF.shift(1).fillna(0))
     
-    # 尋找 MACD 的「起爆日」：今日是絕對水上，且尋日「不是」絕對水上
+    # 起爆の起点(第1日目)を探すアンカーポイント
     IGNITION_EVENT = IS_MACD_ORANGE_ABSOLUTE & (~IS_MACD_ORANGE_ABSOLUTE.shift(1).fillna(False))
     
-    # 計算距離上一次 MACD 起爆過咗幾多日
+    # 最後にMACDが起爆してから何日経過したか
     DAYS_SINCE_IGNITION = BARSLAST(IGNITION_EVENT)
 
     # ==========================================
-    # 今日上榜過濾 (必須 100% 滿足三大條件，絕不妥協)
+    # 今日の最終フィルター (3大条件が100%揃っているか)
     # ==========================================
     TODAY_MATCH = STAGE2 & IS_MACD_ORANGE_ABSOLUTE & (TTM_MOMENTUM > 0)
 
-    # 判斷視窗
+    # ウィンドウの判定
     IS_HOT_WINDOW = (DAYS_SINCE_IGNITION <= 2) & TODAY_MATCH
     IS_COOL_WINDOW = (DAYS_SINCE_IGNITION >= 3) & (DAYS_SINCE_IGNITION <= 9) & TODAY_MATCH
 
     BASE_MATCH = IS_HOT_WINDOW | IS_COOL_WINDOW
 
     # ==========================================
-    # 21 大非必要加分引擎
+    # 21の非必須加点エンジン (そのまま保持)
     # ==========================================
     VOL_MA20 = MA(V, 20)
     DAY_AMP = (H - L) / (C.shift(1).bfill() + 1e-5) * 100
@@ -305,7 +305,7 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     if get_bool(SP_BUY): tags.append("🚀S+++突擊")
     if get_bool(HUGE_VOL_SIGNAL): tags.append("🔥天量")
     if get_bool(DMI_IGNITE): tags.append("🌪️主升狂飆(非💰)")
-    if get_bool(DMI_SQUEEZE): tags.append("🥷潛伏觀察(非💰)")
+    if get_bool(DMI_SQUEEZE): tags.append("🥷潛伏観察(非💰)")
     if get_bool(PZ_BUY1) or get_bool(PZ_BUY2) or get_bool(PZ_BUY3): tags.append("PZ綜合訊號")
     if get_bool(GL_PRO_BUY): tags.append("🚀全能點火")
     if get_bool(WK_SPRING): tags.append("⚡洗盤")
