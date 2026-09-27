@@ -105,7 +105,7 @@ with st.sidebar:
         ]
     )
     st.markdown("---")
-    st.caption("👴 爺爺的操盤矩陣 V188.8")
+    st.caption("👴 爺爺的操盤矩陣 V188.9")
 
 if operation_mode == "🐉 龍魂神殿雷達系統":
     MEMORY_FILE = "dragon_memory.json"
@@ -160,7 +160,7 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
     if 'scan_mode' not in st.session_state: st.session_state.scan_mode = 'NORMAL'
     if 'run_mode' not in st.session_state: st.session_state.run_mode = 'NORMAL'
 
-    # --- 總部導航 (5個按鈕) ---
+    # --- 總部導航 ---
     if st.session_state.page == 'HOME':
         st.markdown("<h1 style='text-align:center;font-size:4rem;margin-top:80px;color:#FFD700;'>🐲 龍魂戰略總部</h1>", unsafe_allow_html=True)
         c1, c2, c3, c4, c5 = st.columns(5)
@@ -182,7 +182,6 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
 
     elif st.session_state.page == 'DRAGON':
         selected_tickers = []; market_mode = "HK"; btn_radar = False
-        # 🚨 爺爺補回：為免天外飛仙模式因為冇呢兩個掣而報錯，直接喺一開始預設為 False！
         is_ath_mode = False 
         vcp_52w = False 
         
@@ -394,7 +393,10 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
                             res_df = run_tianwai_feixian(df)
                             latest = res_df.iloc[-1]
                             if latest['天外飛仙_狀態'] > 0:
-                                status_txt = "🚀 起爆(1-3日)" if latest['天外飛仙_狀態'] == 1 else "🐢 沉底(4-10日)"
+                                # 💡 爺爺加入嘅起爆日數計時器
+                                day_num = int(latest.get('起爆日數', 0))
+                                status_txt = f"[🚀 起爆(1-3日)] ({day_num})" if latest['天外飛仙_狀態'] == 1 else f"[🐢 沉底(4-10日)] ({day_num})"
+                                
                                 results.append({
                                     'Ticker': t.replace(".HK", ""),
                                     'Sector': sec,
@@ -414,7 +416,9 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
                                 })
                         else:
                             res = scan_dragon_logic(df, t, sec, market_mode, mode=st.session_state.run_mode, force_return=is_single_mode, vcp_52w=vcp_52w, vcp_ath=is_ath_mode)
-                            if res: results.append(res)
+                            if res:
+                                res['Status'] = f"[{res['Status']}]"
+                                results.append(res)
                 except Exception as e:
                     if len(debug_errors) < 5: debug_errors.append(f"{t}: {str(e)}")
             
@@ -453,7 +457,7 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
                         for err in debug_errors: st.write(f"- {err}")
 
         # ===============================================
-        # 顯示卡片結果區
+        # 顯示卡片結果區 (移除舊版死板的 [] 括號)
         # ===============================================
         if st.session_state.get('dragon_results'):
             if st.session_state.get('sl_list'):
@@ -473,10 +477,11 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
                 if show_n_test_only and "🧱" not in r['Icons']: continue 
                 border_color = "#FF4B4B" if r.get('IsDead') else "#00FFCC"
                 
+                # 💡 爺爺已經將 `{r['Status']}` 兩邊多餘嘅中括號刪除！
                 st.markdown(f"""
                 <div class='dragon-card' style='border-left: 5px solid {border_color};'>
                     <div style='font-size:1.3rem;font-weight:bold;color:#FFFFFF;'>
-                        [{r['Status']}] {r['Ticker']} <span style='color:#00FFCC;'>({r['Sector']})</span> | <span style='color:#FFD700;'>{r['Icons']}</span>
+                        {r['Status']} {r['Ticker']} <span style='color:#00FFCC;'>({r['Sector']})</span> | <span style='color:#FFD700;'>{r['Icons']}</span>
                     </div>
                     <div class='data-row'>
                         <b>戰術總分: {r['Score']}分</b> | 
