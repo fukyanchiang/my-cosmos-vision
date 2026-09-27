@@ -3,11 +3,11 @@ import numpy as np
 
 def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     """
-    龍魂戰略總部 - 天外飛仙 (第 6 掣) Python 量化引擎 (嚴格3日黃金起爆完全體)
+    龍魂戰略總部 - 天外飛仙 (第 6 掣) Python 量化引擎 (附加第幾日計時器版)
     """
     df = df.sort_index().copy()
     
-    # 徹底清洗 YFinance 缺失數據 (NaN)
+    # 徹底清洗 YFinance 缺失數據
     df.ffill(inplace=True)
     df.bfill(inplace=True)
     
@@ -17,9 +17,6 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     L = df['Low']
     V = df['Volume']
 
-    # ==========================================
-    # 基礎通達信函數 Python 向量化
-    # ==========================================
     def MA(s, n): return s.rolling(window=n, min_periods=1).mean()
     def EMA(s, n): return s.ewm(span=n, adjust=False).mean()
     def SMA(s, n, m=1): return s.ewm(alpha=m/n, adjust=False).mean()
@@ -45,7 +42,7 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
         if w2_sum == 0: return S
         slope_num = pd.Series(0.0, index=S.index)
         for i in range(N):
-            slope_num += w[i] * S.shift(N - 1 - i).bfill()
+            slope_num += w[i] * S.shift(N - 1 - i).bfill().fillna(0)
         slope = slope_num / w2_sum
         return S.rolling(N, min_periods=1).mean() + slope * (N - 1) / 2.0
 
@@ -53,18 +50,18 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     MA50, MA150, MA200 = MA(C, 50), MA(C, 150), MA(C, 200)
 
     # ==========================================
-    # 核心 3 大必要條件 (嚴格還原最初要求)
+    # 核心 3 大必要條件 (完美狀態機追蹤)
     # ==========================================
     # 1. 基礎 STAGE 2
     STAGE2 = (C > MA50) & (MA50 > MA150) & (MA150 > MA200)
 
-    # 2. MACD 水上橙柱 及 首日判斷
+    # 2. MACD 水上首日橙柱
     DIF = EMA(C, 12) - EMA(C, 26)
     DEA = EMA(DIF, 9)
     MACD_VAL = (DIF - DEA) * 2
-    STAGE2_WATER_ORANGE = (MACD_VAL > 0) & (DIF > 0) & (DEA > 0)  # 嚴格要求水上(雙線>0)且橙柱
-    MACD_ORANGE_START = STAGE2_WATER_ORANGE & (~STAGE2_WATER_ORANGE.shift(1).fillna(False))
-    DAYS_SINCE_MACD_ORANGE = BARSLAST(MACD_ORANGE_START)
+    
+    MACD_CROSS_UP = (MACD_VAL > 0) & (MACD_VAL.shift(1).fillna(0) <= 0)
+    IS_ABOVE_WATER = DIF > 0
 
     # 3. GRANDPA POWER > 0.5
     RS = 2 * C / MA(C, 63) + C / MA(C, 126) + C / MA(C, 189) + C / MA(C, 252)
@@ -75,21 +72,19 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     N_TTM = 20
     VAR1 = (HHV(H, N_TTM) + LLV(L, N_TTM)) / 2 + MA(C, N_TTM)
     TTM_MOMENTUM = FORCAST(C - VAR1 / 2, N_TTM)
-    IS_TTM_ORANGE = (TTM_MOMENTUM > 0) & (TTM_MOMENTUM > TTM_MOMENTUM.shift(1).bfill())
+    IS_TTM_ORANGE = (TTM_MOMENTUM > 0) & (TTM_MOMENTUM > TTM_MOMENTUM.shift(1).fillna(0))
 
     # ==========================================
-    # 雙梯隊時間窗口判斷 (3天黃金起爆 / 4-10天沉底)
+    # 建立時間視窗與日數計算
     # ==========================================
-    # 第 1 天 (起爆當日)：MACD首日亮起水上橙柱，TTM向上橙柱，Power > 0.5，Stage 2
-    DAY1_COND = (DAYS_SINCE_MACD_ORANGE == 0) & IS_TTM_ORANGE & POWER_STRONG & STAGE2
+    PERFECT_START = MACD_CROSS_UP & IS_ABOVE_WATER & IS_TTM_ORANGE & POWER_STRONG & STAGE2
+    DAYS_SINCE_PERFECT = BARSLAST(PERFECT_START)
+
+    # 第 1-3 天 (黃金起爆): 0-2天前起爆
+    IS_HOT_WINDOW = (DAYS_SINCE_PERFECT <= 2) & IS_TTM_ORANGE & POWER_STRONG & STAGE2
     
-    # 第 2 & 3 天 (確認延伸)：維持 Stage 2，TTM繼續橙柱，Power依然 > 0.5
-    DAY23_COND = (DAYS_SINCE_MACD_ORANGE.isin([1, 2])) & IS_TTM_ORANGE & POWER_STRONG & STAGE2
-    
-    IS_HOT_WINDOW = DAY1_COND | DAY23_COND
-    
-    # 第 4-10 天 (沉底觀察)：過了3天後，放在最底顯示多7個交易日 (總共第4到第10日)
-    IS_COOL_WINDOW = (DAYS_SINCE_MACD_ORANGE >= 3) & (DAYS_SINCE_MACD_ORANGE <= 9) & STAGE2
+    # 第 4-10 天 (沉底觀察): 3-9天前起爆
+    IS_COOL_WINDOW = (DAYS_SINCE_PERFECT >= 3) & (DAYS_SINCE_PERFECT <= 9) & STAGE2
 
     BASE_MATCH = IS_HOT_WINDOW | IS_COOL_WINDOW
 
@@ -287,9 +282,7 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     VCX_WR = (HHV(H, 14) - C) / (HHV(H, 14) - LLV(L, 14) + 1e-5) * -100
     VCX_CLIMAX = (V > HHV(V, 60).shift(1).bfill()) & (V > MA(V, 30) * 2.5) & (H >= HHV(H, 60).shift(1).bfill()) & (VCX_WR > -10)
 
-    # ==========================================
-    # 🚨 終極防彈裝甲：保證組裝標籤時絕對唔會報錯！
-    # ==========================================
+    # 防彈組裝標籤
     def get_bool(s): return bool(pd.Series(s).fillna(False).iloc[-1])
     
     tags = []
@@ -323,12 +316,15 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     tags_str = " | ".join(tags) if tags else ""
 
     # ==========================================
-    # 輸出結算
+    # 輸出結算 (加入起爆日數輸出)
     # ==========================================
     df['天外飛仙_狀態'] = pd.Series(np.where(IS_HOT_WINDOW, 1, np.where(IS_COOL_WINDOW, 2, 0)), index=df.index).fillna(0).astype(int)
     
     TOTAL_SCORE = np.where(IS_HOT_WINDOW, 100, np.where(IS_COOL_WINDOW, 0, -9999)) + (len(tags) * 10)
     df['霸王總分'] = pd.Series(TOTAL_SCORE, index=df.index).fillna(-9999).astype(float)
+    
+    # 輸出距離起爆點嘅確切日數 (0日即係第1日)
+    df['起爆日數'] = pd.Series(DAYS_SINCE_PERFECT + 1, index=df.index).fillna(0).astype(int)
     
     df['Power'] = POWER
     df['EMA10'] = MA10
