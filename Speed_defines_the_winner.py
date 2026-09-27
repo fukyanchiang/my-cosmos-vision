@@ -3,7 +3,7 @@ import numpy as np
 
 def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     """
-    龍魂戰略總部 - 天外飛仙 (第 6 掣) Python 量化引擎 (絕對水上防禦版)
+    龍魂戰略總部 - 天外飛仙 (第 6 掣) Python 量化引擎 (雙線絕對水上終極防禦版)
     """
     df = df.sort_index().copy()
     
@@ -73,10 +73,11 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     TTM_MOMENTUM = FORCAST(C - VAR1 / 2, N_TTM)
 
     # ==========================================
-    # 🚨 全新計時系統：絕對水上視覺錨點
+    # 🚨 全新計時系統：雙線絕對水上防護
     # ==========================================
-    # 每一日都必須滿足絕對水上橙柱！
-    IS_MACD_ORANGE_ABSOLUTE = (MACD_VAL > 0) & (DIF > 0)
+    # 乖孫鐵律：「其中一條係負數都唔要！」
+    # 每一日都必須滿足絕對水上橙柱！(MACD柱 > 0 且 DIF > 0 且 DEA > 0)
+    IS_MACD_ORANGE_ABSOLUTE = (MACD_VAL > 0) & (DIF > 0) & (DEA > 0)
     
     # 尋找 MACD 的「起爆日」：今日是絕對水上，且尋日「不是」絕對水上
     IGNITION_EVENT = IS_MACD_ORANGE_ABSOLUTE & (~IS_MACD_ORANGE_ABSOLUTE.shift(1).fillna(False))
@@ -87,7 +88,6 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     # ==========================================
     # 今日上榜過濾 (必須 100% 滿足三大條件，絕不妥協)
     # ==========================================
-    # 這裡加上括號，確保邏輯絕對嚴密！AME 的 DIF < 0 會被直接判 False
     TODAY_MATCH = STAGE2 & IS_MACD_ORANGE_ABSOLUTE & (TTM_MOMENTUM > 0)
 
     # 判斷視窗
