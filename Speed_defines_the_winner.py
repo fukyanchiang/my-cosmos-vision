@@ -3,7 +3,7 @@ import numpy as np
 
 def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     """
-    龍魂戰略總部 - 天外飛仙 (第 6 掣) Python 量化引擎 (完美起爆計時器修復版)
+    龍魂戰略總部 - 天外飛仙 (第 6 掣) Python 量化引擎 (TTM 寬鬆橙柱版)
     """
     df = df.sort_index().copy()
     
@@ -53,46 +53,44 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     MA50, MA150, MA200 = MA(C, 50), MA(C, 150), MA(C, 200)
 
     # ==========================================
-    # 核心 3 大必要條件
+    # 核心條件
     # ==========================================
-    # 1. 基礎 STAGE 2
+    # 1. Stage 2
     STAGE2 = (C > MA50) & (MA50 > MA150) & (MA150 > MA200)
 
-    # 2. MACD 水上橙柱 (放棄依賴死板的 CROSS_UP)
+    # 2. MACD 水上橙柱 (柱體 > 0 且 DIF > 0)
     DIF = EMA(C, 12) - EMA(C, 26)
     DEA = EMA(DIF, 9)
     MACD_VAL = (DIF - DEA) * 2
     IS_MACD_ORANGE = (MACD_VAL > 0) & (DIF > 0)
 
-    # 3. GRANDPA POWER > 0.5
+    # 3. Grandpa Power > 0.5
     RS = 2 * C / MA(C, 63) + C / MA(C, 126) + C / MA(C, 189) + C / MA(C, 252)
     POWER = RS - 5
     POWER_STRONG = POWER > 0.5
 
-    # 4. TTM 同步向上橙柱
+    # 4. TTM 橙柱 (只需要 > 0，不需要強求每日增長)
     N_TTM = 20
     VAR1 = (HHV(H, N_TTM) + LLV(L, N_TTM)) / 2 + MA(C, N_TTM)
     TTM_MOMENTUM = FORCAST(C - VAR1 / 2, N_TTM)
-    IS_TTM_ORANGE = (TTM_MOMENTUM > 0) & (TTM_MOMENTUM > TTM_MOMENTUM.shift(1).bfill())
+    IS_TTM_ORANGE = TTM_MOMENTUM > 0
 
     # ==========================================
-    # 🚨 完美起爆點邏輯重建：以「四大條件首次集齊」為基準
+    # 🚨 完美起爆點邏輯追蹤
     # ==========================================
-    # 當下是否 100% 滿足所有條件
+    # 當日是否完美集齊 4 粒龍珠
     CURRENT_ALL_MATCH = STAGE2 & IS_MACD_ORANGE & POWER_STRONG & IS_TTM_ORANGE
     
-    # 起爆點定義：今日全部滿足，且尋日「並未」全部滿足！
-    # 呢個寫法完美解決「時空錯位」Bug。無論係 MACD 遲來，定係 Power 遲來，
-    # 只要佢哋「首次碰頭」嗰一日，就係起爆第 1 日！
+    # 起爆第 1 日嘅定義：今日完美集齊，但尋日「並未」集齊！
     PERFECT_START = CURRENT_ALL_MATCH & (~CURRENT_ALL_MATCH.shift(1).fillna(False))
     
-    # 計算距離最近一次「完美起爆點」嘅日數
+    # 計算距離上一次「起爆第 1 日」過咗幾耐
     DAYS_SINCE_PERFECT = BARSLAST(PERFECT_START)
 
     # ==========================================
-    # 雙梯隊時間窗口判斷
+    # 雙梯隊時間窗口判斷 (3天黃金起爆 / 4-10天沉底)
     # ==========================================
-    # 必須保持所有條件不斷纜
+    # 每一日都必須維持 4 大條件 (CURRENT_ALL_MATCH)，一斷纜即刻落榜
     IS_HOT_WINDOW = (DAYS_SINCE_PERFECT <= 2) & CURRENT_ALL_MATCH
     IS_COOL_WINDOW = (DAYS_SINCE_PERFECT >= 3) & (DAYS_SINCE_PERFECT <= 9) & CURRENT_ALL_MATCH
 
