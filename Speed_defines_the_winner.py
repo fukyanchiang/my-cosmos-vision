@@ -3,11 +3,11 @@ import numpy as np
 
 def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     """
-    龍魂戰略總部 - 天外飛仙 (第 6 掣) Python 量化引擎 (完美追蹤起爆版)
+    龍魂戰略總部 - 天外飛仙 (第 6 掣) Python 量化引擎 (AGI 終極防彈狀態機版)
     """
     df = df.sort_index().copy()
     
-    # 清洗 YFinance 缺失數據
+    # 徹底清洗 YFinance 缺失數據
     df.ffill(inplace=True)
     df.bfill(inplace=True)
     
@@ -17,6 +17,9 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     L = df['Low']
     V = df['Volume']
 
+    # ==========================================
+    # 基礎通達信函數 Python 向量化 (絕對防彈版)
+    # ==========================================
     def MA(s, n): return s.rolling(window=n, min_periods=1).mean()
     def EMA(s, n): return s.ewm(span=n, adjust=False).mean()
     def SMA(s, n, m=1): return s.ewm(alpha=m/n, adjust=False).mean()
@@ -42,7 +45,7 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
         if w2_sum == 0: return S
         slope_num = pd.Series(0.0, index=S.index)
         for i in range(N):
-            slope_num += w[i] * S.shift(N - 1 - i).bfill()
+            slope_num += w[i] * S.shift(N - 1 - i).bfill().fillna(0)
         slope = slope_num / w2_sum
         return S.rolling(N, min_periods=1).mean() + slope * (N - 1) / 2.0
 
@@ -50,40 +53,38 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     MA50, MA150, MA200 = MA(C, 50), MA(C, 150), MA(C, 200)
 
     # ==========================================
-    # 核心 3 大必要條件
+    # 核心 3 大必要條件 (完美狀態機追蹤)
     # ==========================================
+    # 1. 基礎 STAGE 2
     STAGE2 = (C > MA50) & (MA50 > MA150) & (MA150 > MA200)
 
+    # 2. MACD 橙柱追蹤器
     DIF = EMA(C, 12) - EMA(C, 26)
     DEA = EMA(DIF, 9)
     MACD_VAL = (DIF - DEA) * 2
-    
-    # MACD 首日水上橙柱 (修正：不再受限於 DEA > 0，精準捕捉交叉日)
-    MACD_CROSS_UP = (MACD_VAL > 0) & (MACD_VAL.shift(1).fillna(0) <= 0)
-    IS_ABOVE_WATER = DIF > 0
+    MACD_ORANGE = (MACD_VAL > 0) & (DIF > 0)
+    # DAYS_ORANGE: 1代表首日，2代表連續2日...
+    DAYS_ORANGE = BARSLAST(~MACD_ORANGE)
 
+    # 3. TTM 同步向上橙柱
+    N_TTM = 20
+    VAR1 = (HHV(H, N_TTM) + LLV(L, N_TTM)) / 2 + MA(C, N_TTM)
+    TTM_MOMENTUM = FORCAST(C - VAR1 / 2, N_TTM)
+    TTM_ORANGE_RISING = (TTM_MOMENTUM > 0) & (TTM_MOMENTUM > TTM_MOMENTUM.shift(1).fillna(0))
+
+    # 4. GRANDPA POWER > 0.5
     RS = 2 * C / MA(C, 63) + C / MA(C, 126) + C / MA(C, 189) + C / MA(C, 252)
     POWER = RS - 5
     POWER_STRONG = POWER > 0.5
 
-    # TTM 同步向上橙柱
-    N_TTM = 20
-    VAR1 = (HHV(H, N_TTM) + LLV(L, N_TTM)) / 2 + MA(C, N_TTM)
-    TTM_MOMENTUM = FORCAST(C - VAR1 / 2, N_TTM)
-    IS_TTM_ORANGE = (TTM_MOMENTUM > 0) & (TTM_MOMENTUM > TTM_MOMENTUM.shift(1).fillna(0))
-
     # ==========================================
-    # 建立時間視窗 (完美起爆日跟蹤器)
+    # 雙梯隊時間窗口判斷 (3天黃金起爆 / 4-10天沉底)
     # ==========================================
-    # 當天滿足所有條件，即標記為「完美起爆日」
-    PERFECT_START = MACD_CROSS_UP & IS_ABOVE_WATER & IS_TTM_ORANGE & POWER_STRONG & STAGE2
-    DAYS_SINCE_PERFECT = BARSLAST(PERFECT_START)
-
-    # 第 1-3 天 (黃金起爆): 完美起爆發生在0-2天前，且目前 TTM、Power、Stage2 依然維持強勢
-    IS_HOT_WINDOW = (DAYS_SINCE_PERFECT <= 2) & IS_TTM_ORANGE & POWER_STRONG & STAGE2
+    # 第 1-3 天 (黃金起爆): MACD剛亮起1至3天內，且 TTM、Power、Stage2 完美達標
+    IS_HOT_WINDOW = (DAYS_ORANGE >= 1) & (DAYS_ORANGE <= 3) & TTM_ORANGE_RISING & POWER_STRONG & STAGE2
     
-    # 第 4-10 天 (沉底觀察): 完美起爆發生在3-9天前，目前只需維持在 Stage 2 (最底顯示多7個交易日)
-    IS_COOL_WINDOW = (DAYS_SINCE_PERFECT >= 3) & (DAYS_SINCE_PERFECT <= 9) & STAGE2
+    # 第 4-10 天 (沉底過濾): MACD已亮起4至10天，只需維持 Stage 2 即可
+    IS_COOL_WINDOW = (DAYS_ORANGE >= 4) & (DAYS_ORANGE <= 10) & STAGE2
 
     BASE_MATCH = IS_HOT_WINDOW | IS_COOL_WINDOW
 
@@ -281,34 +282,38 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     VCX_WR = (HHV(H, 14) - C) / (HHV(H, 14) - LLV(L, 14) + 1e-5) * -100
     VCX_CLIMAX = (V > HHV(V, 60).shift(1).bfill()) & (V > MA(V, 30) * 2.5) & (H >= HHV(H, 60).shift(1).bfill()) & (VCX_WR > -10)
 
-    # 組裝 21 項非必要標籤 (配合使用者指示)
+    # ==========================================
+    # 🚨 終極防彈裝甲：保證組裝標籤時絕對唔會報錯！
+    # ==========================================
+    def get_bool(s): return bool(pd.Series(s).fillna(False).iloc[-1])
+    
     tags = []
-    if SPRING_SIGNAL.iloc[-1]: tags.append("⚡爆邊(非💰)")
-    if SHOW_BIG_MONEY.iloc[-1]: tags.append("💰錢袋")
-    if RSI_VAL.iloc[-1] > 50: tags.append("動力rsi(非💰)")
-    if SMART_BUY.iloc[-1]: tags.append("💰掃貨")
-    if SMART_ACC.iloc[-1]: tags.append("🕵️大戶吸籌")
-    if FUND_BREAK.iloc[-1]: tags.append("🌊資金突破")
-    if BULL_BREAK.iloc[-1]: tags.append("🎯牛突破")
-    if ISBIG.iloc[-1]: tags.append("BIG")
-    if SP_BUY.iloc[-1]: tags.append("🚀S+++突擊")
-    if HUGE_VOL_SIGNAL.iloc[-1]: tags.append("🔥天量")
-    if DMI_IGNITE.iloc[-1]: tags.append("🌪️主升狂飆(非💰)")
-    if DMI_SQUEEZE.iloc[-1]: tags.append("🥷潛伏觀察(非💰)")
-    if PZ_BUY1.iloc[-1] or PZ_BUY2.iloc[-1] or PZ_BUY3.iloc[-1]: tags.append("PZ綜合訊號")
-    if GL_PRO_BUY.iloc[-1]: tags.append("🚀全能點火")
-    if WK_SPRING.iloc[-1]: tags.append("⚡洗盤")
-    if KO_RED_TRIANGLE.iloc[-1]: tags.append("紅色三角")
-    if FLOW_REAL_BUY.iloc[-1]: tags.append("🔵真周線共振")
-    if NX_SAFE.iloc[-1]: tags.append("💎真動能")
-    if VSA_START.iloc[-1]: tags.append("🚀啟動")
-    if TF_FIRE.iloc[-1]: tags.append("🚀點火")
-    if SV19_BUY_GREEN.iloc[-1]: tags.append("🚀S級綠區主升")
-    if TFM_WIN.iloc[-1]: tags.append("買入兵力大勝")
-    if VCX_CLIMAX.iloc[-1]: tags.append("CLIMAX")
-    if PZ_BUY3.iloc[-1]: tags.append("★PZ特大注★")
-    if PZ_BUY2.iloc[-1]: tags.append("🚀浴火重生")
-    if PZ_BUY1.iloc[-1]: tags.append("■PZ大注■")
+    if get_bool(SPRING_SIGNAL): tags.append("⚡爆邊(非💰)")
+    if get_bool(SHOW_BIG_MONEY): tags.append("💰錢袋")
+    if pd.Series(RSI_VAL).fillna(0).iloc[-1] > 50: tags.append("動力rsi(非💰)")
+    if get_bool(SMART_BUY): tags.append("💰掃貨")
+    if get_bool(SMART_ACC): tags.append("🕵️大戶吸籌")
+    if get_bool(FUND_BREAK): tags.append("🌊資金突破")
+    if get_bool(BULL_BREAK): tags.append("🎯牛突破")
+    if get_bool(ISBIG): tags.append("BIG")
+    if get_bool(SP_BUY): tags.append("🚀S+++突擊")
+    if get_bool(HUGE_VOL_SIGNAL): tags.append("🔥天量")
+    if get_bool(DMI_IGNITE): tags.append("🌪️主升狂飆(非💰)")
+    if get_bool(DMI_SQUEEZE): tags.append("🥷潛伏觀察(非💰)")
+    if get_bool(PZ_BUY1) or get_bool(PZ_BUY2) or get_bool(PZ_BUY3): tags.append("PZ綜合訊號")
+    if get_bool(GL_PRO_BUY): tags.append("🚀全能點火")
+    if get_bool(WK_SPRING): tags.append("⚡洗盤")
+    if get_bool(KO_RED_TRIANGLE): tags.append("紅色三角")
+    if get_bool(FLOW_REAL_BUY): tags.append("🔵真周線共振")
+    if get_bool(NX_SAFE): tags.append("💎真動能")
+    if get_bool(VSA_START): tags.append("🚀啟動")
+    if get_bool(TF_FIRE): tags.append("🚀點火")
+    if get_bool(SV19_BUY_GREEN): tags.append("🚀S級綠區主升")
+    if get_bool(TFM_WIN): tags.append("買入兵力大勝")
+    if get_bool(VCX_CLIMAX): tags.append("CLIMAX")
+    if get_bool(PZ_BUY3): tags.append("★PZ特大注★")
+    if get_bool(PZ_BUY2): tags.append("🚀浴火重生")
+    if get_bool(PZ_BUY1): tags.append("■PZ大注■")
     
     tags_str = " | ".join(tags) if tags else ""
 
