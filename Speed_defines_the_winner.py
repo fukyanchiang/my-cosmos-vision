@@ -3,11 +3,11 @@ import numpy as np
 
 def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     """
-    龍魂戰略總部 - 天外飛仙 (第 6 掣) Python 量化引擎 (AGI 終極防彈狀態機版)
+    龍魂戰略總部 - 天外飛仙 (第 6 掣) Python 量化引擎 (嚴格3日黃金起爆完全體)
     """
     df = df.sort_index().copy()
     
-    # 徹底清洗 YFinance 缺失數據
+    # 徹底清洗 YFinance 缺失數據 (NaN)
     df.ffill(inplace=True)
     df.bfill(inplace=True)
     
@@ -18,7 +18,7 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     V = df['Volume']
 
     # ==========================================
-    # 基礎通達信函數 Python 向量化 (絕對防彈版)
+    # 基礎通達信函數 Python 向量化
     # ==========================================
     def MA(s, n): return s.rolling(window=n, min_periods=1).mean()
     def EMA(s, n): return s.ewm(span=n, adjust=False).mean()
@@ -45,7 +45,7 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
         if w2_sum == 0: return S
         slope_num = pd.Series(0.0, index=S.index)
         for i in range(N):
-            slope_num += w[i] * S.shift(N - 1 - i).bfill().fillna(0)
+            slope_num += w[i] * S.shift(N - 1 - i).bfill()
         slope = slope_num / w2_sum
         return S.rolling(N, min_periods=1).mean() + slope * (N - 1) / 2.0
 
@@ -53,38 +53,43 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     MA50, MA150, MA200 = MA(C, 50), MA(C, 150), MA(C, 200)
 
     # ==========================================
-    # 核心 3 大必要條件 (完美狀態機追蹤)
+    # 核心 3 大必要條件 (嚴格還原最初要求)
     # ==========================================
     # 1. 基礎 STAGE 2
     STAGE2 = (C > MA50) & (MA50 > MA150) & (MA150 > MA200)
 
-    # 2. MACD 橙柱追蹤器
+    # 2. MACD 水上橙柱 及 首日判斷
     DIF = EMA(C, 12) - EMA(C, 26)
     DEA = EMA(DIF, 9)
     MACD_VAL = (DIF - DEA) * 2
-    MACD_ORANGE = (MACD_VAL > 0) & (DIF > 0)
-    # DAYS_ORANGE: 1代表首日，2代表連續2日...
-    DAYS_ORANGE = BARSLAST(~MACD_ORANGE)
+    STAGE2_WATER_ORANGE = (MACD_VAL > 0) & (DIF > 0) & (DEA > 0)  # 嚴格要求水上(雙線>0)且橙柱
+    MACD_ORANGE_START = STAGE2_WATER_ORANGE & (~STAGE2_WATER_ORANGE.shift(1).fillna(False))
+    DAYS_SINCE_MACD_ORANGE = BARSLAST(MACD_ORANGE_START)
 
-    # 3. TTM 同步向上橙柱
-    N_TTM = 20
-    VAR1 = (HHV(H, N_TTM) + LLV(L, N_TTM)) / 2 + MA(C, N_TTM)
-    TTM_MOMENTUM = FORCAST(C - VAR1 / 2, N_TTM)
-    TTM_ORANGE_RISING = (TTM_MOMENTUM > 0) & (TTM_MOMENTUM > TTM_MOMENTUM.shift(1).fillna(0))
-
-    # 4. GRANDPA POWER > 0.5
+    # 3. GRANDPA POWER > 0.5
     RS = 2 * C / MA(C, 63) + C / MA(C, 126) + C / MA(C, 189) + C / MA(C, 252)
     POWER = RS - 5
     POWER_STRONG = POWER > 0.5
 
+    # 4. TTM 同步向上橙柱
+    N_TTM = 20
+    VAR1 = (HHV(H, N_TTM) + LLV(L, N_TTM)) / 2 + MA(C, N_TTM)
+    TTM_MOMENTUM = FORCAST(C - VAR1 / 2, N_TTM)
+    IS_TTM_ORANGE = (TTM_MOMENTUM > 0) & (TTM_MOMENTUM > TTM_MOMENTUM.shift(1).bfill())
+
     # ==========================================
     # 雙梯隊時間窗口判斷 (3天黃金起爆 / 4-10天沉底)
     # ==========================================
-    # 第 1-3 天 (黃金起爆): MACD剛亮起1至3天內，且 TTM、Power、Stage2 完美達標
-    IS_HOT_WINDOW = (DAYS_ORANGE >= 1) & (DAYS_ORANGE <= 3) & TTM_ORANGE_RISING & POWER_STRONG & STAGE2
+    # 第 1 天 (起爆當日)：MACD首日亮起水上橙柱，TTM向上橙柱，Power > 0.5，Stage 2
+    DAY1_COND = (DAYS_SINCE_MACD_ORANGE == 0) & IS_TTM_ORANGE & POWER_STRONG & STAGE2
     
-    # 第 4-10 天 (沉底過濾): MACD已亮起4至10天，只需維持 Stage 2 即可
-    IS_COOL_WINDOW = (DAYS_ORANGE >= 4) & (DAYS_ORANGE <= 10) & STAGE2
+    # 第 2 & 3 天 (確認延伸)：維持 Stage 2，TTM繼續橙柱，Power依然 > 0.5
+    DAY23_COND = (DAYS_SINCE_MACD_ORANGE.isin([1, 2])) & IS_TTM_ORANGE & POWER_STRONG & STAGE2
+    
+    IS_HOT_WINDOW = DAY1_COND | DAY23_COND
+    
+    # 第 4-10 天 (沉底觀察)：過了3天後，放在最底顯示多7個交易日 (總共第4到第10日)
+    IS_COOL_WINDOW = (DAYS_SINCE_MACD_ORANGE >= 3) & (DAYS_SINCE_MACD_ORANGE <= 9) & STAGE2
 
     BASE_MATCH = IS_HOT_WINDOW | IS_COOL_WINDOW
 
