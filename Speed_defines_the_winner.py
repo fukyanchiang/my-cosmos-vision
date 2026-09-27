@@ -3,10 +3,11 @@ import numpy as np
 
 def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     """
-    龍魂戰略總部 - 天外飛仙 (第 6 掣) Python 量化引擎 (3天黃金窗口大圓滿版)
+    龍魂戰略總部 - 天外飛仙 (第 6 掣) Python 量化引擎 (完美追蹤起爆版)
     """
     df = df.sort_index().copy()
     
+    # 清洗 YFinance 缺失數據
     df.ffill(inplace=True)
     df.bfill(inplace=True)
     
@@ -49,35 +50,41 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     MA50, MA150, MA200 = MA(C, 50), MA(C, 150), MA(C, 200)
 
     # ==========================================
-    # 3大必要條件 (還原起爆設定)
+    # 核心 3 大必要條件
     # ==========================================
     STAGE2 = (C > MA50) & (MA50 > MA150) & (MA150 > MA200)
 
     DIF = EMA(C, 12) - EMA(C, 26)
     DEA = EMA(DIF, 9)
     MACD_VAL = (DIF - DEA) * 2
-    STAGE2_WATER_ORANGE = (MACD_VAL > 0) & (DIF > 0) & (DEA > 0)
-    MACD_ORANGE_START = STAGE2_WATER_ORANGE & (~STAGE2_WATER_ORANGE.shift(1).fillna(False))
-    DAYS_SINCE_MACD_ORANGE = BARSLAST(MACD_ORANGE_START)
+    
+    # MACD 首日水上橙柱 (修正：不再受限於 DEA > 0，精準捕捉交叉日)
+    MACD_CROSS_UP = (MACD_VAL > 0) & (MACD_VAL.shift(1).fillna(0) <= 0)
+    IS_ABOVE_WATER = DIF > 0
 
     RS = 2 * C / MA(C, 63) + C / MA(C, 126) + C / MA(C, 189) + C / MA(C, 252)
     POWER = RS - 5
     POWER_STRONG = POWER > 0.5
 
+    # TTM 同步向上橙柱
     N_TTM = 20
     VAR1 = (HHV(H, N_TTM) + LLV(L, N_TTM)) / 2 + MA(C, N_TTM)
     TTM_MOMENTUM = FORCAST(C - VAR1 / 2, N_TTM)
-    IS_TTM_ORANGE = (TTM_MOMENTUM > 0) & (TTM_MOMENTUM > TTM_MOMENTUM.shift(1).bfill())
+    IS_TTM_ORANGE = (TTM_MOMENTUM > 0) & (TTM_MOMENTUM > TTM_MOMENTUM.shift(1).fillna(0))
 
     # ==========================================
-    # 雙梯隊時間窗口判斷 (3天黃金起爆 / 4-10天沉底)
+    # 建立時間視窗 (完美起爆日跟蹤器)
     # ==========================================
-    DAY1_COND = (DAYS_SINCE_MACD_ORANGE == 0) & IS_TTM_ORANGE & POWER_STRONG & STAGE2
-    DAY23_COND = (DAYS_SINCE_MACD_ORANGE.isin([1, 2])) & IS_TTM_ORANGE & POWER_STRONG & STAGE2
+    # 當天滿足所有條件，即標記為「完美起爆日」
+    PERFECT_START = MACD_CROSS_UP & IS_ABOVE_WATER & IS_TTM_ORANGE & POWER_STRONG & STAGE2
+    DAYS_SINCE_PERFECT = BARSLAST(PERFECT_START)
+
+    # 第 1-3 天 (黃金起爆): 完美起爆發生在0-2天前，且目前 TTM、Power、Stage2 依然維持強勢
+    IS_HOT_WINDOW = (DAYS_SINCE_PERFECT <= 2) & IS_TTM_ORANGE & POWER_STRONG & STAGE2
     
-    IS_HOT_WINDOW = DAY1_COND | DAY23_COND
-    IS_COOL_WINDOW = (DAYS_SINCE_MACD_ORANGE >= 3) & (DAYS_SINCE_MACD_ORANGE <= 9) & STAGE2
-    
+    # 第 4-10 天 (沉底觀察): 完美起爆發生在3-9天前，目前只需維持在 Stage 2 (最底顯示多7個交易日)
+    IS_COOL_WINDOW = (DAYS_SINCE_PERFECT >= 3) & (DAYS_SINCE_PERFECT <= 9) & STAGE2
+
     BASE_MATCH = IS_HOT_WINDOW | IS_COOL_WINDOW
 
     # ==========================================
