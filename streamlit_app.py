@@ -105,7 +105,7 @@ with st.sidebar:
         ]
     )
     st.markdown("---")
-    st.caption("👴 爺爺的操盤矩陣 V188.6")
+    st.caption("👴 爺爺的操盤矩陣 V188.7")
 
 if operation_mode == "🐉 龍魂神殿雷達系統":
     MEMORY_FILE = "dragon_memory.json"
@@ -181,7 +181,7 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
             st.session_state.dragon_results = []; st.session_state.sl_list = []; st.rerun()
 
     elif st.session_state.page == 'DRAGON':
-        # --- 圖片四: 點入天外飛仙後，極簡只保留美股與港股 ---
+        # --- 圖片四: 天外飛仙極簡 UI (只需美股、港股) ---
         if st.session_state.scan_mode == 'TIANWAI':
             st.markdown("<h1 style='text-align:center; color:#00FFCC;'>✨ 天外飛仙 (第 6 掣) 極速起爆雷達</h1>", unsafe_allow_html=True)
             nav = st.columns([1, 1, 1, 3])
@@ -237,6 +237,7 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
                     except: st.error("讀取檔案失敗。")
                 else: st.warning("請先選定一個名單！")
 
+        # --- 正常龍魂神殿 UI ---
         else:
             if st.session_state.scan_mode == 'STRONG': mode_display = "🔥 強勢股排列 (週線/日線多頭)"
             elif st.session_state.scan_mode == 'VCP': mode_display = "📈 VCP 高勝率獵龍"
@@ -275,7 +276,7 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
                         if btn_w: btn_radar = True; st.session_state.run_mode = 'STRONG_WEEKLY'
                         if btn_d: btn_radar = True; st.session_state.run_mode = 'STRONG_DAILY'
                     else:
-                        if st.button("📡 啟動雷達", use_container_width=True): 
+                        if st.button("📡 啟勃雷達", use_container_width=True): 
                             btn_radar = True; st.session_state.run_mode = st.session_state.scan_mode
 
             elif st.session_state.target == 'SINGLE':
@@ -361,7 +362,7 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
                             selected_tickers = list(df_etf[df_etf['Sector'] == s_choice].itertuples(index=False, name=None))
                             market_mode = "HK"
 
-        # --- 雷達掃瞄執行 ---
+        # --- 共通的雷達掃描邏輯 ---
         if btn_radar and selected_tickers:
             st.info(f"🚀 啟動極致穩定雷達 ({len(selected_tickers)} 隻) | 模式: {st.session_state.run_mode}...")
             
