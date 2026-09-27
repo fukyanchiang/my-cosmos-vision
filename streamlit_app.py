@@ -160,6 +160,7 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
     if 'scan_mode' not in st.session_state: st.session_state.scan_mode = 'NORMAL'
     if 'run_mode' not in st.session_state: st.session_state.run_mode = 'NORMAL'
 
+    # --- 圖片三: 首頁加入第 5 個按鈕「✨ 天外飛仙」 ---
     if st.session_state.page == 'HOME':
         st.markdown("<h1 style='text-align:center;font-size:4rem;margin-top:80px;color:#FFD700;'>🐲 龍魂戰略總部</h1>", unsafe_allow_html=True)
         c1, c2, c3, c4, c5 = st.columns(5)
@@ -176,11 +177,11 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
             st.session_state.page = 'DRAGON'; st.session_state.scan_mode = 'STRONG'
             st.session_state.dragon_results = []; st.session_state.sl_list = []; st.rerun()
         if c5.button("✨ 天外飛仙"): 
-            st.session_state.page = 'DRAGON'; st.session_state.scan_mode = 'TIANWAI'
+            st.session_state.page = 'DRAGON'; st.session_state.scan_mode = 'TIANWAI'; st.session_state.target = 'US_TW'
             st.session_state.dragon_results = []; st.session_state.sl_list = []; st.rerun()
 
     elif st.session_state.page == 'DRAGON':
-        # --- 獨立嘅「天外飛仙」極簡 UI ---
+        # --- 圖片四: 點入天外飛仙後，極簡只保留美股與港股 ---
         if st.session_state.scan_mode == 'TIANWAI':
             st.markdown("<h1 style='text-align:center; color:#00FFCC;'>✨ 天外飛仙 (第 6 掣) 極速起爆雷達</h1>", unsafe_allow_html=True)
             nav = st.columns([1, 1, 1, 3])
@@ -236,7 +237,6 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
                     except: st.error("讀取檔案失敗。")
                 else: st.warning("請先選定一個名單！")
 
-        # --- 正常龍魂神殿 UI ---
         else:
             if st.session_state.scan_mode == 'STRONG': mode_display = "🔥 強勢股排列 (週線/日線多頭)"
             elif st.session_state.scan_mode == 'VCP': mode_display = "📈 VCP 高勝率獵龍"
@@ -331,7 +331,6 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
                         if st.button("📡 啟動雷達", use_container_width=True): 
                             btn_radar = True; st.session_state.run_mode = st.session_state.scan_mode
 
-            # Load selected_tickers for normal mode
             if btn_radar:
                 if st.session_state.target == 'SINGLE': market_mode = "US" if not selected_tickers[0][0].endswith(".HK") else "HK"
                 elif st.session_state.target == 'US' and hasattr(st.session_state, 'active_file'):
@@ -362,7 +361,7 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
                             selected_tickers = list(df_etf[df_etf['Sector'] == s_choice].itertuples(index=False, name=None))
                             market_mode = "HK"
 
-        # --- 共通的雷達掃描邏輯 ---
+        # --- 雷達掃瞄執行 ---
         if btn_radar and selected_tickers:
             st.info(f"🚀 啟動極致穩定雷達 ({len(selected_tickers)} 隻) | 模式: {st.session_state.run_mode}...")
             
@@ -388,7 +387,7 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
                             res_df = run_tianwai_feixian(df)
                             latest = res_df.iloc[-1]
                             if latest['天外飛仙_狀態'] > 0:
-                                status_txt = "🚀 黃金起爆 (1-3日)" if latest['天外飛仙_狀態'] == 1 else "🐢 沉底觀察 (4-10日)"
+                                status_txt = "🚀 起爆(1-3日)" if latest['天外飛仙_狀態'] == 1 else "🐢 沉底(4-10日)"
                                 results.append({
                                     'Ticker': t.replace(".HK", ""),
                                     'Sector': sec,
@@ -442,6 +441,7 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
             else: 
                 if not is_single_mode: st.warning("💤 萬人坑內無生還者。")
 
+        # --- 圖片二: 暗黑高密度數據卡片排版 ---
         if st.session_state.get('dragon_results'):
             if st.session_state.get('sl_list'):
                 st.markdown(f"<div class='bear-warning'>🛡️ 戰損置頂: {' | '.join(st.session_state.sl_list)} 跌穿 10-EMA！</div>", unsafe_allow_html=True)
@@ -527,9 +527,6 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
                         st.plotly_chart(fig, use_container_width=True, theme=None, config={'displayModeBar': True})
                 except Exception as e: st.error(f"繪圖出錯: {e}")
 
-# =========================================================================
-# 💰 模式三：大戶資金流透視 (福德金字塔) (原封不動)
-# =========================================================================
 elif operation_mode == "📊 究極資產拔河龍虎榜":
     from core_logic import AssetRanker
     
