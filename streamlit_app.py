@@ -182,6 +182,9 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
 
     elif st.session_state.page == 'DRAGON':
         selected_tickers = []; market_mode = "HK"; btn_radar = False
+        # 🚨 爺爺補回：為免天外飛仙模式因為冇呢兩個掣而報錯，直接喺一開始預設為 False！
+        is_ath_mode = False 
+        vcp_52w = False 
         
         # ===============================================
         # 專屬：天外飛仙極簡 UI (只需美股、港股)
@@ -259,8 +262,6 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
             
             st.markdown("---")
             c_ath, c_btn = st.columns([3, 1])
-            is_ath_mode = False
-            vcp_52w = False
             with c_ath: 
                 is_ath_mode = st.checkbox("🔥 啟動 ATH 歷史新高極致過濾")
                 vcp_52w = st.checkbox("🎯 啟動 MM 原汁原味 52週高位 25% 內過濾")
