@@ -3,11 +3,7 @@ import numpy as np
 
 def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     """
-    龍魂戰略總部 - 天外飛仙 (第 6 掣) Python 量化引擎 (連續天數 Streak 終極演算法)
-    
-    核心邏輯：
-    1. 核心條件：Stage 2 + MACD 雙線100%水上橙柱 (DIF>0 & DEA>0 & MACD>0) + TTM 橙柱 (TTM>0)
-    2. 天數計算：精確計算連續符合核心條件的交易日數 (Streak)，絕不因無關指標微幅波動而誤 Reset！
+    龍魂戰略總部 - 天外飛仙 (第 6 掣) Python 量化引擎 (絕對防禦：偽橙柱抹殺版)
     """
     df = df.sort_index().copy()
     
@@ -59,10 +55,10 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     # ==========================================
     # 核心條件運算
     # ==========================================
-    # 1. Stage 2 (底盤)
+    # 1. 基礎 Stage 2 (最核心的趨勢防線)
     STAGE2 = (C > MA50) & (MA50 > MA150) & (MA150 > MA200)
 
-    # 2. MACD 雙線 100% 絕對水上 + 橙柱 (DIF>0, DEA>0, MACD_VAL>0)
+    # 2. MACD 雙線 100% 絕對水上 + 橙柱
     DIF = EMA(C, 12) - EMA(C, 26)
     DEA = EMA(DIF, 9)
     MACD_VAL = (DIF - DEA) * 2
@@ -72,21 +68,22 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     RS = 2 * C / MA(C, 63) + C / MA(C, 126) + C / MA(C, 189) + C / MA(C, 252)
     POWER = RS - 5
 
-    # 4. TTM 橙柱 (TTM_MOMENTUM > 0)
+    # 4. TTM 絕對橙柱防禦
     N_TTM = 20
     VAR1 = (HHV(H, N_TTM) + LLV(L, N_TTM)) / 2 + MA(C, N_TTM)
     TTM_MOMENTUM = FORCAST(C - VAR1 / 2, N_TTM)
-    IS_TTM_ORANGE = TTM_MOMENTUM > 0
+    
+    # 【終極抹殺邏輯】：TTM 必須 > 0，並且必須滿足最嚴格的 STAGE2 條件！
+    # 如果 MA150 還在 MA200 之下 (即 AES 的情況)，TTM_MOMENTUM 就算大於 0 也會被判定為 False (青色柱)！
+    IS_TTM_TRUE_ORANGE = (TTM_MOMENTUM > 0) & STAGE2
 
     # ==========================================
     # 🚨 核心狀態與連續天數 (Streak) 演算法
     # ==========================================
     # 核心三大條件必須 100% 同時成立
-    IS_CORE_MATCH = STAGE2 & IS_MACD_ORANGE & IS_TTM_ORANGE
+    IS_CORE_MATCH = STAGE2 & IS_MACD_ORANGE & IS_TTM_TRUE_ORANGE
 
     # 計算連續成立天數 (Streak)
-    # 當 IS_CORE_MATCH 為 False 時，(~IS_CORE_MATCH).cumsum() 會遞增，形成新的 Group
-    # 在每個 Group 內計算 IS_CORE_MATCH 的累積和，即為連續成立天數！
     group_keys = (~IS_CORE_MATCH).cumsum()
     streak_series = IS_CORE_MATCH.groupby(group_keys).cumsum()
 
