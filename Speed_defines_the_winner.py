@@ -3,7 +3,7 @@ import numpy as np
 
 def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     """
-    龍魂戰略總部 - 天外飛仙 (第 6 掣) Python 量化引擎 (TTM 寬鬆橙柱版)
+    龍魂戰略總部 - 天外飛仙 (第 6 掣) Python 量化引擎 (兩大必要條件 + 取消 Power 門檻版)
     """
     df = df.sort_index().copy()
     
@@ -55,31 +55,30 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     # ==========================================
     # 核心條件
     # ==========================================
-    # 1. Stage 2
+    # 1. Stage 2 (底盤)
     STAGE2 = (C > MA50) & (MA50 > MA150) & (MA150 > MA200)
 
-    # 2. MACD 水上橙柱 (柱體 > 0 且 DIF > 0)
+    # 2. 兩大必要條件之一：MACD 水上橙柱 (柱體 > 0 且 DIF > 0)
     DIF = EMA(C, 12) - EMA(C, 26)
     DEA = EMA(DIF, 9)
     MACD_VAL = (DIF - DEA) * 2
     IS_MACD_ORANGE = (MACD_VAL > 0) & (DIF > 0)
 
-    # 3. Grandpa Power > 0.5
+    # 3. Grandpa Power (只計算並顯示，不再作為淘汰門檻)
     RS = 2 * C / MA(C, 63) + C / MA(C, 126) + C / MA(C, 189) + C / MA(C, 252)
     POWER = RS - 5
-    POWER_STRONG = POWER > 0.5
 
-    # 4. TTM 橙柱 (只需要 > 0，不需要強求每日增長)
+    # 4. 兩大必要條件之二：TTM 橙柱 (只需要 > 0)
     N_TTM = 20
     VAR1 = (HHV(H, N_TTM) + LLV(L, N_TTM)) / 2 + MA(C, N_TTM)
     TTM_MOMENTUM = FORCAST(C - VAR1 / 2, N_TTM)
     IS_TTM_ORANGE = TTM_MOMENTUM > 0
 
     # ==========================================
-    # 🚨 完美起爆點邏輯追蹤
+    # 🚨 完美起爆點邏輯追蹤 (取消 Power 門檻)
     # ==========================================
-    # 當日是否完美集齊 4 粒龍珠
-    CURRENT_ALL_MATCH = STAGE2 & IS_MACD_ORANGE & POWER_STRONG & IS_TTM_ORANGE
+    # 當日是否完美集齊 兩大必要條件 + Stage 2
+    CURRENT_ALL_MATCH = STAGE2 & IS_MACD_ORANGE & IS_TTM_ORANGE
     
     # 起爆第 1 日嘅定義：今日完美集齊，但尋日「並未」集齊！
     PERFECT_START = CURRENT_ALL_MATCH & (~CURRENT_ALL_MATCH.shift(1).fillna(False))
@@ -90,7 +89,7 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     # ==========================================
     # 雙梯隊時間窗口判斷 (3天黃金起爆 / 4-10天沉底)
     # ==========================================
-    # 每一日都必須維持 4 大條件 (CURRENT_ALL_MATCH)，一斷纜即刻落榜
+    # 每一日都必須維持 CURRENT_ALL_MATCH，一斷纜即刻落榜
     IS_HOT_WINDOW = (DAYS_SINCE_PERFECT <= 2) & CURRENT_ALL_MATCH
     IS_COOL_WINDOW = (DAYS_SINCE_PERFECT >= 3) & (DAYS_SINCE_PERFECT <= 9) & CURRENT_ALL_MATCH
 
