@@ -3,7 +3,7 @@ import numpy as np
 
 def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     """
-    龍魂戰略總部 - 天外飛仙 (第 6 掣) Python 量化引擎 (視覺錨點計時法終極版)
+    龍魂戰略總部 - 天外飛仙 (第 6 掣) Python 量化引擎 (絕對水上防禦版)
     """
     df = df.sort_index().copy()
     
@@ -73,22 +73,22 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     TTM_MOMENTUM = FORCAST(C - VAR1 / 2, N_TTM)
 
     # ==========================================
-    # 🚨 全新計時系統：視覺錨點鎖定法
+    # 🚨 全新計時系統：絕對水上視覺錨點
     # ==========================================
-    # 尋找 MACD 的「起爆日」：水上金叉，或者金叉狀態下上水
-    MACD_CROSS_UP = (MACD_VAL > 0) & (MACD_VAL.shift(1).fillna(0) <= 0)
-    DIF_CROSS_UP = (DIF > 0) & (DIF.shift(1).fillna(0) <= 0)
+    # 每一日都必須滿足絕對水上橙柱！
+    IS_MACD_ORANGE_ABSOLUTE = (MACD_VAL > 0) & (DIF > 0)
     
-    # 鎖定起爆點
-    IGNITION_EVENT = (MACD_CROSS_UP & (DIF > 0)) | (DIF_CROSS_UP & (MACD_VAL > 0))
+    # 尋找 MACD 的「起爆日」：今日是絕對水上，且尋日「不是」絕對水上
+    IGNITION_EVENT = IS_MACD_ORANGE_ABSOLUTE & (~IS_MACD_ORANGE_ABSOLUTE.shift(1).fillna(False))
     
-    # 計算距離上一次 MACD 起爆過咗幾多日 (不受中途其他條件失敗影響)
+    # 計算距離上一次 MACD 起爆過咗幾多日
     DAYS_SINCE_IGNITION = BARSLAST(IGNITION_EVENT)
 
     # ==========================================
-    # 今日上榜過濾 (必須 100% 滿足三大條件)
+    # 今日上榜過濾 (必須 100% 滿足三大條件，絕不妥協)
     # ==========================================
-    TODAY_MATCH = STAGE2 & (MACD_VAL > 0) & (DIF > 0) & (TTM_MOMENTUM > 0)
+    # 這裡加上括號，確保邏輯絕對嚴密！AME 的 DIF < 0 會被直接判 False
+    TODAY_MATCH = STAGE2 & IS_MACD_ORANGE_ABSOLUTE & (TTM_MOMENTUM > 0)
 
     # 判斷視窗
     IS_HOT_WINDOW = (DAYS_SINCE_IGNITION <= 2) & TODAY_MATCH
