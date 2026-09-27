@@ -3,11 +3,11 @@ import numpy as np
 
 def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     """
-    龍魂戰略總部 - 天外飛仙 (第 6 掣) Python 量化引擎 (附加第幾日計時器版)
+    龍魂戰略總部 - 天外飛仙 (第 6 掣) Python 量化引擎 (鐵血紀律：斷纜即殺版)
     """
     df = df.sort_index().copy()
     
-    # 徹底清洗 YFinance 缺失數據
+    # 徹底清洗 YFinance 缺失數據 (NaN)
     df.ffill(inplace=True)
     df.bfill(inplace=True)
     
@@ -17,6 +17,9 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     L = df['Low']
     V = df['Volume']
 
+    # ==========================================
+    # 基礎通達信函數 Python 向量化
+    # ==========================================
     def MA(s, n): return s.rolling(window=n, min_periods=1).mean()
     def EMA(s, n): return s.ewm(span=n, adjust=False).mean()
     def SMA(s, n, m=1): return s.ewm(alpha=m/n, adjust=False).mean()
@@ -50,18 +53,17 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     MA50, MA150, MA200 = MA(C, 50), MA(C, 150), MA(C, 200)
 
     # ==========================================
-    # 核心 3 大必要條件 (完美狀態機追蹤)
+    # 核心 3 大必要條件 (嚴格還原最初要求)
     # ==========================================
     # 1. 基礎 STAGE 2
     STAGE2 = (C > MA50) & (MA50 > MA150) & (MA150 > MA200)
 
-    # 2. MACD 水上首日橙柱
+    # 2. MACD 水上橙柱 及 首日判斷
     DIF = EMA(C, 12) - EMA(C, 26)
     DEA = EMA(DIF, 9)
     MACD_VAL = (DIF - DEA) * 2
-    
-    MACD_CROSS_UP = (MACD_VAL > 0) & (MACD_VAL.shift(1).fillna(0) <= 0)
-    IS_ABOVE_WATER = DIF > 0
+    IS_MACD_ORANGE = (MACD_VAL > 0) & (DIF > 0)  # 嚴格要求水上且橙柱
+    MACD_CROSS_UP = IS_MACD_ORANGE & (~IS_MACD_ORANGE.shift(1).fillna(False))
 
     # 3. GRANDPA POWER > 0.5
     RS = 2 * C / MA(C, 63) + C / MA(C, 126) + C / MA(C, 189) + C / MA(C, 252)
@@ -72,19 +74,23 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     N_TTM = 20
     VAR1 = (HHV(H, N_TTM) + LLV(L, N_TTM)) / 2 + MA(C, N_TTM)
     TTM_MOMENTUM = FORCAST(C - VAR1 / 2, N_TTM)
-    IS_TTM_ORANGE = (TTM_MOMENTUM > 0) & (TTM_MOMENTUM > TTM_MOMENTUM.shift(1).fillna(0))
+    IS_TTM_ORANGE = (TTM_MOMENTUM > 0) & (TTM_MOMENTUM > TTM_MOMENTUM.shift(1).bfill())
 
     # ==========================================
-    # 建立時間視窗與日數計算
+    # 🚨 鐵血紀律防護網：當下必須 100% 滿足所有核心條件！
     # ==========================================
-    PERFECT_START = MACD_CROSS_UP & IS_ABOVE_WATER & IS_TTM_ORANGE & POWER_STRONG & STAGE2
+    CURRENT_ALL_MATCH = STAGE2 & IS_MACD_ORANGE & POWER_STRONG & IS_TTM_ORANGE
+    
+    # 完美起爆點：當天必須是 MACD 首日水上交叉，且其他條件也同時滿足
+    PERFECT_START = MACD_CROSS_UP & CURRENT_ALL_MATCH
     DAYS_SINCE_PERFECT = BARSLAST(PERFECT_START)
 
-    # 第 1-3 天 (黃金起爆): 0-2天前起爆
-    IS_HOT_WINDOW = (DAYS_SINCE_PERFECT <= 2) & IS_TTM_ORANGE & POWER_STRONG & STAGE2
-    
-    # 第 4-10 天 (沉底觀察): 3-9天前起爆
-    IS_COOL_WINDOW = (DAYS_SINCE_PERFECT >= 3) & (DAYS_SINCE_PERFECT <= 9) & STAGE2
+    # ==========================================
+    # 雙梯隊時間窗口判斷 (3天黃金起爆 / 4-10天沉底)
+    # ==========================================
+    # 無論是起爆還是沉底，只要 CURRENT_ALL_MATCH 斷了(例如MACD死叉)，直接秒殺落選！
+    IS_HOT_WINDOW = (DAYS_SINCE_PERFECT <= 2) & CURRENT_ALL_MATCH
+    IS_COOL_WINDOW = (DAYS_SINCE_PERFECT >= 3) & (DAYS_SINCE_PERFECT <= 9) & CURRENT_ALL_MATCH
 
     BASE_MATCH = IS_HOT_WINDOW | IS_COOL_WINDOW
 
@@ -282,7 +288,7 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     VCX_WR = (HHV(H, 14) - C) / (HHV(H, 14) - LLV(L, 14) + 1e-5) * -100
     VCX_CLIMAX = (V > HHV(V, 60).shift(1).bfill()) & (V > MA(V, 30) * 2.5) & (H >= HHV(H, 60).shift(1).bfill()) & (VCX_WR > -10)
 
-    # 防彈組裝標籤
+    # 🚨 防彈組裝標籤
     def get_bool(s): return bool(pd.Series(s).fillna(False).iloc[-1])
     
     tags = []
@@ -316,7 +322,7 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     tags_str = " | ".join(tags) if tags else ""
 
     # ==========================================
-    # 輸出結算 (加入起爆日數輸出)
+    # 輸出結算
     # ==========================================
     df['天外飛仙_狀態'] = pd.Series(np.where(IS_HOT_WINDOW, 1, np.where(IS_COOL_WINDOW, 2, 0)), index=df.index).fillna(0).astype(int)
     
