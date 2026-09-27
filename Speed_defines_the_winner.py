@@ -3,11 +3,11 @@ import numpy as np
 
 def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     """
-    龍魂戰略總部 - 天外飛仙 (第 6 掣) Python 量化引擎 (絕對防禦：拔除偽均線終極版)
+    龍魂戰略總部 - 天外飛仙 (第 6 掣) Python 量化引擎 (屠龍刀：除息幻覺抹殺版)
     """
     df = df.sort_index().copy()
     
-    # 清洗 YFinance 基礎數據
+    # 清洗基礎數據
     df.ffill(inplace=True)
     df.bfill(inplace=True)
     
@@ -18,9 +18,8 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     V = df['Volume']
 
     # ==========================================
-    # 基礎通達信函數 Python 向量化 (嚴格模式)
+    # 基礎通達信函數 Python 向量化
     # ==========================================
-    # 移除 min_periods=1，迫使均線必須有足夠日數才計算，杜絕假斜率！
     def MA(s, n): return s.rolling(window=n).mean() 
     def EMA(s, n): return s.ewm(span=n, adjust=False).mean()
     def SMA(s, n, m=1): return s.ewm(alpha=m/n, adjust=False).mean()
@@ -34,8 +33,7 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
         return (s1 > s2) & (s1.shift(1).bfill() <= s2.shift(1).bfill())
         
     def COUNT(cond, n): 
-        # 嚴格處理 boolean 計數
-        return cond.fillna(False).astype(int).rolling(window=n, min_periods=1).sum()
+        return cond.fillna(False).astype(int).rolling(window=n).sum()
         
     def FORCAST(S, N):
         w = np.arange(1, N + 1) - (N + 1) / 2.0
@@ -51,10 +49,15 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     MA50, MA150, MA200 = MA(C, 50), MA(C, 150), MA(C, 200)
 
     # ==========================================
-    # 核心條件運算 (絕對嚴格對齊 TradingView)
+    # 核心條件運算 (屠龍刀鐵血防禦)
     # ==========================================
-    # 1. 基礎 Stage 2
-    STAGE2 = (C > MA50) & (MA50 > MA150) & (MA150 > MA200)
+    # 1. 鐵血 Stage 2 (防禦 YFinance 除息幻覺)
+    # 強制要求 50、150、200 天線必須經歷最少 1 個月(20日) 的真實上升！
+    MA200_UP = MA200 > MA200.shift(20)
+    MA150_UP = MA150 > MA150.shift(20)
+    MA50_UP = MA50 > MA50.shift(20)
+    
+    STAGE2 = (C > MA50) & (MA50 > MA150) & (MA150 > MA200) & MA200_UP & MA150_UP & MA50_UP
 
     # 2. MACD 雙線絕對水上橙柱
     DIF = EMA(C, 12) - EMA(C, 26)
@@ -68,23 +71,21 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     RS = 2 * C / MA63 + C / MA126 + C / MA189 + C / MA252
     POWER = RS - 5
 
-    # 4. TTM 真・橙柱防禦 (完美複製乖孫源代碼)
+    # 4. TTM 真・橙柱防禦 (綁定鐵血斜率)
     N_TTM = 20
     VAR1 = (HHV(H, N_TTM) + LLV(L, N_TTM)) / 2 + MA(C, N_TTM)
     TTM_MOMENTUM = FORCAST(C - VAR1 / 2, N_TTM)
     
     PRICE_HOLD = COUNT(C > MA150, 3) > 0
-    # 移除了致命的 .fillna(0)，150天線必須實打實向上！
-    STAGE2_ON = PRICE_HOLD & (MA50 > MA150) & (MA150 > MA150.shift(10)) 
-    
-    # 必須同時滿足 TTM>0 及 STAGE2_ON，才是正宗橙色柱！
-    IS_TTM_TRUE_ORANGE = (TTM_MOMENTUM > 0) & STAGE2_ON
+    # TTM 的顏色判定同樣被 150天線的真實 20日斜率 鎖死
+    TTM_STAGE2_ON = PRICE_HOLD & (MA50 > MA150) & MA150_UP
+    IS_TTM_TRUE_ORANGE = (TTM_MOMENTUM > 0) & TTM_STAGE2_ON
 
     # ==========================================
     # 🚨 連續天數 Streak 演算法
     # ==========================================
     # 三大核心條件必須 100% 同時成立！
-    # AES 因為 STAGE2_ON 為 False (出青柱)，所以這裡直接變 False 被判死刑！
+    # AES 因為 150天線與 200天線 20日前比現在高(向下彎)，直接變 False 判死刑！
     IS_CORE_MATCH = STAGE2 & IS_MACD_ORANGE & IS_TTM_TRUE_ORANGE
 
     # 計算連續成立天數
@@ -121,7 +122,6 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     SPRING_READY = STAGE2 & WAS_SQUEEZED & BETA_OK
     SPRING_SIGNAL = SPRING_READY & INNER_POWER & DELTA_POWER
 
-    MA200_UP = MA200 > MA200.shift(20)
     VCP_STAGE2 = (C >= MA50) & (MA50 > MA150) & (MA150 > MA200) & MA200_UP
     AMP_BIG = (HHV(H, 30) - LLV(L, 30)) / (LLV(L, 30) + 1e-5) * 100
     AMP_NARROW = (HHV(H, 8) - LLV(L, 8)) / (LLV(L, 8) + 1e-5) * 100
