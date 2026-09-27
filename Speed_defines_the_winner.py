@@ -3,7 +3,7 @@ import numpy as np
 
 def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     """
-    龍魂戰略總部 - 天外飛仙 (第 6 掣) Python 量化引擎 (鐵血紀律：斷纜即殺版)
+    龍魂戰略總部 - 天外飛仙 (第 6 掣) Python 量化引擎 (完美起爆計時器修復版)
     """
     df = df.sort_index().copy()
     
@@ -53,17 +53,16 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     MA50, MA150, MA200 = MA(C, 50), MA(C, 150), MA(C, 200)
 
     # ==========================================
-    # 核心 3 大必要條件 (嚴格還原最初要求)
+    # 核心 3 大必要條件
     # ==========================================
     # 1. 基礎 STAGE 2
     STAGE2 = (C > MA50) & (MA50 > MA150) & (MA150 > MA200)
 
-    # 2. MACD 水上橙柱 及 首日判斷
+    # 2. MACD 水上橙柱 (放棄依賴死板的 CROSS_UP)
     DIF = EMA(C, 12) - EMA(C, 26)
     DEA = EMA(DIF, 9)
     MACD_VAL = (DIF - DEA) * 2
-    IS_MACD_ORANGE = (MACD_VAL > 0) & (DIF > 0)  # 嚴格要求水上且橙柱
-    MACD_CROSS_UP = IS_MACD_ORANGE & (~IS_MACD_ORANGE.shift(1).fillna(False))
+    IS_MACD_ORANGE = (MACD_VAL > 0) & (DIF > 0)
 
     # 3. GRANDPA POWER > 0.5
     RS = 2 * C / MA(C, 63) + C / MA(C, 126) + C / MA(C, 189) + C / MA(C, 252)
@@ -77,18 +76,23 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     IS_TTM_ORANGE = (TTM_MOMENTUM > 0) & (TTM_MOMENTUM > TTM_MOMENTUM.shift(1).bfill())
 
     # ==========================================
-    # 🚨 鐵血紀律防護網：當下必須 100% 滿足所有核心條件！
+    # 🚨 完美起爆點邏輯重建：以「四大條件首次集齊」為基準
     # ==========================================
+    # 當下是否 100% 滿足所有條件
     CURRENT_ALL_MATCH = STAGE2 & IS_MACD_ORANGE & POWER_STRONG & IS_TTM_ORANGE
     
-    # 完美起爆點：當天必須是 MACD 首日水上交叉，且其他條件也同時滿足
-    PERFECT_START = MACD_CROSS_UP & CURRENT_ALL_MATCH
+    # 起爆點定義：今日全部滿足，且尋日「並未」全部滿足！
+    # 呢個寫法完美解決「時空錯位」Bug。無論係 MACD 遲來，定係 Power 遲來，
+    # 只要佢哋「首次碰頭」嗰一日，就係起爆第 1 日！
+    PERFECT_START = CURRENT_ALL_MATCH & (~CURRENT_ALL_MATCH.shift(1).fillna(False))
+    
+    # 計算距離最近一次「完美起爆點」嘅日數
     DAYS_SINCE_PERFECT = BARSLAST(PERFECT_START)
 
     # ==========================================
-    # 雙梯隊時間窗口判斷 (3天黃金起爆 / 4-10天沉底)
+    # 雙梯隊時間窗口判斷
     # ==========================================
-    # 無論是起爆還是沉底，只要 CURRENT_ALL_MATCH 斷了(例如MACD死叉)，直接秒殺落選！
+    # 必須保持所有條件不斷纜
     IS_HOT_WINDOW = (DAYS_SINCE_PERFECT <= 2) & CURRENT_ALL_MATCH
     IS_COOL_WINDOW = (DAYS_SINCE_PERFECT >= 3) & (DAYS_SINCE_PERFECT <= 9) & CURRENT_ALL_MATCH
 
@@ -329,7 +333,6 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     TOTAL_SCORE = np.where(IS_HOT_WINDOW, 100, np.where(IS_COOL_WINDOW, 0, -9999)) + (len(tags) * 10)
     df['霸王總分'] = pd.Series(TOTAL_SCORE, index=df.index).fillna(-9999).astype(float)
     
-    # 輸出距離起爆點嘅確切日數 (0日即係第1日)
     df['起爆日數'] = pd.Series(DAYS_SINCE_PERFECT + 1, index=df.index).fillna(0).astype(int)
     
     df['Power'] = POWER
