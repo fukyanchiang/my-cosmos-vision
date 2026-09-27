@@ -74,8 +74,10 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     # ==========================================
     DAY1_COND = (DAYS_SINCE_MACD_ORANGE == 0) & IS_TTM_ORANGE & POWER_STRONG & STAGE2
     DAY23_COND = (DAYS_SINCE_MACD_ORANGE.isin([1, 2])) & IS_TTM_ORANGE & POWER_STRONG & STAGE2
+    
     IS_HOT_WINDOW = DAY1_COND | DAY23_COND
     IS_COOL_WINDOW = (DAYS_SINCE_MACD_ORANGE >= 3) & (DAYS_SINCE_MACD_ORANGE <= 9) & STAGE2
+    
     BASE_MATCH = IS_HOT_WINDOW | IS_COOL_WINDOW
 
     # ==========================================
@@ -272,9 +274,7 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     VCX_WR = (HHV(H, 14) - C) / (HHV(H, 14) - LLV(L, 14) + 1e-5) * -100
     VCX_CLIMAX = (V > HHV(V, 60).shift(1).bfill()) & (V > MA(V, 30) * 2.5) & (H >= HHV(H, 60).shift(1).bfill()) & (VCX_WR > -10)
 
-    # ==========================================
-    # 組裝 21 項非必要標籤 (全名還原，排序輸出)
-    # ==========================================
+    # 組裝 21 項非必要標籤 (配合使用者指示)
     tags = []
     if SPRING_SIGNAL.iloc[-1]: tags.append("⚡爆邊(非💰)")
     if SHOW_BIG_MONEY.iloc[-1]: tags.append("💰錢袋")
@@ -306,7 +306,7 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     tags_str = " | ".join(tags) if tags else ""
 
     # ==========================================
-    # 封裝傳送給 streamlit_app.py
+    # 輸出結算
     # ==========================================
     df['天外飛仙_狀態'] = pd.Series(np.where(IS_HOT_WINDOW, 1, np.where(IS_COOL_WINDOW, 2, 0)), index=df.index).fillna(0).astype(int)
     
