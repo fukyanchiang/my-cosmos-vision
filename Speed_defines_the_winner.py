@@ -3,7 +3,7 @@ import numpy as np
 
 def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     """
-    龍魂戰略總部 - 天外飛仙 (第 6 掣) Python 量化引擎 (屠龍刀 + BARSLAST修復版)
+    龍魂戰略總部 - 天外飛仙 (第 6 掣) Python 量化引擎 (SyntaxError 語法修復版)
     """
     df = df.sort_index().copy()
     
@@ -54,7 +54,7 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     MA50, MA150, MA200 = MA(C, 50), MA(C, 150), MA(C, 200)
 
     # ==========================================
-    # 核心條件運算 (Minervini 絕對趨勢防禦)
+    # 核心條件運算 (Minervini 絕對趨勢屠龍刀)
     # ==========================================
     HHV_250 = HHV(H, 250)
     LLV_250 = LLV(L, 250)
@@ -66,10 +66,13 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     NEAR_HIGH = C > (HHV_250 * 0.75)
     
     # 🌟 屠龍刀 3：150天線必須有 0.2% 實質升幅 (過濾平排/假斜率)
-    MA150_RISING = MA150 > MA150.shift(10) * 1.002
+    MA150_RISING = MA150 > MA150.shift(10).fillna(MA150) * 1.002
+    
+    # 🌟 屠龍刀 4：股價必須高於 120 日前 (過濾長期熊市)
+    UPTREND_120 = C > C.shift(120).fillna(0)
     
     # 基礎 Stage 2 綁定屠龍刀
-    STAGE2 = (C > MA50) & (MA50 > MA150) & (MA150 > MA200) & ABOVE_BOTTOM & NEAR_HIGH & MA150_RISING
+    STAGE2 = (C > MA50) & (MA50 > MA150) & (MA150 > MA200) & ABOVE_BOTTOM & NEAR_HIGH & MA150_RISING & UPTREND_120
 
     # 2. MACD 雙線絕對水上橙柱
     DIF = EMA(C, 12) - EMA(C, 26)
@@ -88,10 +91,6 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     
     # 將屠龍刀綁入 TTM，確保青柱死灰不能復燃！
     PRICE_HOLD = COUNT(C > MA150, 3) > 0
-    TTM_STAGE2_ON = PRICE_HOLD & (MA50 > MA150) & (MA150 > MA150.shift(10).fillna(0)) & UPTREND_120 = C > C.shift(120).fillna(0) & ABOVE_BOTTOM & NEAR_HIGH
-    
-    # 修改上方 UPTREND_120 的定義，移到共用區域
-    UPTREND_120 = C > C.shift(120).fillna(0)
     TTM_STAGE2_ON = PRICE_HOLD & (MA50 > MA150) & MA150_RISING & ABOVE_BOTTOM & NEAR_HIGH & UPTREND_120
     IS_TTM_TRUE_ORANGE = (TTM_MOMENTUM > 0) & TTM_STAGE2_ON
 
@@ -99,7 +98,7 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     # 🚨 連續天數 Streak 演算法
     # ==========================================
     # 核心條件必須 100% 成立！AES 將在 STAGE2 與 TTM 階段被屠龍刀直接雙殺！
-    IS_CORE_MATCH = STAGE2 & IS_MACD_ORANGE & IS_TTM_TRUE_ORANGE & UPTREND_120
+    IS_CORE_MATCH = STAGE2 & IS_MACD_ORANGE & IS_TTM_TRUE_ORANGE
 
     # 計算連續成立天數
     group_keys = (~IS_CORE_MATCH).cumsum()
