@@ -3,7 +3,7 @@ import numpy as np
 
 def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     """
-    龍魂戰略總部 - 天外飛仙 (第 6 掣) Python 量化引擎 (絕對趨勢屠龍刀版)
+    龍魂戰略總部 - 天外飛仙 (第 6 掣) Python 量化引擎 (屠龍刀：Minervini 鐵血趨勢鎖)
     """
     df = df.sort_index().copy()
     
@@ -49,27 +49,28 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     MA50, MA150, MA200 = MA(C, 50), MA(C, 150), MA(C, 200)
 
     # ==========================================
-    # 核心條件運算 (終極絕對趨勢防禦)
+    # 核心條件運算 (Minervini 絕對趨勢防禦)
     # ==========================================
-    # 1. 傳統 Stage 2 (均線底盤)
-    STAGE2_BASE = (C > MA50) & (MA50 > MA150) & (MA150 > MA200)
-    
-    # 🌟 終極防護：過濾死貓彈 (Bear Market Rally)
-    # 股價必須高於 120 日前 (半年前)，證明是真升浪 (新股無數據則視為 True)
-    UPTREND_120 = C > C.shift(120).fillna(0)
-    
-    # 股價必須處於 52 週高位的 30% 以內 (Minervini VCP 鐵律)
     HHV_250 = HHV(H, 250)
-    NEAR_HIGH = C > (HHV_250 * 0.70)
+    LLV_250 = LLV(L, 250)
     
-    # 將絕對趨勢鎖定綁入 Stage 2
-    STAGE2 = STAGE2_BASE & UPTREND_120 & NEAR_HIGH
+    # 🌟 屠龍刀 1：股價必須由谷底反彈最少 25% (過濾死貓彈)
+    ABOVE_BOTTOM = C > (LLV_250 * 1.25)
+    
+    # 🌟 屠龍刀 2：股價距離最高點不能超過 25% (強制強勢股)
+    NEAR_HIGH = C > (HHV_250 * 0.75)
+    
+    # 🌟 屠龍刀 3：150天線必須有 0.2% 實質升幅 (過濾平排/假斜率)
+    MA150_RISING = MA150 > MA150.shift(10) * 1.002
+    
+    # 基礎 Stage 2 綁定屠龍刀
+    STAGE2 = (C > MA50) & (MA50 > MA150) & (MA150 > MA200) & ABOVE_BOTTOM & NEAR_HIGH & MA150_RISING
 
     # 2. MACD 雙線絕對水上橙柱
     DIF = EMA(C, 12) - EMA(C, 26)
     DEA = EMA(DIF, 9)
     MACD_VAL = (DIF - DEA) * 2
-    IS_MACD_ORANGE = (MACD_VAL > 0) & (DIF > 0) & (DEA > 0)
+    IS_MACD_ORANGE = (MACD_VAL > 0) & (DIF > 0.001) & (DEA > 0.001)
 
     # 3. Grandpa Power
     RS = 2 * C / MA(C, 63) + C / MA(C, 126) + C / MA(C, 189) + C / MA(C, 252)
@@ -80,15 +81,15 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     VAR1 = (HHV(H, N_TTM) + LLV(L, N_TTM)) / 2 + MA(C, N_TTM)
     TTM_MOMENTUM = FORCAST(C - VAR1 / 2, N_TTM)
     
-    # 將絕對趨勢鎖定綁入 TTM，確保青柱死灰不能復燃！
+    # 將屠龍刀綁入 TTM，確保青柱死灰不能復燃！
     PRICE_HOLD = COUNT(C > MA150, 3) > 0
-    TTM_STAGE2_ON = PRICE_HOLD & (MA50 > MA150) & (MA150 > MA150.shift(10).fillna(0)) & UPTREND_120 & NEAR_HIGH
+    TTM_STAGE2_ON = PRICE_HOLD & (MA50 > MA150) & MA150_RISING & ABOVE_BOTTOM & NEAR_HIGH
     IS_TTM_TRUE_ORANGE = (TTM_MOMENTUM > 0) & TTM_STAGE2_ON
 
     # ==========================================
     # 🚨 連續天數 Streak 演算法
     # ==========================================
-    # 三大核心條件必須 100% 同時成立！ AES 會在 STAGE2 與 TTM 階段被直接雙殺！
+    # 核心條件必須 100% 成立！AES 將在 STAGE2 與 TTM 階段被屠龍刀直接雙殺！
     IS_CORE_MATCH = STAGE2 & IS_MACD_ORANGE & IS_TTM_TRUE_ORANGE
 
     # 計算連續成立天數
@@ -338,13 +339,13 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     
     df['起爆日數'] = streak_series.fillna(0).astype(int)
     
-    df['Power'] = POWER
-    df['EMA10'] = MA10
-    df['Bias'] = (C - MA20) / (MA20 + 1e-5) * 100
-    df['RS'] = RS
-    df['EJ'] = TTM_MOMENTUM
-    df['SE'] = MACD_VAL
-    df['Vol_Ratio'] = V / (VOL_MA20 + 1e-5)
+    df['Power'] = POWER.fillna(0)
+    df['EMA10'] = MA10.fillna(0)
+    df['Bias'] = ((C - MA20) / (MA20 + 1e-5) * 100).fillna(0)
+    df['RS'] = RS.fillna(0)
+    df['EJ'] = TTM_MOMENTUM.fillna(0)
+    df['SE'] = MACD_VAL.fillna(0)
+    df['Vol_Ratio'] = (V / (VOL_MA20 + 1e-5)).fillna(0)
     
     df['天外飛仙_標籤'] = ""
     if len(df) > 0:
