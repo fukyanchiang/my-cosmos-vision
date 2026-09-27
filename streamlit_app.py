@@ -105,7 +105,7 @@ with st.sidebar:
         ]
     )
     st.markdown("---")
-    st.caption("👴 爺爺的操盤矩陣 V188.7")
+    st.caption("👴 爺爺的操盤矩陣 V188.8")
 
 if operation_mode == "🐉 龍魂神殿雷達系統":
     MEMORY_FILE = "dragon_memory.json"
@@ -160,7 +160,7 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
     if 'scan_mode' not in st.session_state: st.session_state.scan_mode = 'NORMAL'
     if 'run_mode' not in st.session_state: st.session_state.run_mode = 'NORMAL'
 
-    # --- 圖片三: 首頁加入第 5 個按鈕「✨ 天外飛仙」 ---
+    # --- 總部導航 (5個按鈕) ---
     if st.session_state.page == 'HOME':
         st.markdown("<h1 style='text-align:center;font-size:4rem;margin-top:80px;color:#FFD700;'>🐲 龍魂戰略總部</h1>", unsafe_allow_html=True)
         c1, c2, c3, c4, c5 = st.columns(5)
@@ -181,7 +181,11 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
             st.session_state.dragon_results = []; st.session_state.sl_list = []; st.rerun()
 
     elif st.session_state.page == 'DRAGON':
-        # --- 圖片四: 天外飛仙極簡 UI (只需美股、港股) ---
+        selected_tickers = []; market_mode = "HK"; btn_radar = False
+        
+        # ===============================================
+        # 專屬：天外飛仙極簡 UI (只需美股、港股)
+        # ===============================================
         if st.session_state.scan_mode == 'TIANWAI':
             st.markdown("<h1 style='text-align:center; color:#00FFCC;'>✨ 天外飛仙 (第 6 掣) 極速起爆雷達</h1>", unsafe_allow_html=True)
             nav = st.columns([1, 1, 1, 3])
@@ -190,7 +194,6 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
             if nav[2].button("🇭🇰 港股"): st.session_state.target = 'HK_TW'
             
             st.markdown("---")
-            selected_tickers = []; market_mode = "HK"; btn_radar = False
             
             if st.session_state.target == 'US_TW':
                 st.write("### 🇺🇸 選擇美股戰略名單：")
@@ -237,7 +240,9 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
                     except: st.error("讀取檔案失敗。")
                 else: st.warning("請先選定一個名單！")
 
-        # --- 正常龍魂神殿 UI ---
+        # ===============================================
+        # 傳統：龍魂神殿 UI
+        # ===============================================
         else:
             if st.session_state.scan_mode == 'STRONG': mode_display = "🔥 強勢股排列 (週線/日線多頭)"
             elif st.session_state.scan_mode == 'VCP': mode_display = "📈 VCP 高勝率獵龍"
@@ -259,8 +264,6 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
             with c_ath: 
                 is_ath_mode = st.checkbox("🔥 啟動 ATH 歷史新高極致過濾")
                 vcp_52w = st.checkbox("🎯 啟動 MM 原汁原味 52週高位 25% 內過濾")
-            
-            selected_tickers = []; market_mode = "HK"; btn_radar = False
 
             if st.session_state.target == 'US':
                 st.write("### 🇺🇸 選擇美股戰略名單：")
@@ -276,7 +279,7 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
                         if btn_w: btn_radar = True; st.session_state.run_mode = 'STRONG_WEEKLY'
                         if btn_d: btn_radar = True; st.session_state.run_mode = 'STRONG_DAILY'
                     else:
-                        if st.button("📡 啟勃雷達", use_container_width=True): 
+                        if st.button("📡 啟動雷達", use_container_width=True): 
                             btn_radar = True; st.session_state.run_mode = st.session_state.scan_mode
 
             elif st.session_state.target == 'SINGLE':
@@ -362,14 +365,16 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
                             selected_tickers = list(df_etf[df_etf['Sector'] == s_choice].itertuples(index=False, name=None))
                             market_mode = "HK"
 
-        # --- 共通的雷達掃描邏輯 ---
+        # ===============================================
+        # 共通的雷達掃描與除錯日誌
+        # ===============================================
         if btn_radar and selected_tickers:
             st.info(f"🚀 啟動極致穩定雷達 ({len(selected_tickers)} 隻) | 模式: {st.session_state.run_mode}...")
             
             status_text = st.empty()
             pb = st.progress(0)
             
-            results = []; sl_list = []
+            results = []; sl_list = []; debug_errors = []
             is_single_mode = (st.session_state.target == 'SINGLE')
             fetch_period = "5y" if st.session_state.run_mode == 'STRONG_WEEKLY' else "2y"
             
@@ -409,7 +414,8 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
                         else:
                             res = scan_dragon_logic(df, t, sec, market_mode, mode=st.session_state.run_mode, force_return=is_single_mode, vcp_52w=vcp_52w, vcp_ath=is_ath_mode)
                             if res: results.append(res)
-                except Exception as e: pass
+                except Exception as e:
+                    if len(debug_errors) < 5: debug_errors.append(f"{t}: {str(e)}")
             
             pb.empty()
             status_text.empty()
@@ -440,9 +446,14 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
                 time.sleep(0.5)
                 st.rerun() 
             else: 
-                if not is_single_mode: st.warning("💤 萬人坑內無生還者。")
+                st.warning("💤 萬人坑內無生還者。(報告統帥，今日大市無股票符合你嚴格嘅要求！)")
+                if debug_errors:
+                    with st.expander("🔍 點擊查看前 5 隻股票分析失敗原因（Debug 日誌）："):
+                        for err in debug_errors: st.write(f"- {err}")
 
-        # --- 圖片二: 暗黑高密度數據卡片排版 ---
+        # ===============================================
+        # 顯示卡片結果區
+        # ===============================================
         if st.session_state.get('dragon_results'):
             if st.session_state.get('sl_list'):
                 st.markdown(f"<div class='bear-warning'>🛡️ 戰損置頂: {' | '.join(st.session_state.sl_list)} 跌穿 10-EMA！</div>", unsafe_allow_html=True)
