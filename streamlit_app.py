@@ -186,7 +186,7 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
         vcp_52w = False 
         
         # ===============================================
-        # 專屬：天外飛仙極簡 UI (只需美股、港股)
+        # 專屬：天外飛仙極簡 UI
         # ===============================================
         if st.session_state.scan_mode == 'TIANWAI':
             st.markdown("<h1 style='text-align:center; color:#00FFCC;'>✨ 天外飛仙 (第 6 掣) 極速起爆雷達</h1>", unsafe_allow_html=True)
@@ -393,7 +393,6 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
                             res_df = run_tianwai_feixian(df)
                             latest = res_df.iloc[-1]
                             if latest['天外飛仙_狀態'] > 0:
-                                # 💡 爺爺加入嘅起爆日數計時器
                                 day_num = int(latest.get('起爆日數', 0))
                                 status_txt = f"[🚀 起爆(1-3日)] ({day_num})" if latest['天外飛仙_狀態'] == 1 else f"[🐢 沉底(4-10日)] ({day_num})"
                                 
@@ -457,7 +456,7 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
                         for err in debug_errors: st.write(f"- {err}")
 
         # ===============================================
-        # 顯示卡片結果區 (移除舊版死板的 [] 括號)
+        # 顯示卡片結果區
         # ===============================================
         if st.session_state.get('dragon_results'):
             if st.session_state.get('sl_list'):
@@ -477,7 +476,6 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
                 if show_n_test_only and "🧱" not in r['Icons']: continue 
                 border_color = "#FF4B4B" if r.get('IsDead') else "#00FFCC"
                 
-                # 💡 爺爺已經將 `{r['Status']}` 兩邊多餘嘅中括號刪除！
                 st.markdown(f"""
                 <div class='dragon-card' style='border-left: 5px solid {border_color};'>
                     <div style='font-size:1.3rem;font-weight:bold;color:#FFFFFF;'>
@@ -503,7 +501,9 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
         if chart_t:
             with st.spinner("正在繪製全黑戰術圖表..."):
                 try:
-                    df_c = smart_fetch(chart_t, period="6mo")
+                    # 💡 自動為港股純數字代號補回 .HK，解決畫圖表時讀唔到數據嘅問題
+                    fetch_t = chart_t + ".HK" if str(chart_t).isdigit() else chart_t
+                    df_c = smart_fetch(fetch_t, period="6mo")
                     if not df_c.empty:
                         ema10 = df_c['Close'].ewm(span=10, adjust=False).mean()
                         dates_chart = df_c.index.strftime('%Y-%m-%d').tolist()
@@ -543,6 +543,8 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
                             xaxis=dict(type='category', showticklabels=False), xaxis5=dict(type='category', title="日期")
                         )
                         st.plotly_chart(fig, use_container_width=True, theme=None, config={'displayModeBar': True})
+                    else:
+                        st.warning(f"⚠️ 無法從 Yahoo Finance 取得 {fetch_t} 的圖表數據！")
                 except Exception as e: st.error(f"繪圖出錯: {e}")
 
 elif operation_mode == "📊 究極資產拔河龍虎榜":
@@ -578,7 +580,7 @@ elif operation_mode == "📊 究極資產拔河龍虎榜":
     
     col_btn1, col_btn2 = st.columns(2)
     with col_btn1:
-        run_normal = st.button("🚀 啟動熱力拔河掃描！", use_container_width=True)
+        run_normal = st.button("🚀 啟熱熱力拔河掃描！", use_container_width=True)
     with col_btn2:
         run_hunt = st.button("🦅 啟動「爆升獵龍」超級特搜！", use_container_width=True)
 
