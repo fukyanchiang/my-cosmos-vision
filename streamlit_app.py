@@ -23,6 +23,84 @@ def fetch_github_list(url):
         return df
     except: return pd.DataFrame()
 
+# ===============================================
+# 🪙 HardPenny 專屬核心運算函數 (內置於 Streamlit)
+# ===============================================
+def run_hardpenny_logic(df: pd.DataFrame, symbol: str, sector: str) -> dict:
+    if len(df) < 200: return None
+    
+    close = df['Close']
+    high = df['High']
+    low = df['Low']
+    vol = df['Volume']
+    c_curr = float(close.iloc[-1])
+
+    # 1-8 條硬性過濾門檻
+    c_60d = float(close.iloc[-60]) if len(close) >= 60 else float(close.iloc[0])
+    ret_3m = (c_curr - c_60d) / c_60d
+    cond1 = ret_3m >= 0.20
+
+    low_20 = float(low.tail(20).min())
+    cond2 = c_curr >= low_20 
+
+    cond3_4 = False
+    for w in range(5, 40):
+        w_high = float(high.tail(w).max())
+        w_low = float(low.tail(w).min())
+        if w_low > 0:
+            w_range = (w_high - w_low) / w_low
+            if w_range < 0.08:
+                cond3_4 = True
+                break
+
+    adr = float(((high - low) / low).tail(20).mean())
+    cond5 = adr > 0.035
+
+    cond6 = c_curr > 5.0
+
+    turnover_50m = float((close * vol).tail(50).mean())
+    cond7 = turnover_50m > 5_000_000
+
+    ema200 = float(close.ewm(span=200, adjust=False).mean().iloc[-1])
+    dist_ema200 = (c_curr - ema200) / ema200
+    cond8 = dist_ema200 <= 0.60
+
+    all_passed = cond1 and cond2 and cond3_4 and cond5 and cond6 and cond7 and cond8
+
+    # 必須全過才上榜
+    if not all_passed: return None
+
+    # 第 9 條：均線糾纏度 (數值越細越緊密，排得越前)
+    ema10 = float(close.ewm(span=10, adjust=False).mean().iloc[-1])
+    ema20 = float(close.ewm(span=20, adjust=False).mean().iloc[-1])
+    ema50 = float(close.ewm(span=50, adjust=False).mean().iloc[-1])
+    ema_diff_score = (abs(c_curr - ema10) + abs(c_curr - ema20) + abs(c_curr - ema50)) / c_curr
+
+    # 計算基本卡片數值
+    ma20 = close.rolling(20).mean().iloc[-1]
+    bias = (c_curr - ma20) / ma20 * 100
+    rs = (2*c_curr/close.rolling(63, min_periods=1).mean().iloc[-1] + c_curr/close.rolling(126, min_periods=1).mean().iloc[-1] + c_curr/close.rolling(189, min_periods=1).mean().iloc[-1] + c_curr/close.rolling(252, min_periods=1).mean().iloc[-1]) - 5
+
+    return {
+        'Ticker': symbol.replace(".HK", ""),
+        'Sector': sector,
+        'Status': "[🔥 爛市強者]",
+        'Score': round(ema_diff_score * 100, 2), # 顯示用的糾纏度
+        'RawScore': ema_diff_score, # 排序用的原始糾纏度 (越細越好)
+        'RawPower': round(ret_3m * 100, 1), # 卡片火力位顯示 3個月回報%
+        'Penalty': 0,
+        'EMA10': round(ema10, 2),
+        'Bias': round(bias, 1),
+        'RS': round(rs, 1),
+        'EJ': round(adr * 100, 1), # 卡片EJ位顯示 ADR 波幅%
+        'SE': round(dist_ema200 * 100, 1), # 卡片SE位顯示偏離200MA%
+        'Power': round(turnover_50m / 1e6, 1), # 卡片買盤力顯示 50日均成交(百萬)
+        'OBV': '均線糾纏',
+        'Icons': '', # HardPenny 沒有21大加分項
+        'IsDead': False
+    }
+
+
 US_STOCK_MAP = {
     "1. 半導體設備與設計": "NVDA TSM AVGO ASML AMD QCOM TXN MU INTC AMAT LRCX KLAC ADI NXPI MRVL MCHP SWKS MPWR ON LSCC TER QRVO SLAB WOLF SYNA RMBS ALGM SITM ACLS CRUS".split(),
     "2. AI與大數據雲端": "MSFT GOOGL ORCL ADBE CRM PLTR SNOW PANW FTNT NOW WDAY ZS DDOG CRWD MDB NET OKTA TEAM SPLK GEN CYBR CHKP VRSN ESTC TENB SQSP PCOR DOCN AI FSLY MSTR".split(),
@@ -105,7 +183,7 @@ with st.sidebar:
         ]
     )
     st.markdown("---")
-    st.caption("👴 爺爺的操盤矩陣 V188.9")
+    st.caption("👴 爺爺的操盤矩陣 V188.10")
 
 if operation_mode == "🐉 龍魂神殿雷達系統":
     MEMORY_FILE = "dragon_memory.json"
@@ -160,10 +238,12 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
     if 'scan_mode' not in st.session_state: st.session_state.scan_mode = 'NORMAL'
     if 'run_mode' not in st.session_state: st.session_state.run_mode = 'NORMAL'
 
-    # --- 總部導航 ---
+    # ===============================================
+    # 總部導航 (6 個按鈕) 
+    # ===============================================
     if st.session_state.page == 'HOME':
         st.markdown("<h1 style='text-align:center;font-size:4rem;margin-top:80px;color:#FFD700;'>🐲 龍魂戰略總部</h1>", unsafe_allow_html=True)
-        c1, c2, c3, c4, c5 = st.columns(5)
+        c1, c2, c3, c4, c5, c6 = st.columns(6)
         if c1.button("🐉 龍魂神殿 (普通掃描)"): 
             st.session_state.page = 'DRAGON'; st.session_state.scan_mode = 'NORMAL'
             st.session_state.dragon_results = []; st.session_state.sl_list = []; st.rerun()
@@ -179,6 +259,10 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
         if c5.button("✨ 天外飛仙"): 
             st.session_state.page = 'DRAGON'; st.session_state.scan_mode = 'TIANWAI'; st.session_state.target = 'US_TW'
             st.session_state.dragon_results = []; st.session_state.sl_list = []; st.rerun()
+        # 💡 第 6 掣：HardPenny 完美收編
+        if c6.button("🪙 HardPenny"): 
+            st.session_state.page = 'DRAGON'; st.session_state.scan_mode = 'HARDPENNY'; st.session_state.target = 'US_HP'
+            st.session_state.dragon_results = []; st.session_state.sl_list = []; st.rerun()
 
     elif st.session_state.page == 'DRAGON':
         selected_tickers = []; market_mode = "HK"; btn_radar = False
@@ -186,18 +270,24 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
         vcp_52w = False 
         
         # ===============================================
-        # 專屬：天外飛仙極簡 UI
+        # 專屬：天外飛仙 & HardPenny 極簡 UI (共用結構)
         # ===============================================
-        if st.session_state.scan_mode == 'TIANWAI':
-            st.markdown("<h1 style='text-align:center; color:#00FFCC;'>✨ 天外飛仙 (第 6 掣) 極速起爆雷達</h1>", unsafe_allow_html=True)
+        if st.session_state.scan_mode in ['TIANWAI', 'HARDPENNY']:
+            is_hp = (st.session_state.scan_mode == 'HARDPENNY')
+            title_text = "🪙 爛市尋強者 - 9大 SEPA 嚴格篩選" if is_hp else "✨ 天外飛仙 (第 6 掣) 極速起爆雷達"
+            btn_text = "🪙 啟動爛市雷達" if is_hp else "✨ 啟動飛仙雷達"
+            us_target = 'US_HP' if is_hp else 'US_TW'
+            hk_target = 'HK_HP' if is_hp else 'HK_TW'
+
+            st.markdown(f"<h1 style='text-align:center; color:#00FFCC;'>{title_text}</h1>", unsafe_allow_html=True)
             nav = st.columns([1, 1, 1, 3])
             if nav[0].button("⬅️ 返回總部"): st.session_state.page = 'HOME'; st.rerun()
-            if nav[1].button("🇺🇸 美股"): st.session_state.target = 'US_TW'
-            if nav[2].button("🇭🇰 港股"): st.session_state.target = 'HK_TW'
+            if nav[1].button("🇺🇸 美股"): st.session_state.target = us_target
+            if nav[2].button("🇭🇰 港股"): st.session_state.target = hk_target
             
             st.markdown("---")
             
-            if st.session_state.target == 'US_TW':
+            if st.session_state.target in ['US_TW', 'US_HP']:
                 st.write("### 🇺🇸 選擇美股戰略名單：")
                 m = st.columns(4)
                 files = [("SP500_Equities.csv", "大藍籌"), ("Market_Focus.csv", "精選"), ("Industry_Focus.csv", "行業"), ("US_ETFs.csv", "美股ETF")]
@@ -205,9 +295,9 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
                     if m[i].button(f"選定 {name}"): 
                         st.session_state.active_file = f; st.success(f"✅ 已選定 {name}")
                 st.write("<br>", unsafe_allow_html=True)
-                if st.button("✨ 啟動飛仙雷達", use_container_width=True): btn_radar = True
+                if st.button(btn_text, use_container_width=True): btn_radar = True
 
-            elif st.session_state.target == 'HK_TW':
+            elif st.session_state.target in ['HK_TW', 'HK_HP']:
                 st.write("### 🇭🇰 選擇港股戰略名單：")
                 m = st.columns(2)
                 files = [("hk_stock.csv", "港股個股"), ("hk_etf.csv", "港股ETF")]
@@ -215,10 +305,10 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
                     if m[i].button(f"選定 {name}"): 
                         st.session_state.active_file = f; st.success(f"✅ 已選定 {name}")
                 st.write("<br>", unsafe_allow_html=True)
-                if st.button("✨ 啟動飛仙雷達", use_container_width=True): btn_radar = True
+                if st.button(btn_text, use_container_width=True): btn_radar = True
                 
             if btn_radar:
-                st.session_state.run_mode = 'TIANWAI'
+                st.session_state.run_mode = st.session_state.scan_mode
                 if hasattr(st.session_state, 'active_file'):
                     f = st.session_state.active_file
                     try:
@@ -238,7 +328,7 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
                             selected_tickers = list(df_csv[[col, 'Sector']].dropna().itertuples(index=False, name=None))
                             if market_mode == 'HK': selected_tickers = [(t.zfill(4)+".HK" if not t.endswith(".HK") else t, sec) for t, sec in selected_tickers]
                         else:
-                            selected_tickers = [(t, "天外飛仙") for t in tickers]
+                            selected_tickers = [(t, "天外飛仙" if not is_hp else "HardPenny") for t in tickers]
                     except: st.error("讀取檔案失敗。")
                 else: st.warning("請先選定一個名單！")
 
@@ -413,6 +503,10 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
                                     'Icons': latest.get('天外飛仙_標籤', ''),
                                     'IsDead': False
                                 })
+                        elif st.session_state.run_mode == 'HARDPENNY':
+                            # 調用我們整合進來的 HardPenny 核心
+                            res = run_hardpenny_logic(df, t, sec)
+                            if res: results.append(res)
                         else:
                             res = scan_dragon_logic(df, t, sec, market_mode, mode=st.session_state.run_mode, force_return=is_single_mode, vcp_52w=vcp_52w, vcp_ath=is_ath_mode)
                             if res:
@@ -431,10 +525,16 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
                         sec = r['Sector']
                         sector_counts[sec] = sector_counts.get(sec, 0) + 1
                 
-                results = sorted(results, key=lambda x: x['Score'], reverse=True)
+                # HardPenny 排序邏輯：用 RawScore (均線糾纏度)，越細越好所以 ascending=True
+                if st.session_state.run_mode == 'HARDPENNY':
+                    results = sorted(results, key=lambda x: x['RawScore'], reverse=False)
+                else:
+                    results = sorted(results, key=lambda x: x['Score'], reverse=True)
+                
                 for r in results:
                     if not r.get('IsDead') and sector_counts.get(r['Sector'], 0) >= 3:
-                        if "📊" not in r['Icons']: r['Icons'] += " | 📊板塊共振"
+                        if "📊" not in r['Icons'] and st.session_state.run_mode != 'HARDPENNY': 
+                            r['Icons'] += " | 📊板塊共振"
                 
                 st.session_state.dragon_results = results
                 st.session_state.sl_list = sl_list
@@ -463,7 +563,7 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
                 st.markdown(f"<div class='bear-warning'>🛡️ 戰損置頂: {' | '.join(st.session_state.sl_list)} 跌穿 10-EMA！</div>", unsafe_allow_html=True)
             
             st.write("---")
-            if st.session_state.scan_mode != 'TIANWAI':
+            if st.session_state.scan_mode not in ['TIANWAI', 'HARDPENNY']:
                 col_f1, col_f2 = st.columns([1, 1])
                 with col_f1: show_n_shape_only = st.toggle("🔍 只顯示 🪃 N字突破 (今日/昨日剛破頂)")
                 with col_f2: show_n_test_only = st.toggle("🔍 只顯示 🎯 N字回測成功 (回踩關鍵位企穩)")
@@ -476,21 +576,40 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
                 if show_n_test_only and "🧱" not in r['Icons']: continue 
                 border_color = "#FF4B4B" if r.get('IsDead') else "#00FFCC"
                 
-                st.markdown(f"""
-                <div class='dragon-card' style='border-left: 5px solid {border_color};'>
-                    <div style='font-size:1.3rem;font-weight:bold;color:#FFFFFF;'>
-                        {r['Status']} {r['Ticker']} <span style='color:#00FFCC;'>({r['Sector']})</span> | <span style='color:#FFD700;'>{r['Icons']}</span>
+                # HardPenny 的排版 (無標籤，顯示特定分數解說)
+                if st.session_state.scan_mode == 'HARDPENNY':
+                    st.markdown(f"""
+                    <div class='dragon-card' style='border-left: 5px solid {border_color};'>
+                        <div style='font-size:1.3rem;font-weight:bold;color:#FFFFFF;'>
+                            {r['Status']} {r['Ticker']} <span style='color:#00FFCC;'>({r['Sector']})</span>
+                        </div>
+                        <div class='data-row'>
+                            <b>糾纏度評分: {r['Score']}</b> | 
+                            <b style='color:#FF9900;'>3個月回報: {r.get('RawPower', 0)}% 🔥</b> | 
+                            <span style='color:#FF4B4B; font-weight:bold;'>🛑 止損(10-EMA): ${r['EMA10']}</span> | Bias: {r['Bias']}%<br>
+                            📈 RS: {r['RS']} | 🔋 ADR均幅: {r['EJ']}% | ⚡ 偏離200MA: {r['SE']}% | 🔥 50日均成交: ${r['Power']}M | 📊 OBV: {r.get('OBV', 'N/A')}
+                        </div>
                     </div>
-                    <div class='data-row'>
-                        <b>戰術總分: {r['Score']}分</b> | 
-                        <b style='color:#FF9900;'>原始戰力: {r.get('RawPower', 0)} 🔥</b> | 
-                        <b style='color:#FF4B4B;'>扣分: {r.get('Penalty', 0)} 🛑</b> | 
-                        <span style='color:#FF4B4B; font-weight:bold;'>🛑 止損(10-EMA): ${r['EMA10']}</span> | Bias: {r['Bias']}%<br>
-                        📈 RS: {r['RS']} | 🔋 EJ: {r['EJ']} | ⚡ SE: {r['SE']} | 🔥 買盤力: {r['Power']}x | 📊 OBV: {r.get('OBV', 'N/A')}
+                    """, unsafe_allow_html=True)
+                else:
+                    st.markdown(f"""
+                    <div class='dragon-card' style='border-left: 5px solid {border_color};'>
+                        <div style='font-size:1.3rem;font-weight:bold;color:#FFFFFF;'>
+                            {r['Status']} {r['Ticker']} <span style='color:#00FFCC;'>({r['Sector']})</span> | <span style='color:#FFD700;'>{r['Icons']}</span>
+                        </div>
+                        <div class='data-row'>
+                            <b>戰術總分: {r['Score']}分</b> | 
+                            <b style='color:#FF9900;'>原始戰力: {r.get('RawPower', 0)} 🔥</b> | 
+                            <b style='color:#FF4B4B;'>扣分: {r.get('Penalty', 0)} 🛑</b> | 
+                            <span style='color:#FF4B4B; font-weight:bold;'>🛑 止損(10-EMA): ${r['EMA10']}</span> | Bias: {r['Bias']}%<br>
+                            📈 RS: {r['RS']} | 🔋 EJ: {r['EJ']} | ⚡ SE: {r['SE']} | 🔥 買盤力: {r['Power']}x | 📊 OBV: {r.get('OBV', 'N/A')}
+                        </div>
                     </div>
-                </div>
-                """, unsafe_allow_html=True)
+                    """, unsafe_allow_html=True)
 
+        # ===============================================
+        # 全黑戰術圖表繪製 (支援 HardPenny / Tianwai 自動加 .HK)
+        # ===============================================
         chart_t = None
         if st.session_state.get('dragon_results'):
             st.write("---")
@@ -501,7 +620,6 @@ if operation_mode == "🐉 龍魂神殿雷達系統":
         if chart_t:
             with st.spinner("正在繪製全黑戰術圖表..."):
                 try:
-                    # 💡 自動為港股純數字代號補回 .HK，解決畫圖表時讀唔到數據嘅問題
                     fetch_t = chart_t + ".HK" if str(chart_t).isdigit() else chart_t
                     df_c = smart_fetch(fetch_t, period="6mo")
                     if not df_c.empty:
@@ -580,7 +698,7 @@ elif operation_mode == "📊 究極資產拔河龍虎榜":
     
     col_btn1, col_btn2 = st.columns(2)
     with col_btn1:
-        run_normal = st.button("🚀 啟熱熱力拔河掃描！", use_container_width=True)
+        run_normal = st.button("🚀 啟動熱力拔河掃描！", use_container_width=True)
     with col_btn2:
         run_hunt = st.button("🦅 啟動「爆升獵龍」超級特搜！", use_container_width=True)
 
