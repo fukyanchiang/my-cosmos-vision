@@ -3,7 +3,7 @@ import numpy as np
 
 def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     """
-    龍魂戰略總部 - 天外飛仙 (第 6 掣) Python 量化引擎 (兩大必要條件 + 取消 Power 門檻版)
+    龍魂戰略總部 - 天外飛仙 (第 6 掣) Python 量化引擎 (視覺錨點計時法終極版)
     """
     df = df.sort_index().copy()
     
@@ -53,45 +53,46 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     MA50, MA150, MA200 = MA(C, 50), MA(C, 150), MA(C, 200)
 
     # ==========================================
-    # 核心條件
+    # 核心條件運算
     # ==========================================
     # 1. Stage 2 (底盤)
     STAGE2 = (C > MA50) & (MA50 > MA150) & (MA150 > MA200)
 
-    # 2. 兩大必要條件之一：MACD 水上橙柱 (柱體 > 0 且 DIF > 0)
+    # 2. MACD
     DIF = EMA(C, 12) - EMA(C, 26)
     DEA = EMA(DIF, 9)
     MACD_VAL = (DIF - DEA) * 2
-    IS_MACD_ORANGE = (MACD_VAL > 0) & (DIF > 0)
 
-    # 3. Grandpa Power (只計算並顯示，不再作為淘汰門檻)
+    # 3. Grandpa Power (只計算並顯示)
     RS = 2 * C / MA(C, 63) + C / MA(C, 126) + C / MA(C, 189) + C / MA(C, 252)
     POWER = RS - 5
 
-    # 4. 兩大必要條件之二：TTM 橙柱 (只需要 > 0)
+    # 4. TTM
     N_TTM = 20
     VAR1 = (HHV(H, N_TTM) + LLV(L, N_TTM)) / 2 + MA(C, N_TTM)
     TTM_MOMENTUM = FORCAST(C - VAR1 / 2, N_TTM)
-    IS_TTM_ORANGE = TTM_MOMENTUM > 0
 
     # ==========================================
-    # 🚨 完美起爆點邏輯追蹤 (取消 Power 門檻)
+    # 🚨 全新計時系統：視覺錨點鎖定法
     # ==========================================
-    # 當日是否完美集齊 兩大必要條件 + Stage 2
-    CURRENT_ALL_MATCH = STAGE2 & IS_MACD_ORANGE & IS_TTM_ORANGE
+    # 尋找 MACD 的「起爆日」：水上金叉，或者金叉狀態下上水
+    MACD_CROSS_UP = (MACD_VAL > 0) & (MACD_VAL.shift(1).fillna(0) <= 0)
+    DIF_CROSS_UP = (DIF > 0) & (DIF.shift(1).fillna(0) <= 0)
     
-    # 起爆第 1 日嘅定義：今日完美集齊，但尋日「並未」集齊！
-    PERFECT_START = CURRENT_ALL_MATCH & (~CURRENT_ALL_MATCH.shift(1).fillna(False))
+    # 鎖定起爆點
+    IGNITION_EVENT = (MACD_CROSS_UP & (DIF > 0)) | (DIF_CROSS_UP & (MACD_VAL > 0))
     
-    # 計算距離上一次「起爆第 1 日」過咗幾耐
-    DAYS_SINCE_PERFECT = BARSLAST(PERFECT_START)
+    # 計算距離上一次 MACD 起爆過咗幾多日 (不受中途其他條件失敗影響)
+    DAYS_SINCE_IGNITION = BARSLAST(IGNITION_EVENT)
 
     # ==========================================
-    # 雙梯隊時間窗口判斷 (3天黃金起爆 / 4-10天沉底)
+    # 今日上榜過濾 (必須 100% 滿足三大條件)
     # ==========================================
-    # 每一日都必須維持 CURRENT_ALL_MATCH，一斷纜即刻落榜
-    IS_HOT_WINDOW = (DAYS_SINCE_PERFECT <= 2) & CURRENT_ALL_MATCH
-    IS_COOL_WINDOW = (DAYS_SINCE_PERFECT >= 3) & (DAYS_SINCE_PERFECT <= 9) & CURRENT_ALL_MATCH
+    TODAY_MATCH = STAGE2 & (MACD_VAL > 0) & (DIF > 0) & (TTM_MOMENTUM > 0)
+
+    # 判斷視窗
+    IS_HOT_WINDOW = (DAYS_SINCE_IGNITION <= 2) & TODAY_MATCH
+    IS_COOL_WINDOW = (DAYS_SINCE_IGNITION >= 3) & (DAYS_SINCE_IGNITION <= 9) & TODAY_MATCH
 
     BASE_MATCH = IS_HOT_WINDOW | IS_COOL_WINDOW
 
@@ -330,7 +331,7 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     TOTAL_SCORE = np.where(IS_HOT_WINDOW, 100, np.where(IS_COOL_WINDOW, 0, -9999)) + (len(tags) * 10)
     df['霸王總分'] = pd.Series(TOTAL_SCORE, index=df.index).fillna(-9999).astype(float)
     
-    df['起爆日數'] = pd.Series(DAYS_SINCE_PERFECT + 1, index=df.index).fillna(0).astype(int)
+    df['起爆日數'] = pd.Series(DAYS_SINCE_IGNITION + 1, index=df.index).fillna(0).astype(int)
     
     df['Power'] = POWER
     df['EMA10'] = MA10
