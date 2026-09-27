@@ -3,7 +3,7 @@ import numpy as np
 
 def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     """
-    龍魂戰略總部 - 天外飛仙 (第 6 掣) Python 量化引擎 (屠龍刀：Minervini 鐵血趨勢鎖)
+    龍魂戰略總部 - 天外飛仙 (第 6 掣) Python 量化引擎 (屠龍刀 + BARSLAST修復版)
     """
     df = df.sort_index().copy()
     
@@ -34,6 +34,11 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
         
     def COUNT(cond, n): 
         return cond.fillna(False).astype(int).rolling(window=n, min_periods=1).sum()
+        
+    def BARSLAST(cond):
+        idx = np.arange(len(cond))
+        last_true = pd.Series(np.where(cond, idx, np.nan), index=cond.index).ffill()
+        return pd.Series(idx - last_true, index=cond.index).fillna(9999)
         
     def FORCAST(S, N):
         w = np.arange(1, N + 1) - (N + 1) / 2.0
@@ -83,14 +88,18 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     
     # 將屠龍刀綁入 TTM，確保青柱死灰不能復燃！
     PRICE_HOLD = COUNT(C > MA150, 3) > 0
-    TTM_STAGE2_ON = PRICE_HOLD & (MA50 > MA150) & MA150_RISING & ABOVE_BOTTOM & NEAR_HIGH
+    TTM_STAGE2_ON = PRICE_HOLD & (MA50 > MA150) & (MA150 > MA150.shift(10).fillna(0)) & UPTREND_120 = C > C.shift(120).fillna(0) & ABOVE_BOTTOM & NEAR_HIGH
+    
+    # 修改上方 UPTREND_120 的定義，移到共用區域
+    UPTREND_120 = C > C.shift(120).fillna(0)
+    TTM_STAGE2_ON = PRICE_HOLD & (MA50 > MA150) & MA150_RISING & ABOVE_BOTTOM & NEAR_HIGH & UPTREND_120
     IS_TTM_TRUE_ORANGE = (TTM_MOMENTUM > 0) & TTM_STAGE2_ON
 
     # ==========================================
     # 🚨 連續天數 Streak 演算法
     # ==========================================
     # 核心條件必須 100% 成立！AES 將在 STAGE2 與 TTM 階段被屠龍刀直接雙殺！
-    IS_CORE_MATCH = STAGE2 & IS_MACD_ORANGE & IS_TTM_TRUE_ORANGE
+    IS_CORE_MATCH = STAGE2 & IS_MACD_ORANGE & IS_TTM_TRUE_ORANGE & UPTREND_120
 
     # 計算連續成立天數
     group_keys = (~IS_CORE_MATCH).cumsum()
@@ -201,7 +210,7 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     OBV_LINE = VA_OBV.rolling(250, min_periods=1).sum()
     OBV_HHV = HHV(OBV_LINE, 30).shift(1).bfill()
     OBV_BREAK = CROSS(OBV_LINE, OBV_HHV) & STAGE2
-    PRICE_NOT_HIGH = C < HHV(C, 10)
+    PRICE_NOT_HIGH = C < HHV(C, 10).fillna(C)
     SMART_ACC = OBV_BREAK & PRICE_NOT_HIGH
     FUND_BREAK = OBV_BREAK & (~PRICE_NOT_HIGH)
 
@@ -209,23 +218,23 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     VOL_VAR = (V * (TYP_V - POC_LINE)**2).rolling(50, min_periods=1).sum() / (V.rolling(50, min_periods=1).sum() + 1e-5)
     VOL_STD = np.sqrt(VOL_VAR)
     VAH_LINE = POC_LINE + 1.0 * VOL_STD
-    BULL_BREAK = STAGE2 & CROSS(C, VAH_LINE) & (V > MA(V, 5))
+    BULL_BREAK = STAGE2 & CROSS(C, VAH_LINE) & (V > MA(V, 5).fillna(0))
 
     VOLMA20_BIG = MA(V, 20)
     CSPRE = (C - O).abs()
     AVGS = MA(CSPRE, 20)
-    ISBIG = (V > VOLMA20_BIG * 1.5) & (C > O) & (CSPRE > AVGS)
+    ISBIG = (V > VOLMA20_BIG.fillna(0) * 1.5) & (C > O) & (CSPRE > AVGS.fillna(0))
 
     S_EMA20 = EMA(C, 20)
     S_E5, S_E10 = EMA(C, 5), EMA(C, 10)
-    S_INST_VOL = V > (MA(V, 5) * 1.2)
+    S_INST_VOL = V > (MA(V, 5).fillna(0) * 1.2)
     S_STRONG_K = (C > O) & ((C - L) > (H - L) * 0.50)
     S_CROSS = CROSS(C, S_EMA20) | ((C > S_EMA20) & CROSS(S_E5, S_E10))
     S_PULLBACK = (L <= S_EMA20) & (C > S_EMA20) & (C > O)
     SP_BUY = STAGE2 & S_INST_VOL & S_STRONG_K & (S_CROSS | S_PULLBACK)
 
     MAVOL20_HUGE = MA(V, 20)
-    IS_HUGE_VOL = V > (MAVOL20_HUGE * 2.0)
+    IS_HUGE_VOL = V > (MAVOL20_HUGE.fillna(0) * 2.0)
     HUGE_VOL_SIGNAL = IS_HUGE_VOL & (C >= O)
 
     DMI_HD = H - H.shift(1).bfill()
@@ -253,9 +262,9 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     PZ_E1 = EMA(PZ_FORCE, 13)
     PZ_E2 = EMA(PZ_E1, 13)
     PZ_SIG = 2 * PZ_E1 - PZ_E2
-    PZ_BUY1 = CROSS(C, PZ_UPPER) & (PZ_SIG > 50) & (V > MA(V, 20)) & PZ_RANGE
+    PZ_BUY1 = CROSS(C, PZ_UPPER) & (PZ_SIG > 50) & (V > MA(V, 20).fillna(0)) & PZ_RANGE
     PZ_BUY2 = (PZ_SIG > 50) & (C > MA10) & (C > C.shift(1).bfill()) & STAGE2 & (~PZ_EXTREME)
-    PZ_BUY3 = CROSS(PZ_SIG, 50) & (C > PZ_MID) & (V > MA(V, 20))
+    PZ_BUY3 = CROSS(PZ_SIG, 50) & (C > PZ_MID) & (V > MA(V, 20).fillna(0))
 
     GL_RSI1 = SMA(pd.Series(np.where(C - LC > 0, C - LC, 0), index=df.index), 14) / (SMA(DIFF_C.abs(), 14) + 1e-5) * 100
     GL_MFI1 = MFI_V
@@ -264,27 +273,27 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     GL_PRO_BUY = CROSS(GL_RV, GL_SV) & STAGE2 & (ADX_RAW >= 20) & (GL_RV < 15)
 
     WK_EMA200 = EMA(C, 200)
-    WK_BEAR = (C < WK_EMA200) | (MA50 < WK_EMA200)
-    WK_SPRING = CROSS(C, S_EMA20) & (C.shift(1).bfill() < S_EMA20) & ((V > MA(V, 5) * 1.2) | (V < MA(V, 20) * 0.6)) & (~WK_BEAR)
+    WK_BEAR = (C < WK_EMA200) | (MA50.fillna(0) < WK_EMA200)
+    WK_SPRING = CROSS(C, S_EMA20) & (C.shift(1).bfill() < S_EMA20) & ((V > MA(V, 5).fillna(0) * 1.2) | (V < MA(V, 20).fillna(0) * 0.6)) & (~WK_BEAR)
 
-    KO_SAFE = (C > (C - ATR20 * 3.2).rolling(50, min_periods=1).max()) & (C > MA(C, 15))
-    KO_RED_TRIANGLE = (V > MA(V, 5) * 1.35) & (C > O) & KO_SAFE
+    KO_SAFE = (C > (C - ATR20.fillna(0) * 3.2).rolling(50, min_periods=1).max()) & (C > MA(C, 15).fillna(0))
+    KO_RED_TRIANGLE = (V > MA(V, 5).fillna(0) * 1.35) & (C > O) & KO_SAFE
 
-    FLOW_INST = STAGE2 & (C > C.shift(1).bfill()) & (V > V.shift(1).bfill()) & (V > MA(V, 50) * 1.5) & (C >= HHV(C.shift(1).bfill(), 20))
-    FLOW_REAL_BUY = FLOW_INST & ((COUNT(V < MA(V, 50)*0.5, 10) > 0) | (TTM_MOMENTUM > TTM_MOMENTUM.shift(1).bfill()))
+    FLOW_INST = STAGE2 & (C > C.shift(1).bfill()) & (V > V.shift(1).bfill()) & (V > MA(V, 50).fillna(0) * 1.5) & (C >= HHV(C.shift(1).bfill(), 20).fillna(0))
+    FLOW_REAL_BUY = FLOW_INST & ((COUNT(V < MA(V, 50).fillna(0)*0.5, 10) > 0) | (TTM_MOMENTUM > TTM_MOMENTUM.shift(1).bfill()))
 
-    NX_STAGE2 = (COUNT(C > MA150, 3) > 0) & (MA50 > MA150) & (MA150 > MA150.shift(10).bfill())
-    NX_RAW = (V > MA(V, 20) * 1.5) & ((H - L) > MA(H - L, 20) * 1.5)
-    NX_SAFE = NX_STAGE2 & (COUNT(V < MA(V, 20), 10) > 0) & NX_RAW & (C >= O) & ((H - C.shift(1).bfill())/(C.shift(1).bfill() + 1e-5)*100 > 4.0)
+    NX_STAGE2 = (COUNT(C > MA150.fillna(0), 3) > 0) & (MA50.fillna(0) > MA150.fillna(0)) & (MA150.fillna(0) > MA150.shift(10).fillna(0))
+    NX_RAW = (V > MA(V, 20).fillna(0) * 1.5) & ((H - L) > MA(H - L, 20).fillna(0) * 1.5)
+    NX_SAFE = NX_STAGE2 & (COUNT(V < MA(V, 20).fillna(0), 10) > 0) & NX_RAW & (C >= O) & ((H - C.shift(1).bfill())/(C.shift(1).bfill() + 1e-5)*100 > 4.0)
 
-    VSA_DEV60 = (C - MA(C, 60)) / (MA(C, 60) + 1e-5) * 100
-    VSA_START = (V > MA(V, 20) * 1.5) & (C > O) & ((C - O).abs() > MA((C - O).abs(), 20)) & (VSA_DEV60 <= 15)
+    VSA_DEV60 = (C - MA(C, 60).fillna(C)) / (MA(C, 60).fillna(C) + 1e-5) * 100
+    VSA_START = (V > MA(V, 20).fillna(0) * 1.5) & (C > O) & ((C - O).abs() > MA((C - O).abs(), 20).fillna(0)) & (VSA_DEV60 <= 15)
 
     TF_UPPER = MA(V, 20) + 2.0 * STD(V, 20)
-    TF_FIRE = (V > TF_UPPER) & (V > MA(V, 60) * 1.9) & ((C - C.shift(1).bfill()).abs() / (C.shift(1).bfill() + 1e-5) * 100 > 2.0) & (C > O) & (VSA_DEV60 <= 15)
+    TF_FIRE = (V > TF_UPPER.fillna(0)) & (V > MA(V, 60).fillna(0) * 1.9) & ((C - C.shift(1).bfill()).abs() / (C.shift(1).bfill() + 1e-5) * 100 > 2.0) & (C > O) & (VSA_DEV60 <= 15)
 
-    SV19_STATE = np.where((C > MA20) & (MA20 > MA50) & (MA50 > MA200), 1, 3)
-    SV19_RAW_BUY = CROSS(EMA(C, 5), EMA(C, 10)) & (V > MA(V, 5) * 1.2) & ((C > O) & ((C - L) > (H - L) * 0.55)) & (ATR20 > ATR20.shift(1).bfill()) & (RSI_VAL < 78)
+    SV19_STATE = np.where((C > MA20.fillna(0)) & (MA20.fillna(0) > MA50.fillna(0)) & (MA50.fillna(0) > MA200.fillna(0)), 1, 3)
+    SV19_RAW_BUY = CROSS(EMA(C, 5), EMA(C, 10)) & (V > MA(V, 5).fillna(0) * 1.2) & ((C > O) & ((C - L) > (H - L) * 0.55)) & (ATR20 > ATR20.shift(1).bfill()) & (RSI_VAL < 78)
     SV19_BUY_GREEN = SV19_RAW_BUY & (SV19_STATE == 1)
 
     TFM_V3 = H - L
@@ -295,7 +304,7 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     TFM_WIN = (TFM_SUM_BUY / (TFM_SUM_BUY + TFM_SUM_SELL + 1e-5)) > 0.65
 
     VCX_WR = (HHV(H, 14) - C) / (HHV(H, 14) - LLV(L, 14) + 1e-5) * -100
-    VCX_CLIMAX = (V > HHV(V, 60).shift(1).bfill()) & (V > MA(V, 30) * 2.5) & (H >= HHV(H, 60).shift(1).bfill()) & (VCX_WR > -10)
+    VCX_CLIMAX = (V > HHV(V, 60).shift(1).bfill().fillna(0)) & (V > MA(V, 30).fillna(0) * 2.5) & (H >= HHV(H, 60).shift(1).bfill().fillna(0)) & (VCX_WR > -10)
 
     # 🚨 防彈組裝標籤
     def get_bool(s): return bool(pd.Series(s).fillna(False).iloc[-1])
