@@ -3,11 +3,10 @@ import numpy as np
 
 def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     """
-    龍魂戰略總部 - 天外飛仙 (第 6 掣) Python 量化引擎 (終極防護：鎖定起爆錨點)
+    龍魂戰略總部 - 天外飛仙 (第 6 掣) Python 量化引擎 (地獄級嚴格淘汰版)
     """
     df = df.sort_index().copy()
     
-    # 徹底清洗 YFinance 缺失數據 (NaN)
     df.ffill(inplace=True)
     df.bfill(inplace=True)
     
@@ -17,9 +16,6 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     L = df['Low']
     V = df['Volume']
 
-    # ==========================================
-    # 基礎通達信函數 Python 向量化
-    # ==========================================
     def MA(s, n): return s.rolling(window=n, min_periods=1).mean()
     def EMA(s, n): return s.ewm(span=n, adjust=False).mean()
     def SMA(s, n, m=1): return s.ewm(alpha=m/n, adjust=False).mean()
@@ -33,12 +29,28 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
         return (s1 > s2) & (s1.shift(1).bfill() <= s2.shift(1).bfill())
         
     def COUNT(cond, n): return cond.astype(int).rolling(window=n, min_periods=1).sum()
-    
-    def BARSLAST(cond):
-        idx = np.arange(len(cond))
-        last_true = pd.Series(np.where(cond, idx, np.nan), index=cond.index).ffill()
-        return pd.Series(idx - last_true, index=cond.index).fillna(9999)
-        
+
+    MA10, MA20 = MA(C, 10), MA(C, 20)
+    MA50, MA150, MA200 = MA(C, 50), MA(C, 150), MA(C, 200)
+
+    # ==========================================
+    # 核心條件運算 (地獄級嚴格)
+    # ==========================================
+    # 1. 地獄級 Stage 2 (必須 150 天線向上彎曲)
+    PRICE_HOLD = COUNT(C > MA150, 3) > 0
+    STAGE2_STRICT = PRICE_HOLD & (MA50 > MA150) & (MA150 > MA200) & (MA150 > MA150.shift(10).fillna(0))
+
+    # 2. MACD 雙線絕對水上橙柱 (要求大於 0.005，過濾微小誤差)
+    DIF = EMA(C, 12) - EMA(C, 26)
+    DEA = EMA(DIF, 9)
+    MACD_VAL = (DIF - DEA) * 2
+    IS_MACD_ORANGE = (MACD_VAL > 0) & (DIF > 0.005) & (DEA > 0.005)
+
+    # 3. Grandpa Power
+    RS = 2 * C / MA(C, 63) + C / MA(C, 126) + C / MA(C, 189) + C / MA(C, 252)
+    POWER = RS - 5
+
+    # 4. TTM 動能 > 0
     def FORCAST(S, N):
         w = np.arange(1, N + 1) - (N + 1) / 2.0
         w2_sum = np.sum(w ** 2)
@@ -49,55 +61,25 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
         slope = slope_num / w2_sum
         return S.rolling(N, min_periods=1).mean() + slope * (N - 1) / 2.0
 
-    MA10, MA20 = MA(C, 10), MA(C, 20)
-    MA50, MA150, MA200 = MA(C, 50), MA(C, 150), MA(C, 200)
-
-    # ==========================================
-    # 核心條件運算
-    # ==========================================
-    # 1. 基礎 Stage 2
-    STAGE2 = (C > MA50) & (MA50 > MA150) & (MA150 > MA200)
-
-    # 2. MACD 雙線絕對水上橙柱
-    DIF = EMA(C, 12) - EMA(C, 26)
-    DEA = EMA(DIF, 9)
-    MACD_VAL = (DIF - DEA) * 2
-    IS_MACD_ORANGE = (MACD_VAL > 0) & (DIF > 0.001) & (DEA > 0.001)
-
-    # 3. Grandpa Power (只計算並顯示)
-    RS = 2 * C / MA(C, 63) + C / MA(C, 126) + C / MA(C, 189) + C / MA(C, 252)
-    POWER = RS - 5
-
-    # 4. TTM 真・橙柱防禦
     N_TTM = 20
     VAR1 = (HHV(H, N_TTM) + LLV(L, N_TTM)) / 2 + MA(C, N_TTM)
     TTM_MOMENTUM = FORCAST(C - VAR1 / 2, N_TTM)
-    PRICE_HOLD = COUNT(C > MA150, 3) > 0
-    TTM_STAGE2_ON = PRICE_HOLD & (MA50 > MA150) & (MA150 > MA150.shift(10).fillna(0))
-    IS_TTM_TRUE_ORANGE = (TTM_MOMENTUM > 0) & TTM_STAGE2_ON
+    IS_TTM_ORANGE = TTM_MOMENTUM > 0
 
     # ==========================================
-    # 🚨 終極防護：鎖定起爆錨點 + 嚴格連續驗證
+    # 🚨 暴力 Streak 連續天數演算法 (不再依賴 BARSLAST)
     # ==========================================
-    # 核心條件大集合
-    IS_CORE_MATCH = STAGE2 & IS_MACD_ORANGE & IS_TTM_TRUE_ORANGE
+    # 必須 100% 滿足三大條件，且使用最嚴格的 STAGE2_STRICT！
+    # AES 因為 150 天線未達標，這裡會直接變成 False！
+    IS_CORE_MATCH = STAGE2_STRICT & IS_MACD_ORANGE & IS_TTM_ORANGE
 
-    # 【關鍵 1】：尋找真正的第一日 (IGNITION_EVENT)
-    # 必須是今日完全滿足核心條件，且昨日「未滿足」！這就是第一日！
-    IGNITION_EVENT = IS_CORE_MATCH & (~IS_CORE_MATCH.shift(1).fillna(False))
+    # 直接計算連續成立的天數
+    group_keys = (~IS_CORE_MATCH).cumsum()
+    streak_series = IS_CORE_MATCH.groupby(group_keys).cumsum()
 
-    # 【關鍵 2】：計算距離上一次「真正第一日」過了多久
-    DAYS_SINCE_IGNITION = BARSLAST(IGNITION_EVENT)
-
-    # 【關鍵 3】：嚴格過濾「假連勝」
-    # 如果一隻股票在 10 日內曾經出現過「真正第一日」，
-    # 並且從那一天開始到現在，每一天都「沒有跌穿過核心條件」，
-    # 牠才配留在榜單上！這會徹底消滅 AES 這種單日偷雞的股票！
-    IS_VALID_CONTINUATION = (DAYS_SINCE_IGNITION <= 9) & (COUNT(~IS_CORE_MATCH, DAYS_SINCE_IGNITION + 1) == 0)
-
-    # 雙梯隊時間窗口判斷
-    IS_HOT_WINDOW = (DAYS_SINCE_IGNITION <= 2) & IS_VALID_CONTINUATION
-    IS_COOL_WINDOW = (DAYS_SINCE_IGNITION >= 3) & (DAYS_SINCE_IGNITION <= 9) & IS_VALID_CONTINUATION
+    # 雙梯隊時間窗口判斷 (必須大於等於 1 才會上榜)
+    IS_HOT_WINDOW = (streak_series >= 1) & (streak_series <= 3)
+    IS_COOL_WINDOW = (streak_series >= 4) & (streak_series <= 10)
 
     # 狀態標記：1=起爆, 2=沉底, 0=淘汰
     STATE_SERIES = pd.Series(np.where(IS_HOT_WINDOW, 1, np.where(IS_COOL_WINDOW, 2, 0)), index=df.index)
@@ -123,7 +105,7 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     DELTA_ACC = STOCK_DELTA - STOCK_DELTA.shift(1).bfill()
     DELTA_POWER = (DELTA_ACC > 0) & (C > O)
     BETA_OK = (MA(TR_VAL, 14) / (MA20 + 1e-5)) * 100 > 1.2
-    SPRING_READY = STAGE2 & WAS_SQUEEZED & BETA_OK
+    SPRING_READY = STAGE2_STRICT & WAS_SQUEEZED & BETA_OK
     SPRING_SIGNAL = SPRING_READY & INNER_POWER & DELTA_POWER
 
     MA200_UP = MA200 > MA200.shift(20).bfill()
@@ -199,7 +181,7 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     VA_OBV = pd.Series(OBV_DIR, index=df.index)
     OBV_LINE = VA_OBV.rolling(250, min_periods=1).sum()
     OBV_HHV = HHV(OBV_LINE, 30).shift(1).bfill()
-    OBV_BREAK = CROSS(OBV_LINE, OBV_HHV) & STAGE2
+    OBV_BREAK = CROSS(OBV_LINE, OBV_HHV) & STAGE2_STRICT
     PRICE_NOT_HIGH = C < HHV(C, 10)
     SMART_ACC = OBV_BREAK & PRICE_NOT_HIGH
     FUND_BREAK = OBV_BREAK & (~PRICE_NOT_HIGH)
@@ -208,7 +190,7 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     VOL_VAR = (V * (TYP_V - POC_LINE)**2).rolling(50, min_periods=1).sum() / (V.rolling(50, min_periods=1).sum() + 1e-5)
     VOL_STD = np.sqrt(VOL_VAR)
     VAH_LINE = POC_LINE + 1.0 * VOL_STD
-    BULL_BREAK = STAGE2 & CROSS(C, VAH_LINE) & (V > MA(V, 5))
+    BULL_BREAK = STAGE2_STRICT & CROSS(C, VAH_LINE) & (V > MA(V, 5))
 
     VOLMA20_BIG = MA(V, 20)
     CSPRE = (C - O).abs()
@@ -221,7 +203,7 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     S_STRONG_K = (C > O) & ((C - L) > (H - L) * 0.50)
     S_CROSS = CROSS(C, S_EMA20) | ((C > S_EMA20) & CROSS(S_E5, S_E10))
     S_PULLBACK = (L <= S_EMA20) & (C > S_EMA20) & (C > O)
-    SP_BUY = STAGE2 & S_INST_VOL & S_STRONG_K & (S_CROSS | S_PULLBACK)
+    SP_BUY = STAGE2_STRICT & S_INST_VOL & S_STRONG_K & (S_CROSS | S_PULLBACK)
 
     MAVOL20_HUGE = MA(V, 20)
     IS_HUGE_VOL = V > (MAVOL20_HUGE * 2.0)
@@ -237,7 +219,7 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     ADX_RAW = MA((MDI_VAL - PDI_VAL).abs() / (MDI_VAL + PDI_VAL + 1e-5) * 100, 6)
     DMI_BULL_CROSS = CROSS(ADX_RAW, 25) & (PDI_VAL > MDI_VAL) & (PDI_VAL - MDI_VAL > 3)
     DMI_BULL_FLIP = CROSS(PDI_VAL, MDI_VAL) & (ADX_RAW >= 25) & (PDI_VAL - MDI_VAL > 3)
-    DMI_IGNITE = (DMI_BULL_CROSS | DMI_BULL_FLIP) & STAGE2
+    DMI_IGNITE = (DMI_BULL_CROSS | DMI_BULL_FLIP) & STAGE2_STRICT
     DMI_SQUEEZE = CROSS(15, ADX_RAW)
 
     PZ_N = 24
@@ -253,14 +235,14 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     PZ_E2 = EMA(PZ_E1, 13)
     PZ_SIG = 2 * PZ_E1 - PZ_E2
     PZ_BUY1 = CROSS(C, PZ_UPPER) & (PZ_SIG > 50) & (V > MA(V, 20)) & PZ_RANGE
-    PZ_BUY2 = (PZ_SIG > 50) & (C > MA10) & (C > C.shift(1).bfill()) & STAGE2 & (~PZ_EXTREME)
+    PZ_BUY2 = (PZ_SIG > 50) & (C > MA10) & (C > C.shift(1).bfill()) & STAGE2_STRICT & (~PZ_EXTREME)
     PZ_BUY3 = CROSS(PZ_SIG, 50) & (C > PZ_MID) & (V > MA(V, 20))
 
     GL_RSI1 = SMA(pd.Series(np.where(C - LC > 0, C - LC, 0), index=df.index), 14) / (SMA(DIFF_C.abs(), 14) + 1e-5) * 100
     GL_MFI1 = MFI_V
     GL_RV = (GL_RSI1 + GL_MFI1) / 2 - 50
     GL_SV = EMA(GL_RV, 9)
-    GL_PRO_BUY = CROSS(GL_RV, GL_SV) & STAGE2 & (ADX_RAW >= 20) & (GL_RV < 15)
+    GL_PRO_BUY = CROSS(GL_RV, GL_SV) & STAGE2_STRICT & (ADX_RAW >= 20) & (GL_RV < 15)
 
     WK_EMA200 = EMA(C, 200)
     WK_BEAR = (C < WK_EMA200) | (MA50 < WK_EMA200)
@@ -269,7 +251,7 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     KO_SAFE = (C > (C - ATR20 * 3.2).rolling(50, min_periods=1).max()) & (C > MA(C, 15))
     KO_RED_TRIANGLE = (V > MA(V, 5) * 1.35) & (C > O) & KO_SAFE
 
-    FLOW_INST = STAGE2 & (C > C.shift(1).bfill()) & (V > V.shift(1).bfill()) & (V > MA(V, 50) * 1.5) & (C >= HHV(C.shift(1).bfill(), 20))
+    FLOW_INST = STAGE2_STRICT & (C > C.shift(1).bfill()) & (V > V.shift(1).bfill()) & (V > MA(V, 50) * 1.5) & (C >= HHV(C.shift(1).bfill(), 20))
     FLOW_REAL_BUY = FLOW_INST & ((COUNT(V < MA(V, 50)*0.5, 10) > 0) | (TTM_MOMENTUM > TTM_MOMENTUM.shift(1).bfill()))
 
     NX_STAGE2 = (COUNT(C > MA150, 3) > 0) & (MA50 > MA150) & (MA150 > MA150.shift(10).bfill())
@@ -336,8 +318,7 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     TOTAL_SCORE = np.where(IS_HOT_WINDOW, 100, np.where(IS_COOL_WINDOW, 0, -9999)) + (len(tags) * 10)
     df['霸王總分'] = pd.Series(TOTAL_SCORE, index=df.index).fillna(-9999).astype(float)
     
-    # +1 是為了讓第一天顯示為 (1)
-    df['起爆日數'] = pd.Series(DAYS_SINCE_IGNITION + 1, index=df.index).fillna(0).astype(int)
+    df['起爆日數'] = streak_series.fillna(0).astype(int)
     
     df['Power'] = POWER
     df['EMA10'] = MA10
