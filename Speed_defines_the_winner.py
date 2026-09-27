@@ -3,7 +3,7 @@ import numpy as np
 
 def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     """
-    龍魂戰略總部 - 天外飛仙 (第 6 掣) Python 量化引擎 (絕對防禦：偽橙柱抹殺版)
+    龍魂戰略總部 - 天外飛仙 (第 6 掣) Python 量化引擎 (終極防護：鎖定起爆錨點)
     """
     df = df.sort_index().copy()
     
@@ -55,41 +55,49 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     # ==========================================
     # 核心條件運算
     # ==========================================
-    # 1. 基礎 Stage 2 (最核心的趨勢防線)
+    # 1. 基礎 Stage 2
     STAGE2 = (C > MA50) & (MA50 > MA150) & (MA150 > MA200)
 
-    # 2. MACD 雙線 100% 絕對水上 + 橙柱
+    # 2. MACD 雙線絕對水上橙柱
     DIF = EMA(C, 12) - EMA(C, 26)
     DEA = EMA(DIF, 9)
     MACD_VAL = (DIF - DEA) * 2
-    IS_MACD_ORANGE = (MACD_VAL > 0) & (DIF > 0) & (DEA > 0)
+    IS_MACD_ORANGE = (MACD_VAL > 0) & (DIF > 0.001) & (DEA > 0.001)
 
     # 3. Grandpa Power (只計算並顯示)
     RS = 2 * C / MA(C, 63) + C / MA(C, 126) + C / MA(C, 189) + C / MA(C, 252)
     POWER = RS - 5
 
-    # 4. TTM 絕對橙柱防禦
+    # 4. TTM 真・橙柱防禦
     N_TTM = 20
     VAR1 = (HHV(H, N_TTM) + LLV(L, N_TTM)) / 2 + MA(C, N_TTM)
     TTM_MOMENTUM = FORCAST(C - VAR1 / 2, N_TTM)
-    
-    # 【終極抹殺邏輯】：TTM 必須 > 0，並且必須滿足最嚴格的 STAGE2 條件！
-    # 如果 MA150 還在 MA200 之下 (即 AES 的情況)，TTM_MOMENTUM 就算大於 0 也會被判定為 False (青色柱)！
-    IS_TTM_TRUE_ORANGE = (TTM_MOMENTUM > 0) & STAGE2
+    PRICE_HOLD = COUNT(C > MA150, 3) > 0
+    TTM_STAGE2_ON = PRICE_HOLD & (MA50 > MA150) & (MA150 > MA150.shift(10).fillna(0))
+    IS_TTM_TRUE_ORANGE = (TTM_MOMENTUM > 0) & TTM_STAGE2_ON
 
     # ==========================================
-    # 🚨 核心狀態與連續天數 (Streak) 演算法
+    # 🚨 終極防護：鎖定起爆錨點 + 嚴格連續驗證
     # ==========================================
-    # 核心三大條件必須 100% 同時成立
+    # 核心條件大集合
     IS_CORE_MATCH = STAGE2 & IS_MACD_ORANGE & IS_TTM_TRUE_ORANGE
 
-    # 計算連續成立天數 (Streak)
-    group_keys = (~IS_CORE_MATCH).cumsum()
-    streak_series = IS_CORE_MATCH.groupby(group_keys).cumsum()
+    # 【關鍵 1】：尋找真正的第一日 (IGNITION_EVENT)
+    # 必須是今日完全滿足核心條件，且昨日「未滿足」！這就是第一日！
+    IGNITION_EVENT = IS_CORE_MATCH & (~IS_CORE_MATCH.shift(1).fillna(False))
 
-    # 雙梯隊時間窗口判斷 (1-3天黃金起爆 / 4-10天沉底觀察)
-    IS_HOT_WINDOW = (streak_series >= 1) & (streak_series <= 3)
-    IS_COOL_WINDOW = (streak_series >= 4) & (streak_series <= 10)
+    # 【關鍵 2】：計算距離上一次「真正第一日」過了多久
+    DAYS_SINCE_IGNITION = BARSLAST(IGNITION_EVENT)
+
+    # 【關鍵 3】：嚴格過濾「假連勝」
+    # 如果一隻股票在 10 日內曾經出現過「真正第一日」，
+    # 並且從那一天開始到現在，每一天都「沒有跌穿過核心條件」，
+    # 牠才配留在榜單上！這會徹底消滅 AES 這種單日偷雞的股票！
+    IS_VALID_CONTINUATION = (DAYS_SINCE_IGNITION <= 9) & (COUNT(~IS_CORE_MATCH, DAYS_SINCE_IGNITION + 1) == 0)
+
+    # 雙梯隊時間窗口判斷
+    IS_HOT_WINDOW = (DAYS_SINCE_IGNITION <= 2) & IS_VALID_CONTINUATION
+    IS_COOL_WINDOW = (DAYS_SINCE_IGNITION >= 3) & (DAYS_SINCE_IGNITION <= 9) & IS_VALID_CONTINUATION
 
     # 狀態標記：1=起爆, 2=沉底, 0=淘汰
     STATE_SERIES = pd.Series(np.where(IS_HOT_WINDOW, 1, np.where(IS_COOL_WINDOW, 2, 0)), index=df.index)
@@ -328,7 +336,8 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     TOTAL_SCORE = np.where(IS_HOT_WINDOW, 100, np.where(IS_COOL_WINDOW, 0, -9999)) + (len(tags) * 10)
     df['霸王總分'] = pd.Series(TOTAL_SCORE, index=df.index).fillna(-9999).astype(float)
     
-    df['起爆日數'] = streak_series.fillna(0).astype(int)
+    # +1 是為了讓第一天顯示為 (1)
+    df['起爆日數'] = pd.Series(DAYS_SINCE_IGNITION + 1, index=df.index).fillna(0).astype(int)
     
     df['Power'] = POWER
     df['EMA10'] = MA10
