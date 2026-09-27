@@ -3,11 +3,15 @@ import numpy as np
 
 def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     """
-    龍魂戰略總部 - 天外飛仙 (第 6 掣) Python 量化引擎 (絶対的水上・極限防衛版)
+    龍魂戰略總部 - 天外飛仙 (第 6 掣) Python 量化引擎 (連續天數 Streak 終極演算法)
+    
+    核心邏輯：
+    1. 核心條件：Stage 2 + MACD 雙線100%水上橙柱 (DIF>0 & DEA>0 & MACD>0) + TTM 橙柱 (TTM>0)
+    2. 天數計算：精確計算連續符合核心條件的交易日數 (Streak)，絕不因無關指標微幅波動而誤 Reset！
     """
     df = df.sort_index().copy()
     
-    # データのクレンジング (欠損値の穴埋め)
+    # 徹底清洗 YFinance 缺失數據 (NaN)
     df.ffill(inplace=True)
     df.bfill(inplace=True)
     
@@ -18,7 +22,7 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     V = df['Volume']
 
     # ==========================================
-    # 基礎指標のベクトル化計算関数
+    # 基礎通達信函數 Python 向量化
     # ==========================================
     def MA(s, n): return s.rolling(window=n, min_periods=1).mean()
     def EMA(s, n): return s.ewm(span=n, adjust=False).mean()
@@ -53,51 +57,48 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     MA50, MA150, MA200 = MA(C, 50), MA(C, 150), MA(C, 200)
 
     # ==========================================
-    # コア条件の計算
+    # 核心條件運算
     # ==========================================
-    # 1. Stage 2 (トレンドの土台)
+    # 1. Stage 2 (底盤)
     STAGE2 = (C > MA50) & (MA50 > MA150) & (MA150 > MA200)
 
-    # 2. MACD
+    # 2. MACD 雙線 100% 絕對水上 + 橙柱 (DIF>0, DEA>0, MACD_VAL>0)
     DIF = EMA(C, 12) - EMA(C, 26)
     DEA = EMA(DIF, 9)
     MACD_VAL = (DIF - DEA) * 2
+    IS_MACD_ORANGE = (MACD_VAL > 0) & (DIF > 0) & (DEA > 0)
 
-    # 3. Grandpa Power (参考値として計算・表示のみ)
+    # 3. Grandpa Power (只計算並顯示)
     RS = 2 * C / MA(C, 63) + C / MA(C, 126) + C / MA(C, 189) + C / MA(C, 252)
     POWER = RS - 5
 
-    # 4. TTM
+    # 4. TTM 橙柱 (TTM_MOMENTUM > 0)
     N_TTM = 20
     VAR1 = (HHV(H, N_TTM) + LLV(L, N_TTM)) / 2 + MA(C, N_TTM)
     TTM_MOMENTUM = FORCAST(C - VAR1 / 2, N_TTM)
+    IS_TTM_ORANGE = TTM_MOMENTUM > 0
 
     # ==========================================
-    # 🚨 完全なる水上防衛ロジック
+    # 🚨 核心狀態與連續天數 (Streak) 演算法
     # ==========================================
-    # YFinanceの微細なデータズレによる「フェイク合格」を防ぐため、
-    # DIFとDEAが微小な浮動小数点誤差(0.001)を超えており、かつDIFが上向きであることを必須とする
-    IS_MACD_ORANGE_ABSOLUTE = (MACD_VAL > 0) & (DIF > 0.001) & (DEA > 0.001) & (DIF > DIF.shift(1).fillna(0))
-    
-    # 起爆の起点(第1日目)を探すアンカーポイント
-    IGNITION_EVENT = IS_MACD_ORANGE_ABSOLUTE & (~IS_MACD_ORANGE_ABSOLUTE.shift(1).fillna(False))
-    
-    # 最後にMACDが起爆してから何日経過したか
-    DAYS_SINCE_IGNITION = BARSLAST(IGNITION_EVENT)
+    # 核心三大條件必須 100% 同時成立
+    IS_CORE_MATCH = STAGE2 & IS_MACD_ORANGE & IS_TTM_ORANGE
+
+    # 計算連續成立天數 (Streak)
+    # 當 IS_CORE_MATCH 為 False 時，(~IS_CORE_MATCH).cumsum() 會遞增，形成新的 Group
+    # 在每個 Group 內計算 IS_CORE_MATCH 的累積和，即為連續成立天數！
+    group_keys = (~IS_CORE_MATCH).cumsum()
+    streak_series = IS_CORE_MATCH.groupby(group_keys).cumsum()
+
+    # 雙梯隊時間窗口判斷 (1-3天黃金起爆 / 4-10天沉底觀察)
+    IS_HOT_WINDOW = (streak_series >= 1) & (streak_series <= 3)
+    IS_COOL_WINDOW = (streak_series >= 4) & (streak_series <= 10)
+
+    # 狀態標記：1=起爆, 2=沉底, 0=淘汰
+    STATE_SERIES = pd.Series(np.where(IS_HOT_WINDOW, 1, np.where(IS_COOL_WINDOW, 2, 0)), index=df.index)
 
     # ==========================================
-    # 今日の最終フィルター (3大条件が100%揃っているか)
-    # ==========================================
-    TODAY_MATCH = STAGE2 & IS_MACD_ORANGE_ABSOLUTE & (TTM_MOMENTUM > 0)
-
-    # ウィンドウの判定
-    IS_HOT_WINDOW = (DAYS_SINCE_IGNITION <= 2) & TODAY_MATCH
-    IS_COOL_WINDOW = (DAYS_SINCE_IGNITION >= 3) & (DAYS_SINCE_IGNITION <= 9) & TODAY_MATCH
-
-    BASE_MATCH = IS_HOT_WINDOW | IS_COOL_WINDOW
-
-    # ==========================================
-    # 21の非必須加点エンジン (そのまま保持)
+    # 21 大非必要加分引擎
     # ==========================================
     VOL_MA20 = MA(V, 20)
     DAY_AMP = (H - L) / (C.shift(1).bfill() + 1e-5) * 100
@@ -305,7 +306,7 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     if get_bool(SP_BUY): tags.append("🚀S+++突擊")
     if get_bool(HUGE_VOL_SIGNAL): tags.append("🔥天量")
     if get_bool(DMI_IGNITE): tags.append("🌪️主升狂飆(非💰)")
-    if get_bool(DMI_SQUEEZE): tags.append("🥷潛伏観察(非💰)")
+    if get_bool(DMI_SQUEEZE): tags.append("🥷潛伏觀察(非💰)")
     if get_bool(PZ_BUY1) or get_bool(PZ_BUY2) or get_bool(PZ_BUY3): tags.append("PZ綜合訊號")
     if get_bool(GL_PRO_BUY): tags.append("🚀全能點火")
     if get_bool(WK_SPRING): tags.append("⚡洗盤")
@@ -326,12 +327,11 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     # ==========================================
     # 輸出結算
     # ==========================================
-    df['天外飛仙_狀態'] = pd.Series(np.where(IS_HOT_WINDOW, 1, np.where(IS_COOL_WINDOW, 2, 0)), index=df.index).fillna(0).astype(int)
-    
+    df['天外飛仙_狀態'] = STATE_SERIES
     TOTAL_SCORE = np.where(IS_HOT_WINDOW, 100, np.where(IS_COOL_WINDOW, 0, -9999)) + (len(tags) * 10)
     df['霸王總分'] = pd.Series(TOTAL_SCORE, index=df.index).fillna(-9999).astype(float)
     
-    df['起爆日數'] = pd.Series(DAYS_SINCE_IGNITION + 1, index=df.index).fillna(0).astype(int)
+    df['起爆日數'] = streak_series.fillna(0).astype(int)
     
     df['Power'] = POWER
     df['EMA10'] = MA10
