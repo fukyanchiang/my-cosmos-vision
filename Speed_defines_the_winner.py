@@ -3,7 +3,7 @@ import numpy as np
 
 def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     """
-    龍魂戰略總部 - 天外飛仙 (第 6 掣) Python 量化引擎 (SyntaxError 語法修復版)
+    龍魂戰略總部 - 天外飛仙 (第 6 掣) Python 量化引擎 (完美同步 STAGE 2 版)
     """
     df = df.sort_index().copy()
     
@@ -89,9 +89,8 @@ def run_tianwai_feixian(df: pd.DataFrame) -> pd.DataFrame:
     VAR1 = (HHV(H, N_TTM) + LLV(L, N_TTM)) / 2 + MA(C, N_TTM)
     TTM_MOMENTUM = FORCAST(C - VAR1 / 2, N_TTM)
     
-    # 將屠龍刀綁入 TTM，確保青柱死灰不能復燃！
-    PRICE_HOLD = COUNT(C > MA150, 3) > 0
-    TTM_STAGE2_ON = PRICE_HOLD & (MA50 > MA150) & MA150_RISING & ABOVE_BOTTOM & NEAR_HIGH & UPTREND_120
+    # 將 TTM 嘅 Stage 2 判定 100% 同步為最嚴格嘅屠龍刀 STAGE2
+    TTM_STAGE2_ON = STAGE2
     IS_TTM_TRUE_ORANGE = (TTM_MOMENTUM > 0) & TTM_STAGE2_ON
 
     # ==========================================
