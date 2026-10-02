@@ -69,17 +69,18 @@ def show_hard_market_scanner():
         )
         ticker_list = [t.strip().upper() for t in tickers_input.split(",") if t.strip()]
     else:
-        if "Market_Focus" in source_option:
+        # 🛠️ 爺爺修復：全部改用「完全精準匹配」，徹底杜絕掃錯名單！
+        if source_option == "🇺🇸 美股 - 精選名單 (Market_Focus.csv)":
             ticker_list = fetch_tickers_from_csv("US_MARKET_FOCUS")
-        elif "SP500" in source_option:
+        elif source_option == "🇺🇸 美股 - 大藍籌 S&P 500 (SP500_Equities.csv)":
             ticker_list = fetch_tickers_from_csv("US_SP500")
-        elif "Industry_Focus" in source_option:
+        elif source_option == "🇺🇸 美股 - 行業焦點 (Industry_Focus.csv)":
             ticker_list = fetch_tickers_from_csv("US_INDUSTRY")
-        elif "US_ETFs" in source_option:
+        elif source_option == "🇺🇸 美股 - 美股 ETF (US_ETFs.csv)":
             ticker_list = fetch_tickers_from_csv("US_ETFS")
-        elif "hk_stock" in source_option:
+        elif source_option == "🇭🇰 港股 - 全港股名單 (hk_stock.csv)":
             ticker_list = fetch_tickers_from_csv("HK_STOCKS")
-        elif "hk_etf" in source_option:
+        elif source_option == "🇭🇰 港股 - 港股 ETF 名單 (hk_etf.csv)":
             ticker_list = fetch_tickers_from_csv("HK_ETFS")
 
         st.info(f"📊 已成功加載戰略名單，共找到 **{len(ticker_list)}** 隻標的準備進行 9 大條件雷達掃描。")
