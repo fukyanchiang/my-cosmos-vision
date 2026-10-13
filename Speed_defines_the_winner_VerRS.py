@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 
-def run_tianwai_feixian(df: pd.DataFrame, sctr_rank_from_master: float = 0.0) -> pd.DataFrame:
+def run_tianwai_feixian(df: pd.DataFrame, sctr_rank_from_master: float = 0.0, cross_down_90: bool = False) -> pd.DataFrame:
     """
     龍魂戰略總部 - 天外飛仙RS (方案二：雙核戰術版 - 包含 SCTR 4.0 原始分與 0-99.9 全場排名)
     """
@@ -329,6 +329,10 @@ def run_tianwai_feixian(df: pd.DataFrame, sctr_rank_from_master: float = 0.0) ->
     def get_bool(s): return bool(pd.Series(s).fillna(False).iloc[-1])
     
     tags = []
+    
+    # 🔴 [新增功能] 跌穿 90 警戒標籤
+    if cross_down_90: tags.append("🚨跌穿90防線")
+    
     if get_bool(IS_TRUE_DRAGON): tags.append("👑👑真龍")
     elif get_bool(IS_TRUE_EMPEROR): tags.append("👑真皇")
     
