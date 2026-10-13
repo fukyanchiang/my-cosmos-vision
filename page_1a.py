@@ -267,7 +267,7 @@ def run_tianwai_feixian(df: pd.DataFrame, sctr_rank_from_master: float = 0.0, cr
 
     GL_RSI1 = SMA(pd.Series(np.where(C - LC > 0, C - LC, 0), index=df.index), 14) / (SMA(DIFF_C.abs(), 14) + 1e-5) * 100
     GL_MFI1 = MFI_V
-    GL_RV = (GL_RSI1 + GL_MFI1) / 2 * 50
+    GL_RV = (GL_RSI1 + GL_MFI1) / 2 - 50
     GL_SV = EMA(GL_RV, 9)
     GL_PRO_BUY = CROSS(GL_RV, GL_SV) & STAGE2 & (ADX_RAW >= 20) & (GL_RV < 15)
 
@@ -428,12 +428,12 @@ def render_single_market_search(cat_code, cat_name, df_master):
     
     col_a, col_b = st.columns(2)
     min_sctr = col_a.slider(f"[{cat_name}] SCTR 最低門檻", 50.0, 99.0, 80.0, 1.0, key=f"sctr_{cat_code}")
-    max_scan = col_b.slider(f"[{cat_name}] 掃描 Top 數量上限", 20, 300, 100, 10, key=f"max_{cat_code}")
+    # 🌟 預設數量上限降至 30，避開 YF 深夜塞車斷線
+    max_scan = col_b.slider(f"[{cat_name}] 掃描 Top 數量上限", 20, 300, 30, 10, key=f"max_{cat_code}")
     
     df_filtered = df_cat[df_cat['SCTR'] >= min_sctr].sort_values(by='SCTR', ascending=False)
     candidate_tickers = df_filtered['Ticker'].tolist()[:max_scan]
     
-    # 🌟 建立全方位字典容錯：保證無論輸入乜嘢格式都搵到分數與狀態！
     sctr_dict = {}
     cross_dict = {}
     prev_sctr_dict = {}
@@ -470,7 +470,6 @@ def render_single_market_search(cat_code, cat_name, df_master):
                 clean_ticker = str(ticker).replace('.HK', '').replace('.US', '').strip()
                 sctr_rank = sctr_dict.get(clean_ticker, sctr_dict.get(ticker, 0.0))
                 
-                # 🔴 [新增功能] 獲取跌穿 90 狀態
                 is_cross = cross_dict.get(clean_ticker, cross_dict.get(ticker, False))
                 prev_s = prev_sctr_dict.get(clean_ticker, prev_sctr_dict.get(ticker, 0.0))
                 chg_s = change_sctr_dict.get(clean_ticker, change_sctr_dict.get(ticker, 0.0))
