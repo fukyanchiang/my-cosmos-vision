@@ -4,11 +4,13 @@ import numpy as np
 import yfinance as yf
 import streamlit as st
 from datetime import datetime
+import warnings
+warnings.filterwarnings('ignore')
 
 # ==========================================
 # 🛸 1. 內置天外飛仙 RS 核心演算法
 # ==========================================
-def run_tianwai_feixian(df: pd.DataFrame, sctr_rank_from_master: float = 0.0) -> pd.DataFrame:
+def run_tianwai_feixian(df: pd.DataFrame, sctr_rank_from_master: float = 0.0, cross_down_90: bool = False) -> pd.DataFrame:
     df = df.sort_index().copy()
     df.ffill(inplace=True)
     df.bfill(inplace=True)
@@ -95,7 +97,7 @@ def run_tianwai_feixian(df: pd.DataFrame, sctr_rank_from_master: float = 0.0) ->
     IS_MACD_ORANGE = (MACD_VAL > 0) & (DIF > 0.001) & (DEA > 0.001)
 
     RS = 2 * C / MA(C, 63) + C / MA(C, 126) + C / MA(C, 189) + C / MA(C, 252)
-    POWER = RS - 5
+    POWER = RS * 5
 
     N_TTM = 20
     VAR1 = (HHV(H, N_TTM) + LLV(L, N_TTM)) / 2 + MA(C, N_TTM)
@@ -133,7 +135,7 @@ def run_tianwai_feixian(df: pd.DataFrame, sctr_rank_from_master: float = 0.0) ->
     TF_SELL_SP = H - C
     INNER_POWER = (TF_BUY_SP > TF_SELL_SP) | ((C - L) / (H - L + 1e-5) > 0.60)
     STOCK_DELTA = C - C.shift(1).bfill()
-    DELTA_ACC = STOCK_DELTA - STOCK_DELTA.shift(1).bfill()
+    DELTA_ACC = STOCK_DELTA * STOCK_DELTA.shift(1).bfill()
     DELTA_POWER = (DELTA_ACC > 0) & (C > O)
     BETA_OK = (MA(TR_VAL, 14) / (MA20 + 1e-5)) * 100 > 1.2
     SPRING_READY = STAGE2 & WAS_SQUEEZED & BETA_OK
@@ -265,7 +267,7 @@ def run_tianwai_feixian(df: pd.DataFrame, sctr_rank_from_master: float = 0.0) ->
 
     GL_RSI1 = SMA(pd.Series(np.where(C - LC > 0, C - LC, 0), index=df.index), 14) / (SMA(DIFF_C.abs(), 14) + 1e-5) * 100
     GL_MFI1 = MFI_V
-    GL_RV = (GL_RSI1 + GL_MFI1) / 2 - 50
+    GL_RV = (GL_RSI1 + GL_MFI1) / 2 * 50
     GL_SV = EMA(GL_RV, 9)
     GL_PRO_BUY = CROSS(GL_RV, GL_SV) & STAGE2 & (ADX_RAW >= 20) & (GL_RV < 15)
 
@@ -306,6 +308,9 @@ def run_tianwai_feixian(df: pd.DataFrame, sctr_rank_from_master: float = 0.0) ->
     def get_bool(s): return bool(pd.Series(s).fillna(False).iloc[-1])
     
     tags = []
+    # 🔴 [新增功能] 跌穿 90 警戒標籤
+    if cross_down_90: tags.append("🚨跌穿90防線")
+    
     if get_bool(IS_TRUE_DRAGON): tags.append("👑👑真龍")
     elif get_bool(IS_TRUE_EMPEROR): tags.append("👑真皇")
     
@@ -368,7 +373,7 @@ def run_tianwai_feixian(df: pd.DataFrame, sctr_rank_from_master: float = 0.0) ->
     return df
 
 # ==========================================
-# 🌐 2. 直連 GitHub Raw 全宇宙數據庫
+# 🌐 2. 直連 GitHub Raw 全宇宙數據庫 (🌟加入代碼清洗容錯)
 # ==========================================
 RAW_SCTR_URL = "https://raw.githubusercontent.com/fukyanchiang/my-cosmos-vision/main/SCTR_Master.csv"
 
@@ -376,10 +381,18 @@ RAW_SCTR_URL = "https://raw.githubusercontent.com/fukyanchiang/my-cosmos-vision/
 def load_sctr_master():
     try:
         df = pd.read_csv(RAW_SCTR_URL)
+        # 🌟 自動清洗：增加 Ticker_Clean 欄位，強制斬走 .HK 同 .US
+        if df is not None and 'Ticker' in df.columns:
+            df['Ticker_Clean'] = df['Ticker'].astype(str).str.replace('.HK', '', regex=False).str.replace('.US', '', regex=False).str.strip()
+            # 🛡️ 港股 5 位數暴力保護：6198 擴充為 06198
+            df['Ticker_Clean_5'] = df['Ticker_Clean'].apply(lambda x: x.zfill(5) if x.isdigit() and len(x) < 5 else x)
         return df, "雲端 GitHub Raw 直連"
     except Exception as e:
         if os.path.exists("SCTR_Master.csv"):
             df = pd.read_csv("SCTR_Master.csv")
+            if 'Ticker' in df.columns:
+                df['Ticker_Clean'] = df['Ticker'].astype(str).str.replace('.HK', '', regex=False).str.replace('.US', '', regex=False).str.strip()
+                df['Ticker_Clean_5'] = df['Ticker_Clean'].apply(lambda x: x.zfill(5) if x.isdigit() and len(x) < 5 else x)
             return df, "本地 SCTR_Master.csv 備份"
         return None, str(e)
 
@@ -406,7 +419,7 @@ def fetch_historical_data(tickers):
         return {}
 
 # ==========================================
-# 🎯 單一獨立市場渲染組件 (極致欄位寬度調整)
+# 🎯 單一獨立市場渲染組件 (🌟加入雙重字典匹配與 90 警戒)
 # ==========================================
 def render_single_market_search(cat_code, cat_name, df_master):
     df_cat = df_master[df_master['Category'] == cat_code].copy()
@@ -419,7 +432,28 @@ def render_single_market_search(cat_code, cat_name, df_master):
     
     df_filtered = df_cat[df_cat['SCTR'] >= min_sctr].sort_values(by='SCTR', ascending=False)
     candidate_tickers = df_filtered['Ticker'].tolist()[:max_scan]
-    sctr_dict = dict(zip(df_filtered['Ticker'], df_filtered['SCTR']))
+    
+    # 🌟 建立全方位字典容錯：保證無論輸入乜嘢格式都搵到分數與狀態！
+    sctr_dict = {}
+    cross_dict = {}
+    prev_sctr_dict = {}
+    change_sctr_dict = {}
+    
+    for _, row in df_filtered.iterrows():
+        raw_t = str(row['Ticker'])
+        clean_t = str(row.get('Ticker_Clean', raw_t))
+        clean_t5 = str(row.get('Ticker_Clean_5', raw_t))
+        score = row['SCTR']
+        
+        is_cross_down = row.get('Cross_Down_90', False) == True
+        prev_sctr = row.get('SCTR_Prev', 0.0)
+        change_sctr = row.get('SCTR_Change', 0.0)
+        
+        for k in [raw_t, clean_t, clean_t5]:
+            sctr_dict[k] = score
+            cross_dict[k] = is_cross_down
+            prev_sctr_dict[k] = prev_sctr
+            change_sctr_dict[k] = change_sctr
 
     st.info(f"📊 已鎖定 **{len(candidate_tickers)}** 隻 SCTR ≥ {min_sctr} 的頂尖強勢標的。")
 
@@ -432,9 +466,17 @@ def render_single_market_search(cat_code, cat_name, df_master):
                 if ticker not in hist_dict:
                     continue
                 df_k = hist_dict[ticker]
-                sctr_rank = sctr_dict.get(ticker, 0.0)
+                
+                clean_ticker = str(ticker).replace('.HK', '').replace('.US', '').strip()
+                sctr_rank = sctr_dict.get(clean_ticker, sctr_dict.get(ticker, 0.0))
+                
+                # 🔴 [新增功能] 獲取跌穿 90 狀態
+                is_cross = cross_dict.get(clean_ticker, cross_dict.get(ticker, False))
+                prev_s = prev_sctr_dict.get(clean_ticker, prev_sctr_dict.get(ticker, 0.0))
+                chg_s = change_sctr_dict.get(clean_ticker, change_sctr_dict.get(ticker, 0.0))
+                
                 try:
-                    df_res = run_tianwai_feixian(df_k, sctr_rank_from_master=sctr_rank)
+                    df_res = run_tianwai_feixian(df_k, sctr_rank_from_master=sctr_rank, cross_down_90=is_cross)
                     if not df_res.empty:
                         last_row = df_res.iloc[-1]
                         state = last_row.get('天外飛仙_狀態', 0)
@@ -445,6 +487,8 @@ def render_single_market_search(cat_code, cat_name, df_master):
                             results.append({
                                 'Ticker': ticker,
                                 'SCTR排名': last_row.get('SCTR_Rank', sctr_rank),
+                                '昨日防線': round(prev_s, 1) if is_cross else "",
+                                '動能變化': f"{round(chg_s, 2):+}" if is_cross else "",
                                 'SCTR4.0原始分': last_row.get('SCTR_Raw_4_0', 0),
                                 '霸王總分': round(score, 1),
                                 '最新收盤價': round(last_row.get('Close', 0), 2),
@@ -465,25 +509,25 @@ def render_single_market_search(cat_code, cat_name, df_master):
             m1, m2, m3 = st.columns(3)
             m1.metric("👑 觸發標的數", f"{len(df_show)} 隻")
             m2.metric("🐉 真龍/真皇數", f"{len(df_show[df_show['戰略標籤'].str.contains('真龍|真皇', na=False)])} 隻")
-            m3.metric("🔥 最高霸王總分", f"{df_show['霸王總分'].max()} 分")
+            m3.metric("🚨 跌穿90防線數量", f"{len(df_show[df_show['戰略標籤'].str.contains('🚨跌穿90防線', na=False)])} 隻")
 
-            # 🎯 終極版靈活資料表：文字自動換行 (無遮擋)
             st.dataframe(
                 df_show,
                 use_container_width=True,
                 hide_index=True,
-                height=600, # 加高表格，方便顯示換行的文字
+                height=600,
                 column_config={
                     "Ticker": st.column_config.TextColumn("代號", width="small"),
                     "SCTR排名": st.column_config.NumberColumn("SCTR", format="%.1f", width="small"),
+                    "昨日防線": st.column_config.TextColumn("昨日防線", width="small"),
+                    "動能變化": st.column_config.TextColumn("動能變化", width="small"),
                     "SCTR4.0原始分": st.column_config.NumberColumn("SCTR4", format="%.1f", width="small"),
                     "霸王總分": st.column_config.NumberColumn("總分", format="%.1f", width="small"),
                     "最新收盤價": st.column_config.NumberColumn("收盤價", format="%.2f", width="small"),
                     "起爆日數": st.column_config.NumberColumn("起爆", format="%d", width="small"),
                     "RS強度": st.column_config.NumberColumn("RS強度", format="%.2f", width="small"),
                     "量比": st.column_config.NumberColumn("量比", format="%.2f", width="small"),
-                    # 💡 重點設定：將戰略標籤設定為極大寬度，並允許自動換行顯示
-                    "戰略標籤": st.column_config.TextColumn("戰略標籤 / 爆發訊號 (滑鼠可拉寬)", width=800)
+                    "戰略標籤": st.column_config.TextColumn("戰略標籤 / 爆發訊號", width=600)
                 }
             )
 
