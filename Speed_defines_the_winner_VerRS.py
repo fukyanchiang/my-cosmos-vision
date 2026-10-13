@@ -330,8 +330,8 @@ def run_tianwai_feixian(df: pd.DataFrame, sctr_rank_from_master: float = 0.0, cr
     
     tags = []
     
-    # 🔴 [新增功能] 跌穿 90 警戒標籤
-    if cross_down_90: tags.append("🚨跌穿90防線")
+    # 🔴 [測試專用] 強制全體亮燈測試
+    if True: tags.append("🚨跌穿90防線")
     
     if get_bool(IS_TRUE_DRAGON): tags.append("👑👑真龍")
     elif get_bool(IS_TRUE_EMPEROR): tags.append("👑真皇")
